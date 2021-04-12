@@ -70,8 +70,11 @@ func main() {
 		tick := time.NewTicker(time.Second)
 		for {
 			select {
-			case <-tick.C:
-				if err := c.Publish("topic", qos.QOSOne, false, []byte("payload")); err != nil {
+			case t := <-tick.C:
+				msg := map[string]interface{}{
+					"time": t.UnixNano(),
+				}
+				if err := c.Publish("topic", courier.QOSOne, false, msg); err != nil {
 					fmt.Printf("Publish() error = %s\n", err)
 				} else {
 					fmt.Println("Publish() success")

@@ -134,9 +134,9 @@ func WithGracefulShutdownPeriod(duration time.Duration) Option {
 }
 
 // WithCustomMetrics allows to configure the metrics collector of choice
-func WithCustomMetrics(metrics metrics.Metrics) Option {
+func WithCustomMetrics(collector metrics.Collector) Option {
 	return func(o *options) {
-		o.metricsCollector = metrics
+		o.metricsCollector = collector
 	}
 }
 
@@ -186,7 +186,7 @@ type options struct {
 	newEncoder       EncoderFunc
 	newDecoder       DecoderFunc
 	store            Store
-	metricsCollector metrics.Metrics
+	metricsCollector metrics.Collector
 }
 
 func defaultOptions() *options {

@@ -15,8 +15,9 @@ var newClientFunc = mqtt.NewClient
 
 // Client allows to communicate with an MQTT broker
 type Client struct {
-	options    *options
-	mqttClient mqtt.Client
+	options         *options
+	metricsExchange *metricsExchange
+	mqttClient      mqtt.Client
 }
 
 // NewClient creates the Client struct with the options provided,
@@ -34,7 +35,12 @@ func NewClient(opts ...Option) (*Client, error) {
 		}
 		o.metricsCollector = m
 	}
-	c := &Client{options: o}
+	me := &metricsExchange{
+		updates:   make(chan updateEvent),
+		collector: o.metricsCollector,
+	}
+	c := &Client{options: o, metricsExchange: me}
+	go me.monitor()
 	c.mqttClient = newClientFunc(toClientOptions(c, c.options))
 	return c, nil
 }
@@ -60,16 +66,16 @@ func (c *Client) Start(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) handleToken(t mqtt.Token, m *metrics.Op, timeoutErr error) error {
+func (c *Client) handleToken(t mqtt.Token, w *eventWrapper, timeoutErr error) error {
 	if !t.WaitTimeout(c.options.writeTimeout) {
-		m.Timeouts.Add(1)
+		w.types |= timeoutEvent
 		return timeoutErr
 	}
 	if err := t.Error(); err != nil {
-		m.Errors.Add(1)
+		w.types |= errorEvent
 		return err
 	}
-	m.Successes.Add(1)
+	w.types |= successEvent
 	return nil
 }
 

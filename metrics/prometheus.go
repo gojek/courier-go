@@ -1,6 +1,9 @@
 package metrics
 
 import (
+	"fmt"
+	"sync"
+
 	gokitprom "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -11,21 +14,22 @@ const (
 	subsystemUnsubscribe    = subsystemPrefix + "_unsubscribe"
 	subsystemSubscribe      = subsystemPrefix + "_subscribe"
 	subsystemSubscribeMulti = subsystemPrefix + "_subscribe_multiple"
+	subsystemCallback       = subsystemPrefix + "_callback"
 
-	metricSuccesses           = "successes"
-	metricAttempts            = "attempts"
-	metricErrors              = "errors"
-	metricTimeouts            = "timeouts"
-	metricRunDuration         = "run_duration"
-	metricCallbackRunDuration = "callback_run_duration"
+	metricSuccesses   = "successes"
+	metricAttempts    = "attempts"
+	metricErrors      = "errors"
+	metricTimeouts    = "timeouts"
+	metricRunDuration = "run_duration"
 )
 
 var (
-	opMaps = map[string]*Op{
-		subsystemPublish:        {},
-		subsystemUnsubscribe:    {},
-		subsystemSubscribe:      {},
-		subsystemSubscribeMulti: {},
+	opSubsystemMap = map[Operation]string{
+		PublishOp:           subsystemPublish,
+		SubscribeOp:         subsystemSubscribe,
+		SubscribeMultipleOp: subsystemSubscribeMulti,
+		UnsubscribeOp:       subsystemUnsubscribe,
+		CallbackOp:          subsystemCallback,
 	}
 
 	counters   = []string{metricSuccesses, metricAttempts, metricErrors, metricTimeouts}
@@ -34,78 +38,72 @@ var (
 
 // NewPrometheus creates a PrometheusMetrics instance which implements the Metrics interface
 func NewPrometheus() *PrometheusMetrics {
-	var cls []prometheus.Collector
-	for s, op := range opMaps {
-		for _, c := range counters {
-			v, cv := newCounterRefFrom(prometheus.CounterOpts{
-				Name:      c,
-				Subsystem: s,
-			}, nil)
-			cls = append(cls, cv)
-			addCounterRefToOp(c, v, op)
-		}
-	}
-	for s, op := range opMaps {
-		for _, c := range histograms {
-			v, cv := newHistogramRefFrom(prometheus.HistogramOpts{
-				Name:      c,
-				Subsystem: s,
-			}, nil)
-			cls = append(cls, cv)
-			addHistogramRefToOp(c, v, op)
-		}
-	}
-	crd, crdhv := newHistogramRefFrom(prometheus.HistogramOpts{
-		Name:      metricCallbackRunDuration,
-		Subsystem: subsystemPrefix,
-	}, nil)
-	cls = append(cls, crdhv)
-
 	return &PrometheusMetrics{
-		collectors:     cls,
-		publish:        opMaps[subsystemPublish],
-		unsubscribe:    opMaps[subsystemUnsubscribe],
-		subscribe:      opMaps[subsystemSubscribe],
-		subscribeMulti: opMaps[subsystemSubscribeMulti],
-		callbackOp:     &CallbackOp{RunDuration: crd},
+		operationMap: map[Operation]*Aggregator{
+			PublishOp:           {},
+			SubscribeOp:         {},
+			SubscribeMultipleOp: {},
+			UnsubscribeOp:       {},
+			CallbackOp:          {},
+		},
 	}
 }
 
 // PrometheusMetrics is a prometheus collector for courier.Client operations
 type PrometheusMetrics struct {
-	collectors     []prometheus.Collector
-	publish        *Op
-	unsubscribe    *Op
-	subscribe      *Op
-	subscribeMulti *Op
-	callbackOp     *CallbackOp
+	sync.RWMutex
+	operationMap map[Operation]*Aggregator
 }
 
-func (p *PrometheusMetrics) Publish() *Op {
-	return p.publish
-}
+func (p *PrometheusMetrics) Update(r Result) {
+	p.RWMutex.Lock()
+	defer p.RWMutex.Unlock()
 
-func (p *PrometheusMetrics) Unsubscribe() *Op {
-	return p.unsubscribe
-}
+	a := p.operationMap[r.OpType]
 
-func (p *PrometheusMetrics) Subscribe() *Op {
-	return p.subscribe
-}
-
-func (p *PrometheusMetrics) SubscribeMultiple() *Op {
-	return p.subscribeMulti
-}
-
-func (p *PrometheusMetrics) CallbackOp() *CallbackOp {
-	return p.callbackOp
+	if r.Attempts > 0 && a.Attempts != nil {
+		a.Attempts.Add(1)
+	}
+	if r.Timeouts > 0 && a.Timeouts != nil {
+		a.Timeouts.Add(1)
+	}
+	if r.Errors > 0 && a.Errors != nil {
+		a.Errors.Add(1)
+	}
+	if r.Successes > 0 && a.Successes != nil {
+		a.Successes.Add(1)
+	}
+	if r.RunDuration > 0 && a.RunDuration != nil {
+		a.RunDuration.Observe(r.RunDuration.Seconds())
+	}
 }
 
 // AddToRegistry is used to register the collectors with a prometheus.Registerer
 func (p *PrometheusMetrics) AddToRegistry(registerer prometheus.Registerer) error {
-	for _, cl := range p.collectors {
-		if err := registerer.Register(cl); err != nil {
-			return err
+	for s, op := range p.operationMap {
+		for _, c := range counters {
+			v, cv := newCounterRefFrom(prometheus.CounterOpts{
+				Name:      c,
+				Help:      fmt.Sprintf("%s counter", c),
+				Subsystem: opSubsystemMap[s],
+			}, nil)
+			if err := registerer.Register(cv); err != nil {
+				return err
+			}
+			addCounterRefToOp(c, v, op)
+		}
+	}
+	for s, op := range p.operationMap {
+		for _, c := range histograms {
+			v, cv := newHistogramRefFrom(prometheus.HistogramOpts{
+				Name:      c,
+				Help:      fmt.Sprintf("%s histogram", c),
+				Subsystem: opSubsystemMap[s],
+			}, nil)
+			if err := registerer.Register(cv); err != nil {
+				return err
+			}
+			addHistogramRefToOp(c, v, op)
 		}
 	}
 	return nil
@@ -121,22 +119,22 @@ func newHistogramRefFrom(opts prometheus.HistogramOpts, labelNames []string) (*g
 	return gokitprom.NewHistogram(hv), hv
 }
 
-func addCounterRefToOp(name string, c *gokitprom.Counter, op *Op) {
+func addCounterRefToOp(name string, c *gokitprom.Counter, a *Aggregator) {
 	switch name {
 	case metricSuccesses:
-		op.Successes = c
+		a.Successes = c
 	case metricAttempts:
-		op.Attempts = c
+		a.Attempts = c
 	case metricErrors:
-		op.Errors = c
+		a.Errors = c
 	case metricTimeouts:
-		op.Timeouts = c
+		a.Timeouts = c
 	}
 }
 
-func addHistogramRefToOp(name string, h *gokitprom.Histogram, op *Op) {
+func addHistogramRefToOp(name string, h *gokitprom.Histogram, a *Aggregator) {
 	switch name {
 	case metricRunDuration:
-		op.RunDuration = h
+		a.RunDuration = h
 	}
 }

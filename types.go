@@ -1,5 +1,9 @@
 package courier
 
+import (
+	"context"
+)
+
 // OnConnectHandler is a callback that is called when the client
 // state changes from disconnected to connected. Both
 // at initial connection and on reconnection
@@ -15,4 +19,6 @@ type OnConnectionLostHandler func(error)
 // the initial connection is lost
 type OnReconnectHandler func(PubSub)
 
-type MessageHandler func(PubSub, Decoder)
+// MessageHandler is the type that all callbacks being passed
+// to Subscriber must satisfy.
+type MessageHandler func(context.Context, PubSub, Decoder)

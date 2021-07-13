@@ -1,6 +1,7 @@
 package courier
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"testing"
@@ -12,20 +13,21 @@ import (
 	"***REMOVED***/metrics"
 )
 
-type ClientSubscriberSuite struct {
+type ClientSubscribeSuite struct {
 	suite.Suite
 }
 
 func TestClientSubscriberSuite(t *testing.T) {
-	suite.Run(t, new(ClientSubscriberSuite))
+	suite.Run(t, new(ClientSubscribeSuite))
 }
 
-func (s *ClientSubscriberSuite) TestSubscribe() {
-	callback := func(_ PubSub, _ Decoder) {}
+func (s *ClientSubscribeSuite) TestSubscribe() {
+	callback := func(_ context.Context, _ PubSub, _ Decoder) {}
 	testcases := []struct {
-		name     string
-		pahoMock func(*mock.Mock) *mockToken
-		wantErr  bool
+		name           string
+		pahoMock       func(*mock.Mock) *mockToken
+		wantErr        bool
+		useMiddlewares []SubscriberMiddlewareFunc
 	}{
 		{
 			name: "Success",
@@ -36,6 +38,39 @@ func (s *ClientSubscriberSuite) TestSubscribe() {
 				m.On("Subscribe", "topic", byte(QOSOne), mock.AnythingOfType("mqtt.MessageHandler")).
 					Return(t)
 				return t
+			},
+		},
+		{
+			name: "AssertingSubscriberMiddleware",
+			pahoMock: func(m *mock.Mock) *mockToken {
+				t := &mockToken{}
+				t.On("WaitTimeout", 10*time.Second).Return(true)
+				t.On("Error").Return(nil)
+				m.On("Subscribe", "topic", byte(QOSZero), mock.AnythingOfType("mqtt.MessageHandler")).
+					Return(t)
+				return t
+			},
+			useMiddlewares: []SubscriberMiddlewareFunc{
+				func(subscriber Subscriber) Subscriber {
+					return NewSubscriberFuncs(
+						func(ctx context.Context, topic string, qos QOSLevel, callback MessageHandler) error {
+							s.Equal("topic", topic)
+							s.Equal(QOSOne, qos)
+							return subscriber.Subscribe(ctx, topic, QOSZero, callback)
+						},
+						subscriber.SubscribeMultiple,
+					)
+				},
+				func(subscriber Subscriber) Subscriber {
+					return NewSubscriberFuncs(
+						func(ctx context.Context, topic string, qos QOSLevel, callback MessageHandler) error {
+							s.Equal("topic", topic)
+							s.Equal(QOSZero, qos)
+							return subscriber.Subscribe(ctx, topic, qos, callback)
+						},
+						subscriber.SubscribeMultiple,
+					)
+				},
 			},
 		},
 		{
@@ -67,11 +102,15 @@ func (s *ClientSubscriberSuite) TestSubscribe() {
 			c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
 			s.NoError(err)
 
+			if t.useMiddlewares != nil {
+				c.UseSubscriberMiddleware(t.useMiddlewares...)
+			}
+
 			mc := &mockClient{}
 			c.mqttClient = mc
 			tk := t.pahoMock(&mc.Mock)
 
-			err = c.Subscribe("topic", QOSOne, callback)
+			err = c.Subscribe(context.Background(), "topic", QOSOne, callback)
 
 			if !t.wantErr {
 				s.NoError(err)
@@ -84,13 +123,14 @@ func (s *ClientSubscriberSuite) TestSubscribe() {
 	}
 }
 
-func (s *ClientSubscriberSuite) TestSubscribeMultiple() {
-	callback := func(_ PubSub, _ Decoder) {}
+func (s *ClientSubscribeSuite) TestSubscribeMultiple() {
+	callback := func(_ context.Context, _ PubSub, _ Decoder) {}
 	topics := map[string]QOSLevel{"topic": QOSOne}
 	testcases := []struct {
-		name     string
-		pahoMock func(*mock.Mock) *mockToken
-		wantErr  bool
+		name           string
+		pahoMock       func(*mock.Mock) *mockToken
+		wantErr        bool
+		useMiddlewares []SubscriberMiddlewareFunc
 	}{
 		{
 			name: "Success",
@@ -101,6 +141,40 @@ func (s *ClientSubscriberSuite) TestSubscribeMultiple() {
 				m.On("SubscribeMultiple", routeFilters(topics), mock.AnythingOfType("mqtt.MessageHandler")).
 					Return(t)
 				return t
+			},
+		},
+		{
+			name: "AssertingSubscriberMiddleware",
+			pahoMock: func(m *mock.Mock) *mockToken {
+				t := &mockToken{}
+				t.On("WaitTimeout", 10*time.Second).Return(true)
+				t.On("Error").Return(nil)
+				m.On("SubscribeMultiple",
+					routeFilters(map[string]QOSLevel{"topic": QOSZero}),
+					mock.AnythingOfType("mqtt.MessageHandler")).
+					Return(t)
+				return t
+			},
+			useMiddlewares: []SubscriberMiddlewareFunc{
+				func(subscriber Subscriber) Subscriber {
+					return NewSubscriberFuncs(
+						subscriber.Subscribe,
+						func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error {
+							s.Equal(topics, topicsWithQos)
+							topicsWithQos["topic"] = QOSZero
+							return subscriber.SubscribeMultiple(ctx, topicsWithQos, callback)
+						},
+					)
+				},
+				func(subscriber Subscriber) Subscriber {
+					return NewSubscriberFuncs(
+						subscriber.Subscribe,
+						func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error {
+							s.Equal(map[string]QOSLevel{"topic": QOSZero}, topicsWithQos)
+							return subscriber.SubscribeMultiple(ctx, topicsWithQos, callback)
+						},
+					)
+				},
 			},
 		},
 		{
@@ -132,11 +206,15 @@ func (s *ClientSubscriberSuite) TestSubscribeMultiple() {
 			c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
 			s.NoError(err)
 
+			if t.useMiddlewares != nil {
+				c.UseSubscriberMiddleware(t.useMiddlewares...)
+			}
+
 			mc := &mockClient{}
 			c.mqttClient = mc
 			tk := t.pahoMock(&mc.Mock)
 
-			err = c.SubscribeMultiple(topics, callback)
+			err = c.SubscribeMultiple(context.Background(), topics, callback)
 
 			if !t.wantErr {
 				s.NoError(err)
@@ -149,75 +227,70 @@ func (s *ClientSubscriberSuite) TestSubscribeMultiple() {
 	}
 }
 
-func (s *ClientSubscriberSuite) TestUnsubscribe() {
-	topics := []string{"topic1", "topic2"}
-	testcases := []struct {
-		name     string
-		pahoMock func(*mock.Mock) *mockToken
-		wantErr  bool
-	}{
-		{
-			name: "Success",
-			pahoMock: func(m *mock.Mock) *mockToken {
-				t := &mockToken{}
-				t.On("WaitTimeout", 10*time.Second).Return(true)
-				t.On("Error").Return(nil)
-				m.On("Unsubscribe", topics).
-					Return(t)
-				return t
-			},
-		},
-		{
-			name: "WaitTimeout",
-			pahoMock: func(m *mock.Mock) *mockToken {
-				t := &mockToken{}
-				t.On("WaitTimeout", 10*time.Second).Return(false)
-				m.On("Unsubscribe", topics).
-					Return(t)
-				return t
-			},
-			wantErr: true,
-		},
-		{
-			name: "Error",
-			pahoMock: func(m *mock.Mock) *mockToken {
-				t := &mockToken{}
-				t.On("WaitTimeout", 10*time.Second).Return(true)
-				t.On("Error").Return(errors.New("error"))
-				m.On("Unsubscribe", topics).
-					Return(t)
-				return t
-			},
-			wantErr: true,
-		},
-	}
-	for _, t := range testcases {
-		s.Run(t.name, func() {
-			c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
-			s.NoError(err)
-
-			mc := &mockClient{}
-			c.mqttClient = mc
-			tk := t.pahoMock(&mc.Mock)
-
-			err = c.Unsubscribe(topics...)
-
-			if !t.wantErr {
-				s.NoError(err)
-			} else {
-				s.Error(err)
-			}
-			mc.AssertExpectations(s.T())
-			tk.AssertExpectations(s.T())
-		})
-	}
-}
-
-func (s *ClientSubscriberSuite) Test_callbackWrapper() {
+func (s *ClientSubscribeSuite) TestSubscribeMiddleware() {
+	callback := func(_ context.Context, _ PubSub, _ Decoder) {}
 	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
 	s.NoError(err)
 
-	f := callbackWrapper(c, func(_ PubSub, _ Decoder) {
+	mc := &mockClient{}
+	mc.Test(s.T())
+	c.mqttClient = mc
+
+	t := &mockToken{}
+	t.On("WaitTimeout", mock.Anything).Return(true)
+	t.On("Error").Return(nil)
+	mc.On("Subscribe", "topic", byte(QOSZero), mock.AnythingOfType("mqtt.MessageHandler")).
+		Return(t)
+	topics := map[string]QOSLevel{"topic": QOSZero}
+	mc.On("SubscribeMultiple", routeFilters(topics), mock.AnythingOfType("mqtt.MessageHandler")).
+		Return(t)
+
+	tm := &testSubscribeMiddleware{}
+
+	c.UseSubscriberMiddleware(tm.Middleware)
+	s.Require().Len(c.sMiddlewares, 1)
+	s.Equal(0, tm.timesSubscribeCalled)
+	s.Equal(0, tm.timesSubscribeMultipleCalled)
+
+	s.NoError(c.Subscribe(context.Background(), "topic", QOSZero, callback))
+	s.NoError(c.SubscribeMultiple(context.Background(), topics, callback))
+	s.Equal(1, tm.timesSubscribeCalled)
+	s.Equal(1, tm.timesSubscribeMultipleCalled)
+
+	c.UseSubscriberMiddleware(tm.Middleware)
+	s.Require().Len(c.sMiddlewares, 2)
+	s.Equal(1, tm.timesSubscribeCalled)
+	s.Equal(1, tm.timesSubscribeMultipleCalled)
+
+	s.NoError(c.Subscribe(context.Background(), "topic", QOSZero, callback))
+	s.NoError(c.SubscribeMultiple(context.Background(), topics, callback))
+	s.Equal(3, tm.timesSubscribeCalled)
+	s.Equal(3, tm.timesSubscribeMultipleCalled)
+}
+
+type testSubscribeMiddleware struct {
+	timesSubscribeCalled         int
+	timesSubscribeMultipleCalled int
+}
+
+func (tm *testSubscribeMiddleware) Middleware(s Subscriber) Subscriber {
+	return NewSubscriberFuncs(
+		func(ctx context.Context, topic string, qos QOSLevel, callback MessageHandler) error {
+			tm.timesSubscribeCalled++
+			return s.Subscribe(ctx, topic, qos, callback)
+		},
+		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error {
+			tm.timesSubscribeMultipleCalled++
+			return s.SubscribeMultiple(ctx, topicsWithQos, callback)
+		},
+	)
+}
+
+func (s *ClientSubscribeSuite) Test_callbackWrapper() {
+	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+	s.NoError(err)
+
+	f := callbackWrapper(c, func(_ context.Context, _ PubSub, _ Decoder) {
 		s.T().Logf("callback called")
 	})
 

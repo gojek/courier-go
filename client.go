@@ -18,6 +18,13 @@ type Client struct {
 	options         *options
 	metricsExchange *metricsExchange
 	mqttClient      mqtt.Client
+
+	publisher     Publisher
+	subscriber    Subscriber
+	unsubscriber  Unsubscriber
+	pMiddlewares  []publishMiddleware
+	sMiddlewares  []subscribeMiddleware
+	usMiddlewares []unsubscribeMiddleware
 }
 
 // NewClient creates the Client struct with the options provided,
@@ -42,6 +49,9 @@ func NewClient(opts ...Option) (*Client, error) {
 	c := &Client{options: o, metricsExchange: me}
 	go me.monitor()
 	c.mqttClient = newClientFunc(toClientOptions(c, c.options))
+	c.publisher = publishHandler(c)
+	c.subscriber = subscriberFuncs(c)
+	c.unsubscriber = unsubscriberHandler(c)
 	return c, nil
 }
 
@@ -51,7 +61,9 @@ func (c *Client) IsConnected() bool {
 }
 
 // Start will connect to a broker and will block until the Context passed has been cancelled,
-// cancelling the Context will disconnect the client after waiting for the graceful shutdown period
+// cancelling the Context will disconnect the client after waiting for the graceful shutdown period.
+// You may also use https://pkg.go.dev/github.com/gojekfarm/xrun in your program if you need
+// to run multiple long running components in your application.
 func (c *Client) Start(ctx context.Context) error {
 	t := c.mqttClient.Connect()
 	if !t.WaitTimeout(c.options.connectTimeout) {

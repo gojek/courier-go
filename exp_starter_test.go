@@ -46,20 +46,14 @@ func (s *ExponentialStartStrategySuite) TestSuccessfulStartOnFirstTry() {
 	tk.On("Error").Return(nil).Once()
 
 	s.mockClient.On("Connect").Return(tk).Once()
-	s.mockClient.On("Disconnect", uint(30*time.Second/time.Millisecond)).
-		Return(true).After(time.Second).Once()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error, 1)
+	defer cancel()
 
-	go func() {
-		errCh <- ExponentialStartStrategy(c, WithMaxInterval(30*time.Second))(ctx)
-	}()
+	ExponentialStartStrategy(ctx, c)
 
 	time.Sleep(time.Second)
-	cancel()
 
-	s.NoError(<-errCh)
 	tk.AssertExpectations(s.T())
 	s.mockClient.AssertExpectations(s.T())
 }
@@ -70,31 +64,55 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailure() {
 
 	tk := &mockToken{}
 	tk.Test(s.T())
-	tk.On("WaitTimeout", 15*time.Second).Return(true).
-		After(5 * time.Millisecond).Once()
-	tk.On("Error").Return(&net.AddrError{Err: "connection refused", Addr: ":1883"}).Once()
+
 	tk.On("WaitTimeout", 15*time.Second).Return(true).
 		After(50 * time.Millisecond)
+	tk.On("Error").
+		Return(&net.AddrError{Err: "connection refused", Addr: ":1883"}).Times(4)
 	tk.On("Error").Return(nil)
 
 	s.mockClient.On("Connect").Return(tk)
-	s.mockClient.On("Disconnect", uint(30*time.Second/time.Millisecond)).
-		Return(true).After(time.Second).Once()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	errCh := make(chan error, 1)
 
-	go func() {
-		errCh <- ExponentialStartStrategy(c, WithMaxInterval(2*time.Second), WithOnRetry(func(err error) {
-			s.EqualError(err, "address :1883: connection refused")
-		}))(ctx)
-	}()
+	ExponentialStartStrategy(ctx, c, WithMaxInterval(2*time.Second), WithOnRetry(func(err error) {
+		s.EqualError(err, "address :1883: connection refused")
+	}))
 
 	time.Sleep(3 * time.Second)
 	cancel()
 
-	s.NoError(<-errCh)
+	time.Sleep(time.Second)
+
+	tk.AssertExpectations(s.T())
+	s.mockClient.AssertExpectations(s.T())
+}
+
+func (s *ExponentialStartStrategySuite) TestReconnectAttemptStopOnCancel() {
+	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+	s.NoError(err)
+
+	tk := &mockToken{}
+	tk.Test(s.T())
+
+	tk.On("WaitTimeout", 15*time.Second).Return(true).
+		After(50 * time.Millisecond)
+	tk.On("Error").
+		Return(&net.AddrError{Err: "connection refused", Addr: ":1883"})
+
+	s.mockClient.On("Connect").Return(tk)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	ExponentialStartStrategy(ctx, c, WithMaxInterval(5*time.Second), WithOnRetry(func(err error) {
+		s.EqualError(err, "address :1883: connection refused")
+	}))
+
+	time.Sleep(1 * time.Second)
+	cancel()
+
+	time.Sleep(3 * time.Second)
+
 	tk.AssertExpectations(s.T())
 	s.mockClient.AssertExpectations(s.T())
 }
@@ -111,21 +129,15 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailureBeyondMaxTi
 	tk.On("Error").Return(nil)
 
 	s.mockClient.On("Connect").Return(tk)
-	s.mockClient.On("Disconnect", uint(30*time.Second/time.Millisecond)).
-		Return(true).After(time.Second).Once()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	errCh := make(chan error, 1)
 
-	go func() {
-		errCh <- ExponentialStartStrategy(c, WithMaxInterval(3*time.Second))(ctx)
-	}()
+	ExponentialStartStrategy(ctx, c, WithMaxInterval(3*time.Second))
 
 	time.Sleep(10 * time.Second)
 	cancel()
 
-	s.NoError(<-errCh)
 	tk.AssertExpectations(s.T())
 	s.mockClient.AssertExpectations(s.T())
 }

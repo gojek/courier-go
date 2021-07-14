@@ -1,7 +1,6 @@
 package courier
 
 import (
-	"context"
 	"os"
 	"time"
 
@@ -60,11 +59,8 @@ func (c *Client) IsConnected() bool {
 	return c.mqttClient != nil && c.mqttClient.IsConnectionOpen()
 }
 
-// Start will connect to a broker and will block until the Context passed has been cancelled,
-// cancelling the Context will disconnect the client after waiting for the graceful shutdown period.
-// You may also use https://pkg.go.dev/github.com/gojekfarm/xrun in your program if you need
-// to run multiple long running components in your application.
-func (c *Client) Start(ctx context.Context) error {
+// Start will attempt to connect to the broker.
+func (c *Client) Start() error {
 	t := c.mqttClient.Connect()
 	if !t.WaitTimeout(c.options.connectTimeout) {
 		return ErrConnectTimeout
@@ -72,10 +68,14 @@ func (c *Client) Start(ctx context.Context) error {
 	if err := t.Error(); err != nil {
 		return err
 	}
-
-	<-ctx.Done()
-	c.mqttClient.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 	return nil
+}
+
+// Stop will disconnect from the broker and finish up any pending work on internal
+// communication workers. This can only block until the period configured with
+// the Option WithGracefulShutdownPeriod.
+func (c *Client) Stop() {
+	c.mqttClient.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 }
 
 func (c *Client) handleToken(t mqtt.Token, w *eventWrapper, timeoutErr error) error {

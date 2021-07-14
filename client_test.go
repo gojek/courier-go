@@ -98,14 +98,14 @@ func (s *ClientSuite) TestStart() {
 			} else {
 				newClientFunc = mqtt.NewClient
 			}
-			errCh := make(chan error)
 			c, err := NewClient(t.opts...)
 			s.NoError(err)
 
-			ctx, disconnect := t.ctxFunc()
-			go func() {
-				errCh <- c.Start(ctx)
-			}()
+			if err := c.Start(); t.wantErr != nil {
+				s.Equal(t.wantErr, err)
+			} else {
+				s.NoError(err)
+			}
 
 			if t.checkConnect {
 				s.Eventually(func() bool {
@@ -113,9 +113,8 @@ func (s *ClientSuite) TestStart() {
 				}, 10*time.Second, 250*time.Millisecond)
 			}
 
-			disconnect()
-			if t.wantErr != nil {
-				s.EqualError(t.wantErr, (<-errCh).Error())
+			if t.wantErr == nil {
+				c.Stop()
 			}
 		})
 	}

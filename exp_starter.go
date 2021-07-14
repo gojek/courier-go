@@ -2,7 +2,6 @@ package courier
 
 import (
 	"context"
-	"sync"
 	"time"
 )
 
@@ -34,51 +33,36 @@ func WithOnRetry(retryFunc func(error)) StartOption {
 
 // ExponentialStartStrategy will keep attempting to call Client.Start in the background and retry on error,
 // it will never exit unless the context used to invoke is cancelled.
-func ExponentialStartStrategy(c *Client, opts ...StartOption) func(context.Context) error {
+// This will NOT stop the client, that is the responsibility of caller.
+func ExponentialStartStrategy(ctx context.Context, c *Client, opts ...StartOption) {
 	so := startOptions{maxInterval: 30 * time.Second}
 	for _, opt := range opts {
 		opt(&so)
 	}
 
-	internalCtx, internalCancel := context.WithCancel(context.Background())
-	internalErrCh := make(chan error, 1)
+	nextRetryInterval := 100 * time.Millisecond
+	errCh := make(chan error, 1)
 
-	wg := &sync.WaitGroup{}
-	attemptStart := func(wg *sync.WaitGroup) {
-		wg.Add(1)
-		defer wg.Done()
-		internalErrCh <- c.Start(internalCtx)
+	startFn := func() {
+		errCh <- c.Start()
 	}
+	go startFn()
 
-	retryFunc := func(retryInterval time.Duration) error {
-		err := <-internalErrCh
-		if err != nil {
-			if so.onRetry != nil {
-				so.onRetry(err)
-			}
-			go attemptStart(wg)
-			<-time.After(retryInterval)
-			return err
-		}
-		return nil
-	}
-
-	return func(ctx context.Context) error {
-		go attemptStart(wg)
-		go func() {
-			nextRetryInterval := 100 * time.Millisecond
-			err := retryFunc(nextRetryInterval)
-			for err != nil {
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case err := <-errCh:
+				if err == nil {
+					return
+				}
+				go startFn()
+				time.Sleep(nextRetryInterval)
 				nextRetryInterval = min(nextRetryInterval*2, so.maxInterval)
-				err = retryFunc(nextRetryInterval)
 			}
-		}()
-
-		<-ctx.Done()
-		internalCancel()
-		wg.Wait()
-		return nil
-	}
+		}
+	}()
 }
 
 func min(x time.Duration, y time.Duration) time.Duration {

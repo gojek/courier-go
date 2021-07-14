@@ -48,9 +48,6 @@ func main() {
 		panic(err)
 	}
 
-	ctx, disconnect := context.WithCancel(context.Background())
-	errCh := make(chan error)
-
 	metricsServer := http.Server{
 		Addr:              ":9090",
 		Handler:           promhttp.HandlerFor(reg, promhttp.HandlerOpts{}),
@@ -58,12 +55,9 @@ func main() {
 	go func() {
 		_ = metricsServer.ListenAndServe()
 	}()
-	go func() {
-		errCh <- c.Start(ctx)
-	}()
 
-	if !courier.WaitForConnection(c, 5*time.Second, 250*time.Millisecond) {
-		os.Exit(1)
+	if err := c.Start(); err != nil {
+		panic(err)
 	}
 
 	stopCh := make(chan os.Signal)
@@ -77,7 +71,7 @@ func main() {
 				msg := map[string]interface{}{
 					"time": t.UnixNano(),
 				}
-				if err := c.Publish("topic", courier.QOSOne, false, msg); err != nil {
+				if err := c.Publish(context.Background(), "topic", courier.QOSOne, false, msg); err != nil {
 					fmt.Printf("Publish() error = %s\n", err)
 				} else {
 					fmt.Println("Publish() success")
@@ -94,12 +88,7 @@ func main() {
 	stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = metricsServer.Shutdown(stopCtx)
-	disconnect()
-
-	// wait for result on errCh to allow graceful shutdown
-	if err := <-errCh; err != nil {
-		panic(err)
-	}
+	c.Stop()
 }
 
 ```

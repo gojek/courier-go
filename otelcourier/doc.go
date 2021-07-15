@@ -1,6 +1,5 @@
 /*
-Package courier contains the client that can be used to interact with the courier
-infrastructure to publish/subscribe to messages from other clients
+Package otelcourier instruments the ***REMOVED*** package.
 
 Example:
 
@@ -11,26 +10,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
 	"***REMOVED***"
-	"***REMOVED***/metrics"
+	"***REMOVED***/otelcourier"
 )
 
 func main() {
-	reg := prometheus.NewRegistry()
-	m := metrics.NewPrometheus()
-	if err := m.AddToRegistry(reg); err != nil {
-		panic(err)
-	}
-
 	c, err := courier.NewClient(
 			courier.WithUsername("username"),
 			courier.WithPassword("password"),
@@ -40,7 +29,6 @@ func main() {
 			courier.WithWriteTimeout(2*time.Second),
 			courier.WithMaxReconnectInterval(5*time.Minute),
 			courier.WithGracefulShutdownPeriod(time.Minute),
-			courier.WithCustomMetrics(m),
 			// courier.WithPersistence(s),   // persistence for qos > 0 use-cases
 		)
 
@@ -48,13 +36,7 @@ func main() {
 		panic(err)
 	}
 
-	metricsServer := http.Server{
-		Addr:              ":9090",
-		Handler:           promhttp.HandlerFor(reg, promhttp.HandlerOpts{}),
-	}
-	go func() {
-		_ = metricsServer.ListenAndServe()
-	}()
+	otelcourier.InstrumentClient(c, otelcourier.NewMiddleware("service-name"))
 
 	if err := c.Start(); err != nil {
 		panic(err)
@@ -85,12 +67,9 @@ func main() {
 
 	<-stopCh
 
-	stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_ = metricsServer.Shutdown(stopCtx)
 	c.Stop()
 }
 
 ```
 */
-package courier // import "***REMOVED***"
+package otelcourier // import "***REMOVED***/otelcourier"

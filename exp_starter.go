@@ -57,6 +57,9 @@ func ExponentialStartStrategy(ctx context.Context, c *Client, opts ...StartOptio
 				if err == nil {
 					return
 				}
+				if so.onRetry != nil {
+					so.onRetry(err)
+				}
 				go startFn()
 				time.Sleep(nextRetryInterval)
 				nextRetryInterval = min(nextRetryInterval*2, so.maxInterval)

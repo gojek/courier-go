@@ -75,7 +75,9 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailure() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	onRetryCalled := false
 	ExponentialStartStrategy(ctx, c, WithMaxInterval(2*time.Second), WithOnRetry(func(err error) {
+		onRetryCalled = true
 		s.EqualError(err, "address :1883: connection refused")
 	}))
 
@@ -84,6 +86,7 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailure() {
 
 	time.Sleep(time.Second)
 
+	s.True(onRetryCalled)
 	tk.AssertExpectations(s.T())
 	s.mockClient.AssertExpectations(s.T())
 }
@@ -104,7 +107,9 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptStopOnCancel() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	onRetryCalled := false
 	ExponentialStartStrategy(ctx, c, WithMaxInterval(5*time.Second), WithOnRetry(func(err error) {
+		onRetryCalled = true
 		s.EqualError(err, "address :1883: connection refused")
 	}))
 
@@ -113,6 +118,7 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptStopOnCancel() {
 
 	time.Sleep(3 * time.Second)
 
+	s.True(onRetryCalled)
 	tk.AssertExpectations(s.T())
 	s.mockClient.AssertExpectations(s.T())
 }

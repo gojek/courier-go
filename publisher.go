@@ -13,7 +13,13 @@ type Publisher interface {
 type PublisherFunc func(context.Context, string, QOSLevel, bool, interface{}) error
 
 // Publish implements Publisher interface on PublisherFunc.
-func (f PublisherFunc) Publish(ctx context.Context, topic string, qos QOSLevel, retained bool, message interface{}) error {
+func (f PublisherFunc) Publish(
+	ctx context.Context,
+	topic string,
+	qos QOSLevel,
+	retained bool,
+	message interface{},
+) error {
 	return f(ctx, topic, qos, retained, message)
 }
 

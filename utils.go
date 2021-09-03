@@ -22,11 +22,13 @@ func WaitForConnection(c ConnectionInformer, waitFor time.Duration, tick time.Du
 			return false
 		case <-tick:
 			tick = nil
+
 			go func() { ch <- c.IsConnected() }()
 		case v := <-ch:
 			if v {
 				return true
 			}
+
 			tick = ticker.C
 		}
 	}

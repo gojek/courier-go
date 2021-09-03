@@ -1,0 +1,74 @@
+linters:
+  disable-all: true
+  enable:
+    - deadcode
+    - errcheck
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+    - stylecheck
+    - structcheck
+    - typecheck
+    - varcheck
+    - unconvert
+    - bodyclose
+    - dupl
+    - goconst
+    - gocyclo
+    - gofmt
+    - golint
+    - interfacer
+    - lll
+    - misspell
+    - nakedret
+    - exportloopref
+    - funlen
+    - nestif
+    - nlreturn
+    - prealloc
+    - rowserrcheck
+    - unconvert
+    - unparam
+    - whitespace
+    - wsl
+run:
+  skip-dirs:
+    - bin
+  skip-files:
+    - .*mock.*\.go$
+    - version.go
+  modules-download-mode: readonly
+linters-settings:
+  govet:
+    check-shadowing: true
+    enable-all: true
+    disable:
+      - asmdecl
+      - assign
+  errcheck:
+    check-type-assertions: true
+  misspell:
+    locale: UK
+    ignore-words:
+      - initialized
+  funlen:
+    lines: 80
+    statements: 40
+
+issues:
+  exclude:
+    - declaration of "(err|ctx)" shadows declaration at
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - dupl
+        - gosec
+        - wsl
+        - lll
+        - funlen
+        - nlreturn
+    - path: _test\.go
+      text: ^Error return value is not checked$
+      linters:
+        - errcheck

@@ -39,9 +39,11 @@ func publishHandler(c *Client) Publisher {
 		err := c.options.newEncoder(&buf).Encode(message)
 		if err != nil {
 			w.types |= errorEvent
+
 			return err
 		}
 		t := c.mqttClient.Publish(topic, byte(qos), retained, buf.Bytes())
+
 		return c.handleToken(t, w, ErrPublishTimeout)
 	})
 }

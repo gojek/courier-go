@@ -9,9 +9,9 @@ import (
 
 func TestWaitForConnection(t *testing.T) {
 	tests := []struct {
+		want     bool
 		name     string
 		informer *testInformer
-		want     bool
 	}{
 		{
 			name:     "Success",

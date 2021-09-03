@@ -34,6 +34,7 @@ func (m *Middleware) Unsubscriber() courier.UnsubscriberMiddlewareFunc {
 				span.RecordError(err)
 				span.SetStatus(codes.Error, unsubscribeErrMessage)
 			}
+
 			return err
 		})
 	}

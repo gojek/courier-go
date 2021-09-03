@@ -45,6 +45,10 @@ func (s SubscriberFuncs) Subscribe(ctx context.Context, topic string, qos QOSLev
 }
 
 // SubscribeMultiple implements Subscriber interface on SubscriberFuncs.
-func (s SubscriberFuncs) SubscribeMultiple(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error {
+func (s SubscriberFuncs) SubscribeMultiple(
+	ctx context.Context,
+	topicsWithQos map[string]QOSLevel,
+	callback MessageHandler,
+) error {
 	return s.subscribeMultiple(ctx, topicsWithQos, callback)
 }

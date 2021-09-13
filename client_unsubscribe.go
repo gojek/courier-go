@@ -35,6 +35,7 @@ func unsubscriberHandler(c *Client) Unsubscriber {
 		}(time.Now())
 
 		t := c.mqttClient.Unsubscribe(topics...)
+
 		return c.handleToken(t, w, ErrUnsubscribeTimeout)
 	})
 }

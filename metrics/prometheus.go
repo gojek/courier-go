@@ -51,8 +51,8 @@ func NewPrometheus() *PrometheusMetrics {
 
 // PrometheusMetrics is a prometheus collector for courier.Client operations
 type PrometheusMetrics struct {
-	sync.RWMutex
 	operationMap map[Operation]*Aggregator
+	sync.RWMutex
 }
 
 func (p *PrometheusMetrics) Update(r Result) {
@@ -64,15 +64,19 @@ func (p *PrometheusMetrics) Update(r Result) {
 	if r.Attempts > 0 && a.Attempts != nil {
 		a.Attempts.Add(1)
 	}
+
 	if r.Timeouts > 0 && a.Timeouts != nil {
 		a.Timeouts.Add(1)
 	}
+
 	if r.Errors > 0 && a.Errors != nil {
 		a.Errors.Add(1)
 	}
+
 	if r.Successes > 0 && a.Successes != nil {
 		a.Successes.Add(1)
 	}
+
 	if r.RunDuration > 0 && a.RunDuration != nil {
 		a.RunDuration.Observe(r.RunDuration.Seconds())
 	}
@@ -90,9 +94,11 @@ func (p *PrometheusMetrics) AddToRegistry(registerer prometheus.Registerer) erro
 			if err := registerer.Register(cv); err != nil {
 				return err
 			}
+
 			addCounterRefToOp(c, v, op)
 		}
 	}
+
 	for s, op := range p.operationMap {
 		for _, c := range histograms {
 			v, cv := newHistogramRefFrom(prometheus.HistogramOpts{
@@ -103,19 +109,26 @@ func (p *PrometheusMetrics) AddToRegistry(registerer prometheus.Registerer) erro
 			if err := registerer.Register(cv); err != nil {
 				return err
 			}
+
 			addHistogramRefToOp(c, v, op)
 		}
 	}
+
 	return nil
 }
 
 func newCounterRefFrom(opts prometheus.CounterOpts, labelNames []string) (*gokitprom.Counter, prometheus.Collector) {
 	cv := prometheus.NewCounterVec(opts, labelNames)
+
 	return gokitprom.NewCounter(cv), cv
 }
 
-func newHistogramRefFrom(opts prometheus.HistogramOpts, labelNames []string) (*gokitprom.Histogram, prometheus.Collector) {
+func newHistogramRefFrom(
+	opts prometheus.HistogramOpts,
+	labelNames []string,
+) (*gokitprom.Histogram, prometheus.Collector) {
 	hv := prometheus.NewHistogramVec(opts, labelNames)
+
 	return gokitprom.NewHistogram(hv), hv
 }
 

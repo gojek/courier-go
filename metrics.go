@@ -58,9 +58,11 @@ func (m *metricsExchange) pushMetrics(c metrics.Collector, e updateEvent) {
 	if e.types.match(successEvent) {
 		r.Successes = 1
 	}
+
 	if e.types.match(errorEvent) {
 		r.Errors = 1
 	}
+
 	if e.types.match(timeoutEvent) {
 		r.Timeouts = 1
 	}

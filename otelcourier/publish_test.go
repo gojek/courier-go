@@ -40,7 +40,6 @@ func TestPublishTraceSpan(t *testing.T) {
 		assert.Equal(t, MQTTTopic.String("test-topic").Value, attrs[MQTTTopic])
 		assert.Equal(t, MQTTQoS.Int(1).Value, attrs[MQTTQoS])
 		assert.Equal(t, MQTTRetained.Bool(false).Value, attrs[MQTTRetained])
-
 	})
 
 	t.Run("Events", func(t *testing.T) {

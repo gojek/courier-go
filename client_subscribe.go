@@ -16,7 +16,11 @@ func (c *Client) Subscribe(ctx context.Context, topic string, qos QOSLevel, call
 }
 
 // SubscribeMultiple allows to subscribe to messages on multiple topics from an MQTT broker
-func (c *Client) SubscribeMultiple(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error {
+func (c *Client) SubscribeMultiple(
+	ctx context.Context,
+	topicsWithQos map[string]QOSLevel,
+	callback MessageHandler,
+) error {
 	return c.subscriber.SubscribeMultiple(ctx, topicsWithQos, callback)
 }
 
@@ -44,6 +48,7 @@ func subscriberFuncs(c *Client) Subscriber {
 			}(time.Now())
 
 			t := c.mqttClient.Subscribe(topic, byte(qos), callbackWrapper(c, callback))
+
 			return c.handleToken(t, w, ErrSubscribeTimeout)
 		},
 		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error {
@@ -53,6 +58,7 @@ func subscriberFuncs(c *Client) Subscriber {
 			}(time.Now())
 
 			t := c.mqttClient.SubscribeMultiple(routeFilters(topicsWithQos), callbackWrapper(c, callback))
+
 			return c.handleToken(t, w, ErrSubscribeMultipleTimeout)
 		},
 	)
@@ -61,12 +67,14 @@ func subscriberFuncs(c *Client) Subscriber {
 func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 	return func(_ mqtt.Client, message mqtt.Message) {
 		w := &eventWrapper{types: attemptEvent}
+
 		defer func(begin time.Time) {
 			c.reportEvents(metrics.CallbackOp, w, time.Since(begin))
 		}(time.Now())
 
 		d := c.options.newDecoder(bytes.NewReader(message.Payload()))
 		callback(context.Background(), c, d)
+
 		w.types |= successEvent
 	}
 }
@@ -76,5 +84,6 @@ func routeFilters(topicsWithQos map[string]QOSLevel) map[string]byte {
 	for topic, q := range topicsWithQos {
 		m[topic] = byte(q)
 	}
+
 	return m
 }

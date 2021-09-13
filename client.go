@@ -31,26 +31,33 @@ type Client struct {
 // been used to register the collected metrics
 func NewClient(opts ...Option) (*Client, error) {
 	o := defaultOptions()
+
 	for _, f := range opts {
 		f(o)
 	}
+
 	if o.metricsCollector == nil {
 		m := metrics.NewPrometheus()
 		if err := m.AddToRegistry(prometheus.DefaultRegisterer); err != nil {
 			return nil, err
 		}
+
 		o.metricsCollector = m
 	}
+
 	me := &metricsExchange{
 		updates:   make(chan updateEvent),
 		collector: o.metricsCollector,
 	}
 	c := &Client{options: o, metricsExchange: me}
+
 	go me.monitor()
+
 	c.mqttClient = newClientFunc(toClientOptions(c, c.options))
 	c.publisher = publishHandler(c)
 	c.subscriber = subscriberFuncs(c)
 	c.unsubscriber = unsubscriberHandler(c)
+
 	return c, nil
 }
 
@@ -65,9 +72,11 @@ func (c *Client) Start() error {
 	if !t.WaitTimeout(c.options.connectTimeout) {
 		return ErrConnectTimeout
 	}
+
 	if err := t.Error(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -81,21 +90,28 @@ func (c *Client) Stop() {
 func (c *Client) handleToken(t mqtt.Token, w *eventWrapper, timeoutErr error) error {
 	if !t.WaitTimeout(c.options.writeTimeout) {
 		w.types |= timeoutEvent
+
 		return timeoutErr
 	}
+
 	if err := t.Error(); err != nil {
 		w.types |= errorEvent
+
 		return err
 	}
+
 	w.types |= successEvent
+
 	return nil
 }
 
 func toClientOptions(c *Client, o *options) *mqtt.ClientOptions {
 	opts := mqtt.NewClientOptions()
+
 	if hostname, err := os.Hostname(); err == nil {
 		opts.SetClientID(hostname)
 	}
+
 	opts.AddBroker(o.brokerAddress).
 		SetUsername(o.username).
 		SetPassword(o.password).
@@ -108,10 +124,11 @@ func toClientOptions(c *Client, o *options) *mqtt.ClientOptions {
 		SetReconnectingHandler(reconnectHandler(c, o)).
 		SetConnectionLostHandler(connectionLostHandler(o)).
 		SetOnConnectHandler(onConnectHandler(c, o))
+
 	return opts
 }
 
-func reconnectHandler(client *Client, o *options) mqtt.ReconnectHandler {
+func reconnectHandler(client PubSub, o *options) mqtt.ReconnectHandler {
 	return func(_ mqtt.Client, _ *mqtt.ClientOptions) {
 		if o.onReconnectHandler != nil {
 			o.onReconnectHandler(client)
@@ -127,7 +144,7 @@ func connectionLostHandler(o *options) mqtt.ConnectionLostHandler {
 	}
 }
 
-func onConnectHandler(client *Client, o *options) mqtt.OnConnectHandler {
+func onConnectHandler(client PubSub, o *options) mqtt.OnConnectHandler {
 	return func(_ mqtt.Client) {
 		if o.onConnectHandler != nil {
 			o.onConnectHandler(client)

@@ -42,6 +42,7 @@ func (m *Middleware) Subscriber() courier.SubscriberMiddlewareFunc {
 					span.RecordError(err)
 					span.SetStatus(codes.Error, subscribeErrMessage)
 				}
+
 				return err
 			},
 			func(ctx context.Context, topicsWithQos map[string]courier.QOSLevel, callback courier.MessageHandler) error {
@@ -58,6 +59,7 @@ func (m *Middleware) Subscriber() courier.SubscriberMiddlewareFunc {
 					span.RecordError(err)
 					span.SetStatus(codes.Error, subscribeMultipleErrMessage)
 				}
+
 				return err
 			},
 		)
@@ -68,11 +70,13 @@ func (m *Middleware) instrumentCallback(in courier.MessageHandler) courier.Messa
 	if m.disableCallbackTracing {
 		return in
 	}
+
 	return func(ctx context.Context, pubSub courier.PubSub, decoder courier.Decoder) {
 		spanName := "UnknownSubscribeCallback"
 		if fnPtr := runtime.FuncForPC(reflect.ValueOf(in).Pointer()); fnPtr != nil {
 			spanName = fnPtr.Name()
 		}
+
 		ctx, span := m.tracer.Start(ctx, spanName)
 		defer span.End()
 
@@ -85,6 +89,8 @@ func mapToArray(topicsWithQos map[string]courier.QOSLevel) []string {
 	for k, v := range topicsWithQos {
 		result = append(result, fmt.Sprintf("%s | qos[%d]", k, v))
 	}
+
 	sort.Strings(result)
+
 	return result
 }

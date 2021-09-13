@@ -20,7 +20,13 @@ const (
 func (m *Middleware) Publisher() courier.PublisherMiddlewareFunc {
 	return func(next courier.Publisher) courier.Publisher {
 		// This function will wrap the base courier.Publisher and use trace.Tracer to start a trace.Span
-		return courier.PublisherFunc(func(ctx context.Context, topic string, qos courier.QOSLevel, retained bool, message interface{}) error {
+		return courier.PublisherFunc(func(
+			ctx context.Context,
+			topic string,
+			qos courier.QOSLevel,
+			retained bool,
+			message interface{},
+		) error {
 			opts := []trace.SpanOption{
 				trace.WithAttributes(MQTTTopic.String(topic)),
 				trace.WithAttributes(MQTTQoS.Int(int(qos))),
@@ -36,6 +42,7 @@ func (m *Middleware) Publisher() courier.PublisherMiddlewareFunc {
 				span.RecordError(err)
 				span.SetStatus(codes.Error, publishErrMessage)
 			}
+
 			return err
 		})
 	}

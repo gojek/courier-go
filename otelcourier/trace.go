@@ -22,10 +22,12 @@ func NewMiddleware(service string, opts ...Option) *Middleware {
 	for _, opt := range opts {
 		opt(&mo)
 	}
+
 	tracer := mo.tracerProvider.Tracer(
 		tracerName,
 		trace.WithInstrumentationVersion("semver:"+courier.Version()),
 	)
+
 	return &Middleware{
 		service:                service,
 		tracer:                 tracer,

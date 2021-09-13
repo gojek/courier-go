@@ -36,7 +36,10 @@ var (
 	histograms = []string{metricRunDuration}
 )
 
-// NewPrometheus creates a PrometheusMetrics instance which implements the Metrics interface
+// NewPrometheus creates a PrometheusMetrics instance which implements the Metrics interface.
+//
+// Deprecated: Use Middlewares (courier.PublisherMiddlewareFunc, courier.SubscriberMiddlewareFunc
+// and/or courier.UnsubscriberMiddlewareFunc) to instrument calls.
 func NewPrometheus() *PrometheusMetrics {
 	return &PrometheusMetrics{
 		operationMap: map[Operation]*Aggregator{
@@ -82,7 +85,7 @@ func (p *PrometheusMetrics) Update(r Result) {
 	}
 }
 
-// AddToRegistry is used to register the collectors with a prometheus.Registerer
+// AddToRegistry is used to register the collectors with a prometheus.Registerer.
 func (p *PrometheusMetrics) AddToRegistry(registerer prometheus.Registerer) error {
 	for s, op := range p.operationMap {
 		for _, c := range counters {

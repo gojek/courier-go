@@ -60,6 +60,9 @@ issues:
   exclude:
     - declaration of "(err|ctx)" shadows declaration at
   exclude-rules:
+    - text: "^SA1019: .* is deprecated:"
+      linters:
+        - staticcheck
     - path: _test\.go
       linters:
         - dupl

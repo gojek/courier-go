@@ -41,7 +41,10 @@ type Aggregator struct {
 	RunDuration Histogram
 }
 
-// Collector handles the metric updates
+// Collector handles the metric updates.
+//
+// Deprecated: Use Middlewares (courier.PublisherMiddlewareFunc, courier.SubscriberMiddlewareFunc
+// and/or courier.UnsubscriberMiddlewareFunc) to instrument calls.
 type Collector interface {
 	// Update is called on every Operation performed,
 	// this method should handle any read/write in a concurrency safe manner

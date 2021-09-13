@@ -134,6 +134,9 @@ func WithGracefulShutdownPeriod(duration time.Duration) Option {
 }
 
 // WithCustomMetrics allows to configure the metrics collector of choice
+//
+// Deprecated: Use Middlewares (PublisherMiddlewareFunc, SubscriberMiddlewareFunc and/or UnsubscriberMiddlewareFunc)
+// to instrument calls.
 func WithCustomMetrics(collector metrics.Collector) Option {
 	return func(o *options) {
 		o.metricsCollector = collector

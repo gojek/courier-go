@@ -6,18 +6,10 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stretchr/testify/suite"
+	"github.com/stretchr/testify/assert"
 )
 
-type jsonEncoderSuite struct {
-	suite.Suite
-}
-
-func Test_jsonEncoderSuite(t *testing.T) {
-	suite.Run(t, new(jsonEncoderSuite))
-}
-
-func (s *jsonEncoderSuite) TestEncode() {
+func Test_defaultEncoderFunc(t *testing.T) {
 	validObj := struct {
 		Key   string `json:"key"`
 		Value int64  `json:"value"`
@@ -47,20 +39,21 @@ func (s *jsonEncoderSuite) TestEncode() {
 			},
 		},
 	}
+
 	for _, tt := range tests {
-		s.Run(tt.name, func() {
+		t.Run(tt.name, func(t *testing.T) {
 			wantBuf, wantErr := tt.want()
 
 			buf := bytes.Buffer{}
-			j := jsonEncoder{w: &buf}
+			j := defaultEncoderFunc(&buf)
 			err := j.Encode(tt.obj)
 
 			if wantErr != nil {
-				s.Error(err)
+				assert.Error(t, err)
 			} else {
-				s.NoError(err)
+				assert.NoError(t, err)
 			}
-			s.Equal(wantBuf.Bytes(), buf.Bytes())
+			assert.Equal(t, wantBuf.Bytes(), buf.Bytes())
 		})
 	}
 }

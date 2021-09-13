@@ -15,13 +15,5 @@ type Encoder interface {
 }
 
 func defaultEncoderFunc(w io.Writer) Encoder {
-	return &jsonEncoder{w: w}
-}
-
-type jsonEncoder struct {
-	w io.Writer
-}
-
-func (j jsonEncoder) Encode(v interface{}) error {
-	return json.NewEncoder(j.w).Encode(v)
+	return json.NewEncoder(w)
 }

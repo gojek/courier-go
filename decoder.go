@@ -17,17 +17,9 @@ type Decoder interface {
 }
 
 func defaultDecoderFunc(r io.Reader) Decoder {
-	return &jsonDecoder{r: r}
+	return json.NewDecoder(r)
 }
 
 func base64JsonDecoder(r io.Reader) Decoder {
-	return &jsonDecoder{r: base64.NewDecoder(base64.StdEncoding, r)}
-}
-
-type jsonDecoder struct {
-	r io.Reader
-}
-
-func (jd *jsonDecoder) Decode(v interface{}) error {
-	return json.NewDecoder(jd.r).Decode(v)
+	return json.NewDecoder(base64.NewDecoder(base64.StdEncoding, r))
 }

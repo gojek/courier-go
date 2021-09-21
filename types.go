@@ -21,4 +21,4 @@ type OnReconnectHandler func(PubSub)
 
 // MessageHandler is the type that all callbacks being passed
 // to Subscriber must satisfy.
-type MessageHandler func(context.Context, PubSub, Decoder)
+type MessageHandler func(context.Context, PubSub, *Message)

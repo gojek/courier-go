@@ -2,9 +2,7 @@ package otelcourier
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,7 +30,7 @@ func TestSubscribeTraceSpan(t *testing.T) {
 		},
 	))
 
-	err := u.Subscribe(context.Background(), "test-topic", courier.QOSOne, func(_ context.Context, _ courier.PubSub, _ courier.Decoder) {})
+	err := u.Subscribe(context.Background(), "test-topic", courier.QOSOne, func(_ context.Context, _ courier.PubSub, _ *courier.Message) {})
 	assert.EqualError(t, err, uErr.Error())
 
 	spans := sr.Completed()
@@ -74,7 +72,7 @@ func TestSubscribeMultipleTraceSpan(t *testing.T) {
 	err := u.SubscribeMultiple(context.Background(), map[string]courier.QOSLevel{
 		"test-topic-1": courier.QOSOne,
 		"test-topic-2": courier.QOSTwo,
-	}, func(_ context.Context, _ courier.PubSub, _ courier.Decoder) {})
+	}, func(_ context.Context, _ courier.PubSub, _ *courier.Message) {})
 	assert.EqualError(t, err, uErr.Error())
 
 	spans := sr.Completed()
@@ -117,10 +115,10 @@ func Test_instrumentCallback(t *testing.T) {
 	tp := oteltest.NewTracerProvider(oteltest.WithSpanRecorder(sr))
 	m := NewMiddleware("test-service", WithTracerProvider(tp))
 
-	callback := m.instrumentCallback(func(_ context.Context, _ courier.PubSub, _ courier.Decoder) {})
+	callback := m.instrumentCallback(func(_ context.Context, _ courier.PubSub, _ *courier.Message) {})
 
 	c, _ := courier.NewClient()
-	callback(context.Background(), c, json.NewDecoder(strings.NewReader("test-injection")))
+	callback(context.Background(), c, &courier.Message{})
 
 	spans := sr.Completed()
 	require.Len(t, spans, 1)
@@ -133,10 +131,10 @@ func Test_instrumentCallbackDisabled(t *testing.T) {
 	tp := oteltest.NewTracerProvider(oteltest.WithSpanRecorder(sr))
 	m := NewMiddleware("test-service", WithTracerProvider(tp), WithCallbackTracingDisabled())
 
-	callback := m.instrumentCallback(func(_ context.Context, _ courier.PubSub, _ courier.Decoder) {})
+	callback := m.instrumentCallback(func(_ context.Context, _ courier.PubSub, _ *courier.Message) {})
 
 	c, _ := courier.NewClient()
-	callback(context.Background(), c, json.NewDecoder(strings.NewReader("test-injection")))
+	callback(context.Background(), c, &courier.Message{})
 
 	spans := sr.Completed()
 	require.Len(t, spans, 0)

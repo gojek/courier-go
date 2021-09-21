@@ -15,10 +15,6 @@ import (
 // in range (0, 2^16), this coincides with max number of in-flight messages
 type Store = mqtt.Store
 
-// Message defines the externals that a message implementation must support.
-// These are received messages that are passed to the callbacks, not internal messages
-type Message = mqtt.Message
-
 // NewMemoryStore returns a pointer to a new instance of
 // mqtt.MemoryStore, the instance is not initialized and ready to
 // use until Open() has been called on it.

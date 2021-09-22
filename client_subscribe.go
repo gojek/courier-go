@@ -65,15 +65,23 @@ func subscriberFuncs(c *Client) Subscriber {
 }
 
 func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
-	return func(_ mqtt.Client, message mqtt.Message) {
+	return func(_ mqtt.Client, m mqtt.Message) {
 		w := &eventWrapper{types: attemptEvent}
 
 		defer func(begin time.Time) {
 			c.reportEvents(metrics.CallbackOp, w, time.Since(begin))
 		}(time.Now())
 
-		d := c.options.newDecoder(bytes.NewReader(message.Payload()))
-		callback(context.Background(), c, d)
+		msg := NewMessageWithDecoder(
+			c.options.newDecoder(bytes.NewReader(m.Payload())),
+		)
+		msg.ID = int(m.MessageID())
+		msg.Topic = m.Topic()
+		msg.Duplicate = m.Duplicate()
+		msg.Retained = m.Retained()
+		msg.QoS = QOSLevel(m.Qos())
+
+		callback(context.Background(), c, msg)
 
 		w.types |= successEvent
 	}

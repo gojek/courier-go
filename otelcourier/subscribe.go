@@ -71,7 +71,7 @@ func (m *Middleware) instrumentCallback(in courier.MessageHandler) courier.Messa
 		return in
 	}
 
-	return func(ctx context.Context, pubSub courier.PubSub, decoder courier.Decoder) {
+	return func(ctx context.Context, pubSub courier.PubSub, msg *courier.Message) {
 		spanName := "UnknownSubscribeCallback"
 		if fnPtr := runtime.FuncForPC(reflect.ValueOf(in).Pointer()); fnPtr != nil {
 			spanName = fnPtr.Name()
@@ -80,7 +80,7 @@ func (m *Middleware) instrumentCallback(in courier.MessageHandler) courier.Messa
 		ctx, span := m.tracer.Start(ctx, spanName)
 		defer span.End()
 
-		in(ctx, pubSub, decoder)
+		in(ctx, pubSub, msg)
 	}
 }
 

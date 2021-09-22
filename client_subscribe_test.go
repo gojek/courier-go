@@ -22,7 +22,7 @@ func TestClientSubscriberSuite(t *testing.T) {
 }
 
 func (s *ClientSubscribeSuite) TestSubscribe() {
-	callback := func(_ context.Context, _ PubSub, _ Decoder) {}
+	callback := func(_ context.Context, _ PubSub, _ *Message) {}
 	testcases := []struct {
 		name           string
 		pahoMock       func(*mock.Mock) *mockToken
@@ -124,7 +124,7 @@ func (s *ClientSubscribeSuite) TestSubscribe() {
 }
 
 func (s *ClientSubscribeSuite) TestSubscribeMultiple() {
-	callback := func(_ context.Context, _ PubSub, _ Decoder) {}
+	callback := func(_ context.Context, _ PubSub, _ *Message) {}
 	topics := map[string]QOSLevel{"topic": QOSOne}
 	testcases := []struct {
 		name           string
@@ -228,7 +228,7 @@ func (s *ClientSubscribeSuite) TestSubscribeMultiple() {
 }
 
 func (s *ClientSubscribeSuite) TestSubscribeMiddleware() {
-	callback := func(_ context.Context, _ PubSub, _ Decoder) {}
+	callback := func(_ context.Context, _ PubSub, _ *Message) {}
 	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
 	s.NoError(err)
 
@@ -290,17 +290,28 @@ func (s *ClientSubscribeSuite) Test_callbackWrapper() {
 	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
 	s.NoError(err)
 
-	f := callbackWrapper(c, func(_ context.Context, _ PubSub, _ Decoder) {
-		s.T().Logf("callback called")
+	f := callbackWrapper(c, func(_ context.Context, _ PubSub, m *Message) {
+		s.True(m.Retained)
+		s.True(m.Duplicate)
+		s.Equal(QOSOne, m.QoS)
+		s.Equal("test", m.Topic)
+		s.Equal(1, m.ID)
+
+		var mp map[string]interface{}
+		s.NoError(m.DecodePayload(&mp))
+
+		val, ok := mp["key"]
+		s.True(ok)
+		s.Equal("value", val)
 	})
 
 	f(c.mqttClient, &testMsg{
-		duplicate: false,
+		duplicate: true,
 		qos:       1,
-		retained:  false,
+		retained:  true,
 		topic:     "test",
 		messageID: 1,
-		payload:   []byte(`payload`),
+		payload:   []byte(`{"key":"value"}`),
 		once:      sync.Once{},
 		ack:       func() {},
 	})

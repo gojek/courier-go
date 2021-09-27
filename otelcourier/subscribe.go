@@ -8,7 +8,7 @@ import (
 	"sort"
 
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/semconv"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
 
 	courier "***REMOVED***"
@@ -21,53 +21,48 @@ const (
 	subscribeMultipleErrMessage = "subscribe multiple error"
 )
 
-// Subscriber returns a courier.SubscriberMiddlewareFunc which can be used
-// to add OpenTelemetry based tracing to courier.Subscriber
-func (m *Middleware) Subscriber() courier.SubscriberMiddlewareFunc {
-	return func(next courier.Subscriber) courier.Subscriber {
-		// This function will wrap the base courier.Publisher and use trace.Tracer to start a trace.Span
-		return courier.NewSubscriberFuncs(
-			func(ctx context.Context, topic string, qos courier.QOSLevel, callback courier.MessageHandler) error {
-				opts := []trace.SpanOption{
-					trace.WithAttributes(MQTTTopic.String(topic)),
-					trace.WithAttributes(MQTTQoS.Int(int(qos))),
-					trace.WithAttributes(semconv.ServiceNameKey.String(m.service)),
-					trace.WithSpanKind(trace.SpanKindClient),
-				}
-				ctx, span := m.tracer.Start(ctx, subscribeSpanName, opts...)
-				defer span.End()
+func (t *Tracer) subscriber(next courier.Subscriber) courier.Subscriber {
+	return courier.NewSubscriberFuncs(
+		func(ctx context.Context, topic string, qos courier.QOSLevel, callback courier.MessageHandler) error {
+			opts := []trace.SpanStartOption{
+				trace.WithAttributes(MQTTTopic.String(topic)),
+				trace.WithAttributes(MQTTQoS.Int(int(qos))),
+				trace.WithAttributes(semconv.ServiceNameKey.String(t.service)),
+				trace.WithSpanKind(trace.SpanKindClient),
+			}
+			ctx, span := t.tracer.Start(ctx, subscribeSpanName, opts...)
+			defer span.End()
 
-				err := next.Subscribe(ctx, topic, qos, m.instrumentCallback(callback))
-				if err != nil {
-					span.RecordError(err)
-					span.SetStatus(codes.Error, subscribeErrMessage)
-				}
+			err := next.Subscribe(ctx, topic, qos, t.instrumentCallback(callback))
+			if err != nil {
+				span.RecordError(err)
+				span.SetStatus(codes.Error, subscribeErrMessage)
+			}
 
-				return err
-			},
-			func(ctx context.Context, topicsWithQos map[string]courier.QOSLevel, callback courier.MessageHandler) error {
-				opts := []trace.SpanOption{
-					trace.WithAttributes(MQTTTopicWithQoS.Array(mapToArray(topicsWithQos))),
-					trace.WithAttributes(semconv.ServiceNameKey.String(m.service)),
-					trace.WithSpanKind(trace.SpanKindClient),
-				}
-				ctx, span := m.tracer.Start(ctx, subscribeMultipleSpanName, opts...)
-				defer span.End()
+			return err
+		},
+		func(ctx context.Context, topicsWithQos map[string]courier.QOSLevel, callback courier.MessageHandler) error {
+			opts := []trace.SpanStartOption{
+				trace.WithAttributes(MQTTTopicWithQoS.StringSlice(mapToArray(topicsWithQos))),
+				trace.WithAttributes(semconv.ServiceNameKey.String(t.service)),
+				trace.WithSpanKind(trace.SpanKindClient),
+			}
+			ctx, span := t.tracer.Start(ctx, subscribeMultipleSpanName, opts...)
+			defer span.End()
 
-				err := next.SubscribeMultiple(ctx, topicsWithQos, m.instrumentCallback(callback))
-				if err != nil {
-					span.RecordError(err)
-					span.SetStatus(codes.Error, subscribeMultipleErrMessage)
-				}
+			err := next.SubscribeMultiple(ctx, topicsWithQos, t.instrumentCallback(callback))
+			if err != nil {
+				span.RecordError(err)
+				span.SetStatus(codes.Error, subscribeMultipleErrMessage)
+			}
 
-				return err
-			},
-		)
-	}
+			return err
+		},
+	)
 }
 
-func (m *Middleware) instrumentCallback(in courier.MessageHandler) courier.MessageHandler {
-	if m.disableCallbackTracing {
+func (t *Tracer) instrumentCallback(in courier.MessageHandler) courier.MessageHandler {
+	if !t.tracePaths.match(traceCallback) {
 		return in
 	}
 
@@ -77,7 +72,7 @@ func (m *Middleware) instrumentCallback(in courier.MessageHandler) courier.Messa
 			spanName = fnPtr.Name()
 		}
 
-		ctx, span := m.tracer.Start(ctx, spanName)
+		ctx, span := t.tracer.Start(ctx, spanName)
 		defer span.End()
 
 		in(ctx, pubSub, msg)

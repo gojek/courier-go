@@ -7,24 +7,20 @@ import (
 	"syscall"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/oteltest"
+	"go.opentelemetry.io/otel/sdk/trace"
 
 	courier "***REMOVED***"
 	"***REMOVED***/otelcourier"
 )
 
-func ExampleNewMiddleware() {
-	tp := oteltest.NewTracerProvider()
-
-	// import "go.opentelemetry.io/otel/sdk/trace"
-	//
-	// tp := trace.NewTracerProvider()
-	// defer tp.Shutdown(context.Background())
+func ExampleNewTracer() {
+	tp := trace.NewTracerProvider()
+	defer tp.Shutdown(context.Background())
 
 	otel.SetTracerProvider(tp)
 
 	c, _ := courier.NewClient()
-	otelcourier.InstrumentClient(c, otelcourier.NewMiddleware("service-name"))
+	otelcourier.NewTracer("service-name").ApplyTraceMiddlewares(c)
 
 	if err := c.Start(); err != nil {
 		panic(err)

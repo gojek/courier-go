@@ -12,6 +12,14 @@ var inMemoryPersistence = NewMemoryStore()
 // Option allows to configure the behaviour of a Client
 type Option func(*options)
 
+// WithClientID sets the clientID to be used while connecting to an MQTT broker.
+//According to the MQTT v3.1 specification, a client id must be no longer than 23 characters.
+func WithClientID(clientID string) Option {
+	return func(o *options) {
+		o.clientID = clientID
+	}
+}
+
 // WithUsername sets the username to be used while connecting to an MQTT broker
 func WithUsername(username string) Option {
 	return func(o *options) {
@@ -174,7 +182,7 @@ func WithUseBase64Decoder() Option {
 }
 
 type options struct {
-	username, password,
+	username, clientID, password,
 	brokerAddress string
 
 	autoReconnect, maintainOrder, cleanSession bool

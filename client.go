@@ -108,8 +108,10 @@ func (c *Client) handleToken(t mqtt.Token, w *eventWrapper, timeoutErr error) er
 func toClientOptions(c *Client, o *options) *mqtt.ClientOptions {
 	opts := mqtt.NewClientOptions()
 
-	if hostname, err := os.Hostname(); err == nil {
+	if hostname, err := os.Hostname(); o.clientID == "" && err == nil {
 		opts.SetClientID(hostname)
+	} else {
+		opts.SetClientID(o.clientID)
 	}
 
 	opts.AddBroker(o.brokerAddress).

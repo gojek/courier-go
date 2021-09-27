@@ -32,7 +32,7 @@ func (s *ClientSuite) TestStart() {
 
 	defOpts := []Option{WithOnConnect(func(_ PubSub) {
 		s.T().Logf("connected")
-	}), WithCustomMetrics(metrics.NewPrometheus())}
+	}), WithCustomMetrics(metrics.NewPrometheus()), WithClientID("clientID")}
 
 	if brokerAddress != "" {
 		list := strings.Split(brokerAddress, ":")

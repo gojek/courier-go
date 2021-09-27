@@ -6,7 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/oteltest"
+	"go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	oteltrace "go.opentelemetry.io/otel/trace"
 
 	courier "***REMOVED***"
@@ -14,13 +15,16 @@ import (
 )
 
 func TestChildSpanFromGlobalTracer(t *testing.T) {
-	otel.SetTracerProvider(oteltest.NewTracerProvider())
+	tp := trace.NewTracerProvider()
+	sr := tracetest.NewSpanRecorder()
+	tp.RegisterSpanProcessor(sr)
+	otel.SetTracerProvider(tp)
 
-	mwf := NewMiddleware("test-service")
+	mwf := NewTracer("test-service")
 
-	p := mwf.Publisher().Middleware(courier.PublisherFunc(func(ctx context.Context, topic string, qos courier.QOSLevel, retained bool, message interface{}) error {
+	p := mwf.publisher(courier.PublisherFunc(func(ctx context.Context, topic string, qos courier.QOSLevel, retained bool, message interface{}) error {
 		span := oteltrace.SpanFromContext(ctx)
-		_, ok := span.(*oteltest.Span)
+		_, ok := span.(trace.ReadWriteSpan)
 		assert.True(t, ok)
 		return nil
 	}))
@@ -30,12 +34,15 @@ func TestChildSpanFromGlobalTracer(t *testing.T) {
 }
 
 func TestChildSpanFromCustomTracer(t *testing.T) {
-	tp := oteltest.NewTracerProvider()
-	m := NewMiddleware("test-service", WithTracerProvider(tp))
+	tp := trace.NewTracerProvider()
+	sr := tracetest.NewSpanRecorder()
+	tp.RegisterSpanProcessor(sr)
 
-	p := m.Publisher().Middleware(courier.PublisherFunc(func(ctx context.Context, topic string, qos courier.QOSLevel, retained bool, message interface{}) error {
+	m := NewTracer("test-service", WithTracerProvider(tp))
+
+	p := m.publisher(courier.PublisherFunc(func(ctx context.Context, topic string, qos courier.QOSLevel, retained bool, message interface{}) error {
 		span := oteltrace.SpanFromContext(ctx)
-		_, ok := span.(*oteltest.Span)
+		_, ok := span.(trace.ReadWriteSpan)
 		assert.True(t, ok)
 		return nil
 	}))
@@ -45,9 +52,12 @@ func TestChildSpanFromCustomTracer(t *testing.T) {
 }
 
 func TestInstrumentClient(t *testing.T) {
-	tp := oteltest.NewTracerProvider()
-	m := NewMiddleware("test-service", WithTracerProvider(tp))
+	tp := trace.NewTracerProvider()
+	sr := tracetest.NewSpanRecorder()
+	tp.RegisterSpanProcessor(sr)
+
+	tr := NewTracer("test-service", WithTracerProvider(tp))
 	c, err := courier.NewClient(courier.WithCustomMetrics(metrics.NewPrometheus()))
 	assert.NoError(t, err)
-	InstrumentClient(c, m)
+	tr.ApplyTraceMiddlewares(c)
 }

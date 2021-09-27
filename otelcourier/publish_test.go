@@ -3,49 +3,64 @@ package otelcourier
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/oteltest"
-	"go.opentelemetry.io/otel/semconv"
+	"go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 
 	courier "***REMOVED***"
 )
 
 func TestPublishTraceSpan(t *testing.T) {
-	sr := new(oteltest.SpanRecorder)
-	tp := oteltest.NewTracerProvider(oteltest.WithSpanRecorder(sr))
-	mwf := NewMiddleware("test-service", WithTracerProvider(tp))
+	tp := trace.NewTracerProvider()
+	sr := tracetest.NewSpanRecorder()
+	tp.RegisterSpanProcessor(sr)
+
+	mwf := NewTracer("test-service", WithTracerProvider(tp))
 	uErr := errors.New("error_from_upstream")
 
-	p := mwf.Publisher().Middleware(courier.PublisherFunc(func(ctx context.Context, topic string, qos courier.QOSLevel, retained bool, message interface{}) error {
+	p := mwf.publisher(courier.PublisherFunc(func(ctx context.Context, topic string, qos courier.QOSLevel, retained bool, message interface{}) error {
 		return uErr
 	}))
 
 	err := p.Publish(context.Background(), "test-topic", courier.QOSOne, false, "hello-world")
 	assert.EqualError(t, err, uErr.Error())
 
-	spans := sr.Completed()
+	spans := sr.Ended()
 	require.Len(t, spans, 1)
 	span := spans[0]
 
 	t.Run("Attributes", func(t *testing.T) {
-		attrs := span.Attributes()
+		got := attribute.NewSet(span.Attributes()...)
+		expected := attribute.NewSet([]attribute.KeyValue{
+			semconv.ServiceNameKey.String("test-service"),
+			MQTTTopic.String("test-topic"),
+			MQTTQoS.Int(1),
+			MQTTRetained.Bool(false),
+		}...)
+
+		assert.Equal(t, expected, got)
 		assert.Equal(t, publishSpanName, span.Name())
 		assert.Equal(t, oteltrace.SpanKindProducer, span.SpanKind())
-		assert.Equal(t, semconv.ServiceNameKey.String("test-service").Value, attrs[semconv.ServiceNameKey])
-		assert.Equal(t, MQTTTopic.String("test-topic").Value, attrs[MQTTTopic])
-		assert.Equal(t, MQTTQoS.Int(1).Value, attrs[MQTTQoS])
-		assert.Equal(t, MQTTRetained.Bool(false).Value, attrs[MQTTRetained])
 	})
 
 	t.Run("Events", func(t *testing.T) {
-		assert.Equal(t, semconv.ExceptionMessageKey.String(uErr.Error()).Value, span.Events()[0].Attributes[semconv.ExceptionMessageKey])
-		assert.Equal(t, codes.Error, span.StatusCode())
-		assert.Equal(t, publishErrMessage, span.StatusMessage())
+		got := attribute.NewSet(span.Events()[0].Attributes...)
+		expected := attribute.NewSet([]attribute.KeyValue{
+			semconv.ExceptionMessageKey.String(uErr.Error()),
+			semconv.ExceptionTypeKey.String(reflect.TypeOf(uErr).String()),
+		}...)
+
+		assert.Equal(t, expected, got)
+		assert.Equal(t, codes.Error, span.Status().Code)
+		assert.Equal(t, publishErrMessage, span.Status().Description)
 	})
 }
 

@@ -1,7 +1,6 @@
 package otelcourier
 
 import (
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 
 	courier "***REMOVED***"
@@ -11,33 +10,43 @@ const (
 	tracerName = "***REMOVED***/otelcourier"
 )
 
-type Middleware struct {
-	service                string
-	tracer                 trace.Tracer
-	disableCallbackTracing bool
+type Tracer struct {
+	service    string
+	tracer     trace.Tracer
+	tracePaths tracePath
 }
 
-func NewMiddleware(service string, opts ...Option) *Middleware {
-	mo := middlewareOptions{tracerProvider: otel.GetTracerProvider()}
+// NewTracer creates a new Tracer with Option(s).
+func NewTracer(service string, opts ...Option) *Tracer {
+	to := defaultOptions()
+
 	for _, opt := range opts {
-		opt(&mo)
+		opt(to)
 	}
 
-	tracer := mo.tracerProvider.Tracer(
+	tracer := to.tracerProvider.Tracer(
 		tracerName,
 		trace.WithInstrumentationVersion("semver:"+courier.Version()),
 	)
 
-	return &Middleware{
-		service:                service,
-		tracer:                 tracer,
-		disableCallbackTracing: mo.disableCallbackTracing,
+	return &Tracer{
+		service:    service,
+		tracer:     tracer,
+		tracePaths: to.tracePaths,
 	}
 }
 
-// InstrumentClient will instrument all the operations of a courier.Client instance
-func InstrumentClient(c *courier.Client, m *Middleware) {
-	c.UsePublisherMiddleware(m.Publisher())
-	c.UseSubscriberMiddleware(m.Subscriber())
-	c.UseUnsubscriberMiddleware(m.Unsubscriber())
+// ApplyTraceMiddlewares will instrument all the operations of a courier.Client instance
+func (t *Tracer) ApplyTraceMiddlewares(c *courier.Client) {
+	if t.tracePaths.match(tracePublisher) {
+		c.UsePublisherMiddleware(t.publisher)
+	}
+
+	if t.tracePaths.match(traceSubscriber) {
+		c.UseSubscriberMiddleware(t.subscriber)
+	}
+
+	if t.tracePaths.match(traceUnsubsriber) {
+		c.UseUnsubscriberMiddleware(t.unsubscriber)
+	}
 }

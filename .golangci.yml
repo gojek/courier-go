@@ -38,6 +38,7 @@ run:
   skip-files:
     - .*mock.*\.go$
     - version.go
+    - example_test.go
   modules-download-mode: readonly
 linters-settings:
   govet:

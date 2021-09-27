@@ -3,25 +3,30 @@ package otelcourier
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/oteltest"
-	"go.opentelemetry.io/otel/semconv"
+	"go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 
 	courier "***REMOVED***"
 )
 
 func TestSubscribeTraceSpan(t *testing.T) {
-	sr := new(oteltest.SpanRecorder)
-	tp := oteltest.NewTracerProvider(oteltest.WithSpanRecorder(sr))
-	mwf := NewMiddleware("test-service", WithTracerProvider(tp))
+	tp := trace.NewTracerProvider()
+	sr := tracetest.NewSpanRecorder()
+	tp.RegisterSpanProcessor(sr)
+
+	mwf := NewTracer("test-service", WithTracerProvider(tp))
 	uErr := errors.New("error_from_upstream")
 
-	u := mwf.Subscriber().Middleware(courier.NewSubscriberFuncs(
+	u := mwf.subscriber(courier.NewSubscriberFuncs(
 		func(_ context.Context, _ string, _ courier.QOSLevel, _ courier.MessageHandler) error {
 			return uErr
 		},
@@ -33,34 +38,47 @@ func TestSubscribeTraceSpan(t *testing.T) {
 	err := u.Subscribe(context.Background(), "test-topic", courier.QOSOne, func(_ context.Context, _ courier.PubSub, _ *courier.Message) {})
 	assert.EqualError(t, err, uErr.Error())
 
-	spans := sr.Completed()
+	spans := sr.Ended()
 	require.Len(t, spans, 1)
 
 	span := spans[0]
 
 	t.Run("Attributes", func(t *testing.T) {
-		attrs := span.Attributes()
 		assert.Equal(t, subscribeSpanName, span.Name())
 		assert.Equal(t, oteltrace.SpanKindClient, span.SpanKind())
-		assert.Equal(t, semconv.ServiceNameKey.String("test-service").Value, attrs[semconv.ServiceNameKey])
-		assert.Equal(t, MQTTTopic.String("test-topic").Value, attrs[MQTTTopic])
-		assert.Equal(t, MQTTQoS.Int(1).Value, attrs[MQTTQoS])
+
+		got := attribute.NewSet(span.Attributes()...)
+		expected := attribute.NewSet([]attribute.KeyValue{
+			semconv.ServiceNameKey.String("test-service"),
+			MQTTTopic.String("test-topic"),
+			MQTTQoS.Int(1),
+		}...)
+
+		assert.Equal(t, expected, got)
 	})
 
 	t.Run("Events", func(t *testing.T) {
-		assert.Equal(t, semconv.ExceptionMessageKey.String(uErr.Error()).Value, span.Events()[0].Attributes[semconv.ExceptionMessageKey])
-		assert.Equal(t, codes.Error, span.StatusCode())
-		assert.Equal(t, subscribeErrMessage, span.StatusMessage())
+		got := attribute.NewSet(span.Events()[0].Attributes...)
+		expected := attribute.NewSet([]attribute.KeyValue{
+			semconv.ExceptionMessageKey.String(uErr.Error()),
+			semconv.ExceptionTypeKey.String(reflect.TypeOf(uErr).String()),
+		}...)
+
+		assert.Equal(t, expected, got)
+		assert.Equal(t, codes.Error, span.Status().Code)
+		assert.Equal(t, subscribeErrMessage, span.Status().Description)
 	})
 }
 
 func TestSubscribeMultipleTraceSpan(t *testing.T) {
-	sr := new(oteltest.SpanRecorder)
-	tp := oteltest.NewTracerProvider(oteltest.WithSpanRecorder(sr))
-	mwf := NewMiddleware("test-service", WithTracerProvider(tp))
+	tp := trace.NewTracerProvider()
+	sr := tracetest.NewSpanRecorder()
+	tp.RegisterSpanProcessor(sr)
+
+	mwf := NewTracer("test-service", WithTracerProvider(tp))
 	uErr := errors.New("error_from_upstream")
 
-	u := mwf.Subscriber().Middleware(courier.NewSubscriberFuncs(
+	u := mwf.subscriber(courier.NewSubscriberFuncs(
 		func(_ context.Context, _ string, _ courier.QOSLevel, _ courier.MessageHandler) error {
 			return nil
 		},
@@ -75,26 +93,36 @@ func TestSubscribeMultipleTraceSpan(t *testing.T) {
 	}, func(_ context.Context, _ courier.PubSub, _ *courier.Message) {})
 	assert.EqualError(t, err, uErr.Error())
 
-	spans := sr.Completed()
+	spans := sr.Ended()
 	require.Len(t, spans, 1)
 
 	span := spans[0]
 
 	t.Run("Attributes", func(t *testing.T) {
-		attrs := span.Attributes()
+		got := attribute.NewSet(span.Attributes()...)
+		expected := attribute.NewSet([]attribute.KeyValue{
+			semconv.ServiceNameKey.String("test-service"),
+			MQTTTopicWithQoS.StringSlice([]string{
+				"test-topic-1 | qos[1]",
+				"test-topic-2 | qos[2]",
+			}),
+		}...)
+
+		assert.Equal(t, expected, got)
 		assert.Equal(t, subscribeMultipleSpanName, span.Name())
 		assert.Equal(t, oteltrace.SpanKindClient, span.SpanKind())
-		assert.Equal(t, semconv.ServiceNameKey.String("test-service").Value, attrs[semconv.ServiceNameKey])
-		assert.Equal(t, MQTTTopicWithQoS.Array([]string{
-			"test-topic-1 | qos[1]",
-			"test-topic-2 | qos[2]",
-		}).Value, attrs[MQTTTopicWithQoS])
 	})
 
 	t.Run("Events", func(t *testing.T) {
-		assert.Equal(t, semconv.ExceptionMessageKey.String(uErr.Error()).Value, span.Events()[0].Attributes[semconv.ExceptionMessageKey])
-		assert.Equal(t, codes.Error, span.StatusCode())
-		assert.Equal(t, subscribeMultipleErrMessage, span.StatusMessage())
+		got := attribute.NewSet(span.Events()[0].Attributes...)
+		expected := attribute.NewSet([]attribute.KeyValue{
+			semconv.ExceptionMessageKey.String(uErr.Error()),
+			semconv.ExceptionTypeKey.String(reflect.TypeOf(uErr).String()),
+		}...)
+
+		assert.Equal(t, expected, got)
+		assert.Equal(t, codes.Error, span.Status().Code)
+		assert.Equal(t, subscribeMultipleErrMessage, span.Status().Description)
 	})
 }
 
@@ -111,31 +139,35 @@ func TestSubscriberSpanNotInstrumented(t *testing.T) {
 }
 
 func Test_instrumentCallback(t *testing.T) {
-	sr := new(oteltest.SpanRecorder)
-	tp := oteltest.NewTracerProvider(oteltest.WithSpanRecorder(sr))
-	m := NewMiddleware("test-service", WithTracerProvider(tp))
+	tp := trace.NewTracerProvider()
+	sr := tracetest.NewSpanRecorder()
+	tp.RegisterSpanProcessor(sr)
+
+	m := NewTracer("test-service", WithTracerProvider(tp))
 
 	callback := m.instrumentCallback(func(_ context.Context, _ courier.PubSub, _ *courier.Message) {})
 
 	c, _ := courier.NewClient()
 	callback(context.Background(), c, &courier.Message{})
 
-	spans := sr.Completed()
+	spans := sr.Ended()
 	require.Len(t, spans, 1)
 	span := spans[0]
 	assert.Equal(t, "***REMOVED***/otelcourier.Test_instrumentCallback.func1", span.Name())
 }
 
 func Test_instrumentCallbackDisabled(t *testing.T) {
-	sr := new(oteltest.SpanRecorder)
-	tp := oteltest.NewTracerProvider(oteltest.WithSpanRecorder(sr))
-	m := NewMiddleware("test-service", WithTracerProvider(tp), WithCallbackTracingDisabled())
+	tp := trace.NewTracerProvider()
+	sr := tracetest.NewSpanRecorder()
+	tp.RegisterSpanProcessor(sr)
+
+	m := NewTracer("test-service", WithTracerProvider(tp), DisableCallbackTracing)
 
 	callback := m.instrumentCallback(func(_ context.Context, _ courier.PubSub, _ *courier.Message) {})
 
 	c, _ := courier.NewClient()
 	callback(context.Background(), c, &courier.Message{})
 
-	spans := sr.Completed()
+	spans := sr.Ended()
 	require.Len(t, spans, 0)
 }

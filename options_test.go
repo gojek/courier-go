@@ -33,6 +33,11 @@ func (s *ClientOptionSuite) Test_apply() {
 			want:   &options{username: "test"},
 		},
 		{
+			name:   "WithClientID",
+			option: WithClientID("clientID"),
+			want:   &options{clientID: "clientID"},
+		},
+		{
 			name:   "WithPassword",
 			option: WithPassword("password"),
 			want:   &options{password: "password"},

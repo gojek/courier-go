@@ -8,8 +8,6 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
-
-	"***REMOVED***/metrics"
 )
 
 type ClientUnsubscribeSuite struct {
@@ -91,7 +89,7 @@ func (s *ClientUnsubscribeSuite) TestUnsubscribe() {
 	}
 	for _, t := range testcases {
 		s.Run(t.name, func() {
-			c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+			c, err := NewClient()
 			s.NoError(err)
 
 			if t.useMiddlewares != nil {
@@ -117,7 +115,7 @@ func (s *ClientUnsubscribeSuite) TestUnsubscribe() {
 
 func (s *ClientUnsubscribeSuite) TestUnsubscribeMiddleware() {
 	topics := []string{"topic1", "topic2"}
-	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+	c, err := NewClient()
 	s.NoError(err)
 
 	mc := &mockClient{}

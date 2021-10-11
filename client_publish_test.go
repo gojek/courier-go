@@ -10,8 +10,6 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
-
-	"***REMOVED***/metrics"
 )
 
 type ClientPublishSuite struct {
@@ -114,7 +112,7 @@ func (s *ClientPublishSuite) TestPublish() {
 	}
 	for _, t := range tests {
 		s.Run(t.name, func() {
-			c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+			c, err := NewClient()
 			s.NoError(err)
 
 			if t.useMiddlewares != nil {
@@ -139,7 +137,7 @@ func (s *ClientPublishSuite) TestPublish() {
 }
 
 func (s *ClientPublishSuite) TestPublishMiddleware() {
-	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+	c, err := NewClient()
 	s.NoError(err)
 
 	mc := &mockClient{}

@@ -10,12 +10,9 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
-
-	"***REMOVED***/metrics"
 )
 
 type ClientSuite struct {
@@ -32,7 +29,7 @@ func (s *ClientSuite) TestStart() {
 
 	defOpts := []Option{WithOnConnect(func(_ PubSub) {
 		s.T().Logf("connected")
-	}), WithCustomMetrics(metrics.NewPrometheus()), WithClientID("clientID")}
+	}), WithClientID("clientID")}
 
 	if brokerAddress != "" {
 		list := strings.Split(brokerAddress, ":")
@@ -59,7 +56,7 @@ func (s *ClientSuite) TestStart() {
 		},
 		{
 			name: "ConnectWaitTimeoutError",
-			opts: []Option{WithConnectTimeout(5 * time.Second), WithCustomMetrics(metrics.NewPrometheus())},
+			opts: []Option{WithConnectTimeout(5 * time.Second)},
 			ctxFunc: func() (context.Context, context.CancelFunc) {
 				return context.WithDeadline(context.TODO(), time.Now().Add(10*time.Second))
 			},
@@ -76,7 +73,7 @@ func (s *ClientSuite) TestStart() {
 			name: "ConnectError",
 			opts: []Option{WithTCPAddress("127.0.0.1", 9999), WithOnReconnect(func(_ PubSub) {
 				s.T().Logf("reconnecting")
-			}), WithCustomMetrics(metrics.NewPrometheus())},
+			})},
 			ctxFunc: func() (context.Context, context.CancelFunc) {
 				return context.WithDeadline(context.TODO(), time.Now().Add(10*time.Second))
 			},
@@ -124,20 +121,10 @@ func TestNewClient(t *testing.T) {
 	cc, err := NewClient()
 	assert.NoError(t, err)
 	assert.NotNil(t, cc.mqttClient)
-	assert.NotNil(t, cc.options.metricsCollector)
-}
-
-func TestNewClient_prometheus_error(t *testing.T) {
-	// register one already, second register should give error
-	m := metrics.NewPrometheus()
-	_ = m.AddToRegistry(prometheus.DefaultRegisterer)
-
-	_, err := NewClient()
-	assert.Error(t, err)
 }
 
 func TestNewClient_WithOptions(t *testing.T) {
-	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+	c, err := NewClient(WithClientID("clientID"))
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 }

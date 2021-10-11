@@ -5,18 +5,14 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/prometheus/client_golang/prometheus"
-
-	"***REMOVED***/metrics"
 )
 
 var newClientFunc = mqtt.NewClient
 
 // Client allows to communicate with an MQTT broker
 type Client struct {
-	options         *options
-	metricsExchange *metricsExchange
-	mqttClient      mqtt.Client
+	options    *options
+	mqttClient mqtt.Client
 
 	publisher     Publisher
 	subscriber    Subscriber
@@ -36,22 +32,7 @@ func NewClient(opts ...Option) (*Client, error) {
 		f(o)
 	}
 
-	if o.metricsCollector == nil {
-		m := metrics.NewPrometheus()
-		if err := m.AddToRegistry(prometheus.DefaultRegisterer); err != nil {
-			return nil, err
-		}
-
-		o.metricsCollector = m
-	}
-
-	me := &metricsExchange{
-		updates:   make(chan updateEvent),
-		collector: o.metricsCollector,
-	}
-	c := &Client{options: o, metricsExchange: me}
-
-	go me.monitor()
+	c := &Client{options: o}
 
 	c.mqttClient = newClientFunc(toClientOptions(c, c.options))
 	c.publisher = publishHandler(c)
@@ -87,20 +68,14 @@ func (c *Client) Stop() {
 	c.mqttClient.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 }
 
-func (c *Client) handleToken(t mqtt.Token, w *eventWrapper, timeoutErr error) error {
+func (c *Client) handleToken(t mqtt.Token, timeoutErr error) error {
 	if !t.WaitTimeout(c.options.writeTimeout) {
-		w.types |= timeoutEvent
-
 		return timeoutErr
 	}
 
 	if err := t.Error(); err != nil {
-		w.types |= errorEvent
-
 		return err
 	}
-
-	w.types |= successEvent
 
 	return nil
 }

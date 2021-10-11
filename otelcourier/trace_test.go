@@ -11,7 +11,6 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 
 	courier "***REMOVED***"
-	"***REMOVED***/metrics"
 )
 
 func TestChildSpanFromGlobalTracer(t *testing.T) {
@@ -57,7 +56,7 @@ func TestInstrumentClient(t *testing.T) {
 	tp.RegisterSpanProcessor(sr)
 
 	tr := NewTracer("test-service", WithTracerProvider(tp))
-	c, err := courier.NewClient(courier.WithCustomMetrics(metrics.NewPrometheus()))
+	c, err := courier.NewClient()
 	assert.NoError(t, err)
 	tr.ApplyTraceMiddlewares(c)
 }

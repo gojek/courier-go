@@ -2,9 +2,6 @@ package courier
 
 import (
 	"context"
-	"time"
-
-	"***REMOVED***/metrics"
 )
 
 // Unsubscribe removes any subscription to messages from an MQTT broker
@@ -29,13 +26,8 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc) {
 
 func unsubscriberHandler(c *Client) Unsubscriber {
 	return UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
-		w := &eventWrapper{types: attemptEvent}
-		defer func(begin time.Time) {
-			c.reportEvents(metrics.UnsubscribeOp, w, time.Since(begin))
-		}(time.Now())
-
 		t := c.mqttClient.Unsubscribe(topics...)
 
-		return c.handleToken(t, w, ErrUnsubscribeTimeout)
+		return c.handleToken(t, ErrUnsubscribeTimeout)
 	})
 }

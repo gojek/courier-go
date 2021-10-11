@@ -8,8 +8,6 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/stretchr/testify/suite"
-
-	"***REMOVED***/metrics"
 )
 
 type ExponentialStartStrategySuite struct {
@@ -36,7 +34,7 @@ func (s *ExponentialStartStrategySuite) TearDownSuite() {
 }
 
 func (s *ExponentialStartStrategySuite) TestSuccessfulStartOnFirstTry() {
-	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+	c, err := NewClient()
 	s.NoError(err)
 
 	tk := &mockToken{}
@@ -59,7 +57,7 @@ func (s *ExponentialStartStrategySuite) TestSuccessfulStartOnFirstTry() {
 }
 
 func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailure() {
-	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+	c, err := NewClient()
 	s.NoError(err)
 
 	tk := &mockToken{}
@@ -92,7 +90,7 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailure() {
 }
 
 func (s *ExponentialStartStrategySuite) TestReconnectAttemptStopOnCancel() {
-	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+	c, err := NewClient()
 	s.NoError(err)
 
 	tk := &mockToken{}
@@ -124,7 +122,7 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptStopOnCancel() {
 }
 
 func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailureBeyondMaxTimeout() {
-	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+	c, err := NewClient()
 	s.NoError(err)
 
 	tk := &mockToken{}

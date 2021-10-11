@@ -9,8 +9,6 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
-
-	"***REMOVED***/metrics"
 )
 
 type ClientSubscribeSuite struct {
@@ -99,7 +97,7 @@ func (s *ClientSubscribeSuite) TestSubscribe() {
 	}
 	for _, t := range testcases {
 		s.Run(t.name, func() {
-			c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+			c, err := NewClient()
 			s.NoError(err)
 
 			if t.useMiddlewares != nil {
@@ -203,7 +201,7 @@ func (s *ClientSubscribeSuite) TestSubscribeMultiple() {
 	}
 	for _, t := range testcases {
 		s.Run(t.name, func() {
-			c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+			c, err := NewClient()
 			s.NoError(err)
 
 			if t.useMiddlewares != nil {
@@ -229,7 +227,7 @@ func (s *ClientSubscribeSuite) TestSubscribeMultiple() {
 
 func (s *ClientSubscribeSuite) TestSubscribeMiddleware() {
 	callback := func(_ context.Context, _ PubSub, _ *Message) {}
-	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+	c, err := NewClient()
 	s.NoError(err)
 
 	mc := &mockClient{}
@@ -287,7 +285,7 @@ func (tm *testSubscribeMiddleware) Middleware(s Subscriber) Subscriber {
 }
 
 func (s *ClientSubscribeSuite) Test_callbackWrapper() {
-	c, err := NewClient(WithCustomMetrics(metrics.NewPrometheus()))
+	c, err := NewClient()
 	s.NoError(err)
 
 	f := callbackWrapper(c, func(_ context.Context, _ PubSub, m *Message) {

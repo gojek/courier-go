@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/suite"
-
-	"***REMOVED***/metrics"
 )
 
 type ClientOptionSuite struct {
@@ -19,7 +17,6 @@ func TestClientOptionSuite(t *testing.T) {
 }
 
 func (s *ClientOptionSuite) Test_apply() {
-	mCollector := metrics.NewPrometheus()
 	store := NewMemoryStore()
 
 	tests := []struct {
@@ -86,11 +83,6 @@ func (s *ClientOptionSuite) Test_apply() {
 			name:   "WithGracefulShutdownPeriod",
 			option: WithGracefulShutdownPeriod(time.Minute),
 			want:   &options{gracefulShutdownPeriod: time.Minute},
-		},
-		{
-			name:   "WithCustomMetrics",
-			option: WithCustomMetrics(mCollector),
-			want:   &options{metricsCollector: mCollector},
 		},
 		{
 			name:   "WithPersistence",

@@ -3,11 +3,8 @@ package courier
 import (
 	"bytes"
 	"context"
-	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-
-	"***REMOVED***/metrics"
 )
 
 // Subscribe allows to subscribe to messages from an MQTT broker
@@ -42,36 +39,20 @@ func (c *Client) UseSubscriberMiddleware(mwf ...SubscriberMiddlewareFunc) {
 func subscriberFuncs(c *Client) Subscriber {
 	return NewSubscriberFuncs(
 		func(ctx context.Context, topic string, qos QOSLevel, callback MessageHandler) error {
-			w := &eventWrapper{types: attemptEvent}
-			defer func(begin time.Time) {
-				c.reportEvents(metrics.SubscribeOp, w, time.Since(begin))
-			}(time.Now())
-
 			t := c.mqttClient.Subscribe(topic, byte(qos), callbackWrapper(c, callback))
 
-			return c.handleToken(t, w, ErrSubscribeTimeout)
+			return c.handleToken(t, ErrSubscribeTimeout)
 		},
 		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error {
-			w := &eventWrapper{types: attemptEvent}
-			defer func(begin time.Time) {
-				c.reportEvents(metrics.SubscribeMultipleOp, w, time.Since(begin))
-			}(time.Now())
-
 			t := c.mqttClient.SubscribeMultiple(routeFilters(topicsWithQos), callbackWrapper(c, callback))
 
-			return c.handleToken(t, w, ErrSubscribeMultipleTimeout)
+			return c.handleToken(t, ErrSubscribeMultipleTimeout)
 		},
 	)
 }
 
 func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 	return func(_ mqtt.Client, m mqtt.Message) {
-		w := &eventWrapper{types: attemptEvent}
-
-		defer func(begin time.Time) {
-			c.reportEvents(metrics.CallbackOp, w, time.Since(begin))
-		}(time.Now())
-
 		msg := NewMessageWithDecoder(
 			c.options.newDecoder(bytes.NewReader(m.Payload())),
 		)
@@ -82,8 +63,6 @@ func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 		msg.QoS = QOSLevel(m.Qos())
 
 		callback(context.Background(), c, msg)
-
-		w.types |= successEvent
 	}
 }
 

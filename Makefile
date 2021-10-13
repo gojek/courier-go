@@ -1,4 +1,5 @@
 ALL_GO_MOD_DIRS := $(shell find . -type f -name 'go.mod' -exec dirname {} \; | sort)
+DOCS_EXCLUDE := "benchmark"
 
 fmt:
 	@$(call run-go-mod-dir,go vet ./...,"go fmt")
@@ -23,11 +24,15 @@ docs: godoc
 
 .PHONY: update-proto
 update-proto:
-	@$(MAKE) -C webhook update-proto
+	@$(MAKE) -C webhook/grpc update-proto
 
 .PHONY: generate
 generate:
-	@$(MAKE) -C webhook generate
+	@$(call run-go-mod-dir,go generate ./...,"go generate")
+
+.PHONY: gomod.tidy
+gomod.tidy:
+	@$(call run-go-mod-dir,go mod tidy,"go mod tidy")
 
 ## test: Run all tests
 .PHONY: test

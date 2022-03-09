@@ -1,4 +1,4 @@
-module ***REMOVED***
+module github.com/gojek/courier-go
 
 go 1.16
 

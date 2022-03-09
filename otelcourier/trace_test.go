@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	oteltrace "go.opentelemetry.io/otel/trace"
 
-	courier "***REMOVED***"
+	courier "github.com/gojek/courier-go"
 )
 
 func TestChildSpanFromGlobalTracer(t *testing.T) {

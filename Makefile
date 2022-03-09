@@ -1,5 +1,4 @@
 ALL_GO_MOD_DIRS := $(shell find . -type f -name 'go.mod' -exec dirname {} \; | sort)
-DOCS_EXCLUDE := "benchmark"
 
 fmt:
 	@$(call run-go-mod-dir,go vet ./...,"go fmt")
@@ -14,21 +13,7 @@ lint: golangci-lint
 ci: test
 
 imports: gci
-	@$(call run-go-mod-dir,$(GCI) -w -local ***REMOVED*** ./ | { grep -v -e 'skip file .*' || true; },".bin/gci")
-
-docs: godoc
-	@$(GODOC) --repository.url "https://***REMOVED***/-" \
-		--repository.default-branch master --repository.path / \
-		--output '{{.Dir}}/README.md' ./...
-	@cat REPO_README.md | cat - README.md > temp && mv temp README.md
-
-.PHONY: update-proto
-update-proto:
-	@$(MAKE) -C webhook/grpc update-proto
-
-.PHONY: generate
-generate:
-	@$(call run-go-mod-dir,go generate ./...,"go generate")
+	@$(call run-go-mod-dir,$(GCI) -w -local github.com/gojek ./ | { grep -v -e 'skip file .*' || true; },".bin/gci")
 
 .PHONY: gomod.tidy
 gomod.tidy:
@@ -45,7 +30,7 @@ test-cov: gocov
 	@$(call run-go-mod-dir,$(GOCOV) convert coverage.out | $(GOCOV) report)
 
 .PHONY: check
-check: fmt vet lint imports generate docs
+check: fmt vet lint imports
 	@git diff --quiet || test $$(git diff --name-only | grep -v -e 'go.mod$$' -e 'go.sum$$' | wc -l) -eq 0 || ( echo "The following changes (result of code generators and code checks) have been detected:" && git --no-pager diff && false ) # fail if Git working tree is dirty
 
 # ========= Helpers ===========
@@ -61,10 +46,6 @@ gci:
 GOCOV = $(shell pwd)/.bin/gocov
 gocov:
 	$(call go-get-tool,$(GOCOV),github.com/axw/gocov/gocov@v1.0.0)
-
-GODOC = $(shell pwd)/.bin/gomarkdoc
-godoc:
-	$(call go-get-tool,$(GODOC),github.com/princjef/gomarkdoc/cmd/gomarkdoc)
 
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 

@@ -3,11 +3,11 @@ package otelcourier
 import (
 	"go.opentelemetry.io/otel/trace"
 
-	courier "***REMOVED***"
+	courier "github.com/gojek/courier-go"
 )
 
 const (
-	tracerName = "***REMOVED***/otelcourier"
+	tracerName = "github.com/gojek/courier-go/otelcourier"
 )
 
 type Tracer struct {

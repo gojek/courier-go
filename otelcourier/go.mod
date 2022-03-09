@@ -1,4 +1,4 @@
-module ***REMOVED***/otelcourier
+module github.com/gojek/courier-go/otelcourier
 
 go 1.16
 
@@ -7,7 +7,7 @@ require (
 	go.opentelemetry.io/otel v1.0.0
 	go.opentelemetry.io/otel/sdk v1.0.0
 	go.opentelemetry.io/otel/trace v1.0.0
-	***REMOVED*** v0.6.0
+	github.com/gojek/courier-go v0.6.0
 )
 
-replace ***REMOVED*** => ../
+replace github.com/gojek/courier-go => ../

@@ -86,7 +86,7 @@ patch_gomods() {
 git checkout -b "${BRANCH_NAME}" master
 
 if [ -n "${COURIER_TAG}" ]; then
-    patch_gomods ***REMOVED*** "${COURIER_TAG}"
+    patch_gomods github.com/gojek/courier-go "${COURIER_TAG}"
 fi
 
 # Run lint to update go.sum

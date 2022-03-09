@@ -11,7 +11,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
 
-	courier "***REMOVED***"
+	courier "github.com/gojek/courier-go"
 )
 
 const (

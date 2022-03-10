@@ -4,6 +4,7 @@ import (
 	"context"
 )
 
+// Subscriber defines behaviour of an MQTT subscriber that can create subscriptions.
 type Subscriber interface {
 	// Subscribe allows to subscribe to messages from an MQTT broker
 	Subscribe(ctx context.Context, topic string, qos QOSLevel, callback MessageHandler) error

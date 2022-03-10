@@ -30,7 +30,7 @@ func ExampleNewTracer() {
 	signal.Notify(stopCh, []os.Signal{os.Interrupt, syscall.SIGTERM}...)
 
 	if err := c.Publish(
-		context.Background(), "test-topic", courier.QOSOne, false, "message"); err != nil {
+		context.Background(), "test-topic", "message", courier.QOSOne); err != nil {
 		panic(err)
 	}
 	<-stopCh

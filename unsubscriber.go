@@ -4,6 +4,7 @@ import (
 	"context"
 )
 
+// Unsubscriber defines behaviour of an MQTT client that can remove subscriptions.
 type Unsubscriber interface {
 	// Unsubscribe removes any subscription to messages from an MQTT broker
 	Unsubscribe(ctx context.Context, topics ...string) error

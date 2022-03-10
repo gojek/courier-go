@@ -10,6 +10,7 @@ const (
 	tracerName = "github.com/gojek/courier-go/otelcourier"
 )
 
+// Tracer implements tracing abilities using OpenTelemetry SDK.
 type Tracer struct {
 	service    string
 	tracer     trace.Tracer

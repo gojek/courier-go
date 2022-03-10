@@ -6,8 +6,8 @@ import (
 )
 
 // Publish allows to publish messages to an MQTT broker
-func (c *Client) Publish(ctx context.Context, topic string, qos QOSLevel, retained bool, message interface{}) error {
-	return c.publisher.Publish(ctx, topic, qos, retained, message)
+func (c *Client) Publish(ctx context.Context, topic string, message interface{}, opts ...Option) error {
+	return c.publisher.Publish(ctx, topic, message, opts...)
 }
 
 // UsePublisherMiddleware appends a PublisherMiddlewareFunc to the chain.
@@ -26,7 +26,7 @@ func (c *Client) UsePublisherMiddleware(mwf ...PublisherMiddlewareFunc) {
 }
 
 func publishHandler(c *Client) Publisher {
-	return PublisherFunc(func(ctx context.Context, topic string, qos QOSLevel, retained bool, message interface{}) error {
+	return PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...Option) error {
 		buf := bytes.Buffer{}
 
 		err := c.options.newEncoder(&buf).Encode(message)
@@ -34,7 +34,8 @@ func publishHandler(c *Client) Publisher {
 			return err
 		}
 
-		t := c.mqttClient.Publish(topic, byte(qos), retained, buf.Bytes())
+		o := composeOptions(opts)
+		t := c.mqttClient.Publish(topic, o.qos, o.retained, buf.Bytes())
 
 		return c.handleToken(t, ErrPublishTimeout)
 	})

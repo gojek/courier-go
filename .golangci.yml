@@ -58,6 +58,7 @@ linters-settings:
     statements: 40
 
 issues:
+  exclude-use-default: false
   exclude:
     - declaration of "(err|ctx)" shadows declaration at
   exclude-rules:

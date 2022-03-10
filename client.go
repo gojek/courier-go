@@ -11,7 +11,7 @@ var newClientFunc = mqtt.NewClient
 
 // Client allows to communicate with an MQTT broker
 type Client struct {
-	options    *options
+	options    *clientOptions
 	mqttClient mqtt.Client
 
 	publisher     Publisher
@@ -22,7 +22,7 @@ type Client struct {
 	usMiddlewares []unsubscribeMiddleware
 }
 
-// NewClient creates the Client struct with the options provided,
+// NewClient creates the Client struct with the clientOptions provided,
 // it can return error when prometheus.DefaultRegisterer has already
 // been used to register the collected metrics
 func NewClient(opts ...ClientOption) (*Client, error) {
@@ -80,7 +80,7 @@ func (c *Client) handleToken(t mqtt.Token, timeoutErr error) error {
 	return nil
 }
 
-func toClientOptions(c *Client, o *options) *mqtt.ClientOptions {
+func toClientOptions(c *Client, o *clientOptions) *mqtt.ClientOptions {
 	opts := mqtt.NewClientOptions()
 
 	if hostname, err := os.Hostname(); o.clientID == "" && err == nil {
@@ -105,7 +105,7 @@ func toClientOptions(c *Client, o *options) *mqtt.ClientOptions {
 	return opts
 }
 
-func reconnectHandler(client PubSub, o *options) mqtt.ReconnectHandler {
+func reconnectHandler(client PubSub, o *clientOptions) mqtt.ReconnectHandler {
 	return func(_ mqtt.Client, _ *mqtt.ClientOptions) {
 		if o.onReconnectHandler != nil {
 			o.onReconnectHandler(client)
@@ -113,7 +113,7 @@ func reconnectHandler(client PubSub, o *options) mqtt.ReconnectHandler {
 	}
 }
 
-func connectionLostHandler(o *options) mqtt.ConnectionLostHandler {
+func connectionLostHandler(o *clientOptions) mqtt.ConnectionLostHandler {
 	return func(_ mqtt.Client, err error) {
 		if o.onConnectionLostHandler != nil {
 			o.onConnectionLostHandler(err)
@@ -121,7 +121,7 @@ func connectionLostHandler(o *options) mqtt.ConnectionLostHandler {
 	}
 }
 
-func onConnectHandler(client PubSub, o *options) mqtt.OnConnectHandler {
+func onConnectHandler(client PubSub, o *clientOptions) mqtt.OnConnectHandler {
 	return func(_ mqtt.Client) {
 		if o.onConnectHandler != nil {
 			o.onConnectHandler(client)

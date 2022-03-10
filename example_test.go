@@ -37,7 +37,7 @@ func ExampleNewClient() {
 				msg := map[string]interface{}{
 					"time": t.UnixNano(),
 				}
-				if err := c.Publish(context.Background(), "topic", courier.QOSOne, false, msg); err != nil {
+				if err := c.Publish(context.Background(), "topic", msg, courier.QOSOne); err != nil {
 					fmt.Printf("Publish() error = %s\n", err)
 				} else {
 					fmt.Println("Publish() success")

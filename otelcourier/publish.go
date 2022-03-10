@@ -19,21 +19,20 @@ func (t *Tracer) publisher(next courier.Publisher) courier.Publisher {
 	return courier.PublisherFunc(func(
 		ctx context.Context,
 		topic string,
-		qos courier.QOSLevel,
-		retained bool,
 		message interface{},
+		opts ...courier.Option,
 	) error {
-		opts := []trace.SpanStartOption{
+		traceOpts := []trace.SpanStartOption{
 			trace.WithAttributes(MQTTTopic.String(topic)),
-			trace.WithAttributes(MQTTQoS.Int(int(qos))),
-			trace.WithAttributes(MQTTRetained.Bool(retained)),
 			trace.WithAttributes(semconv.ServiceNameKey.String(t.service)),
 			trace.WithSpanKind(trace.SpanKindProducer),
 		}
-		ctx, span := t.tracer.Start(ctx, publishSpanName, opts...)
+		traceOpts = append(traceOpts, mapOptions(opts)...)
+
+		ctx, span := t.tracer.Start(ctx, publishSpanName, traceOpts...)
 		defer span.End()
 
-		err := next.Publish(ctx, topic, qos, retained, message)
+		err := next.Publish(ctx, topic, message, opts...)
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, publishErrMessage)
@@ -41,4 +40,19 @@ func (t *Tracer) publisher(next courier.Publisher) courier.Publisher {
 
 		return err
 	})
+}
+
+func mapOptions(opts []courier.Option) []trace.SpanStartOption {
+	res := make([]trace.SpanStartOption, 0, len(opts))
+
+	for _, opt := range opts {
+		switch opt := opt.(type) {
+		case courier.QOSLevel:
+			res = append(res, trace.WithAttributes(MQTTQoS.Int(int(opt))))
+		case courier.Retained:
+			res = append(res, trace.WithAttributes(MQTTRetained.Bool(bool(opt))))
+		}
+	}
+
+	return res
 }

@@ -55,21 +55,23 @@ func (s *ClientPublishSuite) TestPublish() {
 			payload: "payload",
 			useMiddlewares: []PublisherMiddlewareFunc{
 				func(publisher Publisher) Publisher {
-					return PublisherFunc(func(ctx context.Context, topic string, qos QOSLevel, retained bool, message interface{}) error {
+					return PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...Option) error {
 						s.Equal("topic", topic)
-						s.Equal(QOSOne, qos)
-						s.False(retained)
+						o := composeOptions(opts)
+						s.Equal(QOSOne, QOSLevel(o.qos))
+						s.False(o.retained)
 						s.IsType("", message)
-						return publisher.Publish(ctx, "topic-new", qos, retained, message)
+						return publisher.Publish(ctx, "topic-new", message, opts...)
 					})
 				},
 				func(publisher Publisher) Publisher {
-					return PublisherFunc(func(ctx context.Context, topic string, qos QOSLevel, retained bool, message interface{}) error {
+					return PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...Option) error {
 						s.Equal("topic-new", topic)
-						s.Equal(QOSOne, qos)
-						s.False(retained)
+						o := composeOptions(opts)
+						s.Equal(QOSOne, QOSLevel(o.qos))
+						s.False(o.retained)
 						s.IsType("", message)
-						return publisher.Publish(ctx, topic, qos, retained, message)
+						return publisher.Publish(ctx, topic, message, opts...)
 					})
 				},
 			},
@@ -123,7 +125,7 @@ func (s *ClientPublishSuite) TestPublish() {
 			c.mqttClient = mc
 			tk := t.pahoMock(&mc.Mock, t.payload)
 
-			err = c.Publish(context.Background(), "topic", QOSOne, false, t.payload)
+			err = c.Publish(context.Background(), "topic", t.payload, QOSOne)
 
 			if !t.wantErr {
 				s.NoError(err)
@@ -155,14 +157,14 @@ func (s *ClientPublishSuite) TestPublishMiddleware() {
 	s.Require().Len(c.pMiddlewares, 1)
 	s.Equal(0, tm.timesCalled)
 
-	s.NoError(c.Publish(context.Background(), "topic", QOSZero, false, "data"))
+	s.NoError(c.Publish(context.Background(), "topic", "data"))
 	s.Equal(1, tm.timesCalled)
 
 	c.UsePublisherMiddleware(tm.Middleware)
 	s.Require().Len(c.pMiddlewares, 2)
 	s.Equal(1, tm.timesCalled)
 
-	s.NoError(c.Publish(context.Background(), "topic", QOSZero, false, "data"))
+	s.NoError(c.Publish(context.Background(), "topic", "data"))
 	s.Equal(3, tm.timesCalled)
 }
 
@@ -171,8 +173,8 @@ type testPublishMiddleware struct {
 }
 
 func (tm *testPublishMiddleware) Middleware(p Publisher) Publisher {
-	return PublisherFunc(func(ctx context.Context, topic string, qos QOSLevel, retained bool, message interface{}) error {
+	return PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...Option) error {
 		tm.timesCalled++
-		return p.Publish(ctx, topic, qos, retained, message)
+		return p.Publish(ctx, topic, message, opts...)
 	})
 }

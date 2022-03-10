@@ -4,23 +4,23 @@ import (
 	"context"
 )
 
+// Publisher defines behaviour of an MQTT publisher that can send messages.
 type Publisher interface {
 	// Publish allows to publish messages to an MQTT broker
-	Publish(ctx context.Context, topic string, qos QOSLevel, retained bool, message interface{}) error
+	Publish(ctx context.Context, topic string, message interface{}, options ...Option) error
 }
 
 // PublisherFunc defines signature of a Publish function.
-type PublisherFunc func(context.Context, string, QOSLevel, bool, interface{}) error
+type PublisherFunc func(context.Context, string, interface{}, ...Option) error
 
 // Publish implements Publisher interface on PublisherFunc.
 func (f PublisherFunc) Publish(
 	ctx context.Context,
 	topic string,
-	qos QOSLevel,
-	retained bool,
 	message interface{},
+	opts ...Option,
 ) error {
-	return f(ctx, topic, qos, retained, message)
+	return f(ctx, topic, message, opts...)
 }
 
 type publishMiddleware interface {

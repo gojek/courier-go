@@ -26,11 +26,11 @@ func TestPublishTraceSpan(t *testing.T) {
 	mwf := NewTracer("test-service", WithTracerProvider(tp))
 	uErr := errors.New("error_from_upstream")
 
-	p := mwf.publisher(courier.PublisherFunc(func(ctx context.Context, topic string, qos courier.QOSLevel, retained bool, message interface{}) error {
+	p := mwf.publisher(courier.PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...courier.Option) error {
 		return uErr
 	}))
 
-	err := p.Publish(context.Background(), "test-topic", courier.QOSOne, false, "hello-world")
+	err := p.Publish(context.Background(), "test-topic", "hello-world", courier.QOSOne, courier.Retained(false))
 	assert.EqualError(t, err, uErr.Error())
 
 	spans := sr.Ended()
@@ -65,13 +65,13 @@ func TestPublishTraceSpan(t *testing.T) {
 }
 
 func TestPublishSpanNotInstrumented(t *testing.T) {
-	p := courier.PublisherFunc(func(ctx context.Context, _ string, _ courier.QOSLevel, _ bool, _ interface{}) error {
+	p := courier.PublisherFunc(func(ctx context.Context, _ string, _ interface{}, _ ...courier.Option) error {
 		span := oteltrace.SpanFromContext(ctx)
 		ok := !span.SpanContext().IsValid()
 		assert.True(t, ok)
 		return nil
 	})
 
-	err := p.Publish(context.Background(), "test-topic", courier.QOSOne, false, "hello-world")
+	err := p.Publish(context.Background(), "test-topic", "hello-world", courier.QOSOne)
 	assert.NoError(t, err)
 }

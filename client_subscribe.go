@@ -8,8 +8,8 @@ import (
 )
 
 // Subscribe allows to subscribe to messages from an MQTT broker
-func (c *Client) Subscribe(ctx context.Context, topic string, qos QOSLevel, callback MessageHandler) error {
-	return c.subscriber.Subscribe(ctx, topic, qos, callback)
+func (c *Client) Subscribe(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
+	return c.subscriber.Subscribe(ctx, topic, callback, opts...)
 }
 
 // SubscribeMultiple allows to subscribe to messages on multiple topics from an MQTT broker
@@ -38,8 +38,9 @@ func (c *Client) UseSubscriberMiddleware(mwf ...SubscriberMiddlewareFunc) {
 
 func subscriberFuncs(c *Client) Subscriber {
 	return NewSubscriberFuncs(
-		func(ctx context.Context, topic string, qos QOSLevel, callback MessageHandler) error {
-			t := c.mqttClient.Subscribe(topic, byte(qos), callbackWrapper(c, callback))
+		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
+			o := composeOptions(opts)
+			t := c.mqttClient.Subscribe(topic, o.qos, callbackWrapper(c, callback))
 
 			return c.handleToken(t, ErrSubscribeTimeout)
 		},

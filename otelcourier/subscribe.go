@@ -23,17 +23,18 @@ const (
 
 func (t *Tracer) subscriber(next courier.Subscriber) courier.Subscriber {
 	return courier.NewSubscriberFuncs(
-		func(ctx context.Context, topic string, qos courier.QOSLevel, callback courier.MessageHandler) error {
-			opts := []trace.SpanStartOption{
+		func(ctx context.Context, topic string, callback courier.MessageHandler, opts ...courier.Option) error {
+			traceOpts := []trace.SpanStartOption{
 				trace.WithAttributes(MQTTTopic.String(topic)),
-				trace.WithAttributes(MQTTQoS.Int(int(qos))),
 				trace.WithAttributes(semconv.ServiceNameKey.String(t.service)),
 				trace.WithSpanKind(trace.SpanKindClient),
 			}
-			ctx, span := t.tracer.Start(ctx, subscribeSpanName, opts...)
+			traceOpts = append(traceOpts, mapOptions(opts)...)
+
+			ctx, span := t.tracer.Start(ctx, subscribeSpanName, traceOpts...)
 			defer span.End()
 
-			err := next.Subscribe(ctx, topic, qos, t.instrumentCallback(callback))
+			err := next.Subscribe(ctx, topic, t.instrumentCallback(callback))
 			if err != nil {
 				span.RecordError(err)
 				span.SetStatus(codes.Error, subscribeErrMessage)

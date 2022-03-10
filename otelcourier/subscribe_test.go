@@ -27,7 +27,7 @@ func TestSubscribeTraceSpan(t *testing.T) {
 	uErr := errors.New("error_from_upstream")
 
 	u := mwf.subscriber(courier.NewSubscriberFuncs(
-		func(_ context.Context, _ string, _ courier.QOSLevel, _ courier.MessageHandler) error {
+		func(_ context.Context, _ string, _ courier.MessageHandler, _ ...courier.Option) error {
 			return uErr
 		},
 		func(_ context.Context, _ map[string]courier.QOSLevel, _ courier.MessageHandler) error {
@@ -35,7 +35,10 @@ func TestSubscribeTraceSpan(t *testing.T) {
 		},
 	))
 
-	err := u.Subscribe(context.Background(), "test-topic", courier.QOSOne, func(_ context.Context, _ courier.PubSub, _ *courier.Message) {})
+	err := u.Subscribe(context.Background(), "test-topic",
+		func(_ context.Context, _ courier.PubSub, _ *courier.Message) {},
+		courier.QOSOne,
+	)
 	assert.EqualError(t, err, uErr.Error())
 
 	spans := sr.Ended()
@@ -79,7 +82,7 @@ func TestSubscribeMultipleTraceSpan(t *testing.T) {
 	uErr := errors.New("error_from_upstream")
 
 	u := mwf.subscriber(courier.NewSubscriberFuncs(
-		func(_ context.Context, _ string, _ courier.QOSLevel, _ courier.MessageHandler) error {
+		func(_ context.Context, _ string, _ courier.MessageHandler, _ ...courier.Option) error {
 			return nil
 		},
 		func(_ context.Context, _ map[string]courier.QOSLevel, _ courier.MessageHandler) error {

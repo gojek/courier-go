@@ -51,20 +51,22 @@ func (s *ClientSubscribeSuite) TestSubscribe() {
 			useMiddlewares: []SubscriberMiddlewareFunc{
 				func(subscriber Subscriber) Subscriber {
 					return NewSubscriberFuncs(
-						func(ctx context.Context, topic string, qos QOSLevel, callback MessageHandler) error {
+						func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
 							s.Equal("topic", topic)
-							s.Equal(QOSOne, qos)
-							return subscriber.Subscribe(ctx, topic, QOSZero, callback)
+							o := composeOptions(opts)
+							s.Equal(uint8(1), o.qos)
+							return subscriber.Subscribe(ctx, topic, callback)
 						},
 						subscriber.SubscribeMultiple,
 					)
 				},
 				func(subscriber Subscriber) Subscriber {
 					return NewSubscriberFuncs(
-						func(ctx context.Context, topic string, qos QOSLevel, callback MessageHandler) error {
+						func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
 							s.Equal("topic", topic)
-							s.Equal(QOSZero, qos)
-							return subscriber.Subscribe(ctx, topic, qos, callback)
+							o := composeOptions(opts)
+							s.Equal(uint8(0), o.qos)
+							return subscriber.Subscribe(ctx, topic, callback)
 						},
 						subscriber.SubscribeMultiple,
 					)
@@ -108,7 +110,7 @@ func (s *ClientSubscribeSuite) TestSubscribe() {
 			c.mqttClient = mc
 			tk := t.pahoMock(&mc.Mock)
 
-			err = c.Subscribe(context.Background(), "topic", QOSOne, callback)
+			err = c.Subscribe(context.Background(), "topic", callback, QOSOne)
 
 			if !t.wantErr {
 				s.NoError(err)
@@ -250,7 +252,7 @@ func (s *ClientSubscribeSuite) TestSubscribeMiddleware() {
 	s.Equal(0, tm.timesSubscribeCalled)
 	s.Equal(0, tm.timesSubscribeMultipleCalled)
 
-	s.NoError(c.Subscribe(context.Background(), "topic", QOSZero, callback))
+	s.NoError(c.Subscribe(context.Background(), "topic", callback))
 	s.NoError(c.SubscribeMultiple(context.Background(), topics, callback))
 	s.Equal(1, tm.timesSubscribeCalled)
 	s.Equal(1, tm.timesSubscribeMultipleCalled)
@@ -260,7 +262,7 @@ func (s *ClientSubscribeSuite) TestSubscribeMiddleware() {
 	s.Equal(1, tm.timesSubscribeCalled)
 	s.Equal(1, tm.timesSubscribeMultipleCalled)
 
-	s.NoError(c.Subscribe(context.Background(), "topic", QOSZero, callback))
+	s.NoError(c.Subscribe(context.Background(), "topic", callback))
 	s.NoError(c.SubscribeMultiple(context.Background(), topics, callback))
 	s.Equal(3, tm.timesSubscribeCalled)
 	s.Equal(3, tm.timesSubscribeMultipleCalled)
@@ -273,9 +275,9 @@ type testSubscribeMiddleware struct {
 
 func (tm *testSubscribeMiddleware) Middleware(s Subscriber) Subscriber {
 	return NewSubscriberFuncs(
-		func(ctx context.Context, topic string, qos QOSLevel, callback MessageHandler) error {
+		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
 			tm.timesSubscribeCalled++
-			return s.Subscribe(ctx, topic, qos, callback)
+			return s.Subscribe(ctx, topic, callback, opts...)
 		},
 		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error {
 			tm.timesSubscribeMultipleCalled++

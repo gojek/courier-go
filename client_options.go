@@ -7,34 +7,34 @@ import (
 
 var inMemoryPersistence = NewMemoryStore()
 
-// Option allows to configure the behaviour of a Client
-type Option func(*options)
+// ClientOption allows to configure the behaviour of a Client.
+type ClientOption func(*options)
 
 // WithClientID sets the clientID to be used while connecting to an MQTT broker.
 //According to the MQTT v3.1 specification, a client id must be no longer than 23 characters.
-func WithClientID(clientID string) Option {
+func WithClientID(clientID string) ClientOption {
 	return func(o *options) {
 		o.clientID = clientID
 	}
 }
 
-// WithUsername sets the username to be used while connecting to an MQTT broker
-func WithUsername(username string) Option {
+// WithUsername sets the username to be used while connecting to an MQTT broker.
+func WithUsername(username string) ClientOption {
 	return func(o *options) {
 		o.username = username
 	}
 }
 
-// WithPassword sets the password to be used while connecting to an MQTT broker
-func WithPassword(password string) Option {
+// WithPassword sets the password to be used while connecting to an MQTT broker.
+func WithPassword(password string) ClientOption {
 	return func(o *options) {
 		o.password = password
 	}
 }
 
 // WithAutoReconnect sets whether the automatic reconnection logic should be used
-// when the connection is lost, even if disabled the WithOnConnectionLost is still called
-func WithAutoReconnect(autoReconnect bool) Option {
+// when the connection is lost, even if disabled the WithOnConnectionLost is still called.
+func WithAutoReconnect(autoReconnect bool) ClientOption {
 	return func(o *options) {
 		o.autoReconnect = autoReconnect
 	}
@@ -46,7 +46,7 @@ func WithAutoReconnect(autoReconnect bool) Option {
 // delivered. Any messages that were going to be sent by this client before
 // disconnecting but didn't, will not be sent upon connecting to the
 // broker.
-func WithCleanSession(cleanSession bool) Option {
+func WithCleanSession(cleanSession bool) ClientOption {
 	return func(o *options) {
 		o.cleanSession = cleanSession
 	}
@@ -60,7 +60,7 @@ func WithCleanSession(cleanSession bool) Option {
 // Note that setting this to true does not guarantee in-order delivery
 // (this is subject to broker settings like "max_inflight_messages=1")
 // and if true then  MessageHandler callback must not block.
-func WithMaintainOrder(maintainOrder bool) Option {
+func WithMaintainOrder(maintainOrder bool) ClientOption {
 	return func(o *options) {
 		o.maintainOrder = maintainOrder
 	}
@@ -68,7 +68,7 @@ func WithMaintainOrder(maintainOrder bool) Option {
 
 // WithOnConnect will set the OnConnectHandler callback to be called when the client is connected.
 // Both at initial connection time and upon automatic reconnect.
-func WithOnConnect(handler OnConnectHandler) Option {
+func WithOnConnect(handler OnConnectHandler) ClientOption {
 	return func(o *options) {
 		o.onConnectHandler = handler
 	}
@@ -76,7 +76,7 @@ func WithOnConnect(handler OnConnectHandler) Option {
 
 // WithOnConnectionLost will set the OnConnectionLostHandler callback to be executed
 // in the case where the client unexpectedly loses connection with the MQTT broker.
-func WithOnConnectionLost(handler OnConnectionLostHandler) Option {
+func WithOnConnectionLost(handler OnConnectionLostHandler) ClientOption {
 	return func(o *options) {
 		o.onConnectionLostHandler = handler
 	}
@@ -84,15 +84,15 @@ func WithOnConnectionLost(handler OnConnectionLostHandler) Option {
 
 // WithOnReconnect sets the OnReconnectHandler callback to be executed prior
 // to the client attempting a reconnect to the MQTT broker.
-func WithOnReconnect(handler OnReconnectHandler) Option {
+func WithOnReconnect(handler OnReconnectHandler) ClientOption {
 	return func(o *options) {
 		o.onReconnectHandler = handler
 	}
 }
 
 // WithTCPAddress sets the broker address to be used.
-// Default values for hostname is "127.0.0.1" and for port is 1883
-func WithTCPAddress(host string, port uint16) Option {
+// Default values for hostname is "127.0.0.1" and for port is 1883.
+func WithTCPAddress(host string, port uint16) ClientOption {
 	return func(o *options) {
 		o.brokerAddress = fmt.Sprintf("tcp://%s:%d", host, port)
 	}
@@ -102,7 +102,7 @@ func WithTCPAddress(host string, port uint16) Option {
 // should wait before sending a PING request to the broker. This will
 // allow the client to know that a connection has not been lost with the
 // server.
-func WithKeepAlive(duration time.Duration) Option {
+func WithKeepAlive(duration time.Duration) ClientOption {
 	return func(o *options) {
 		o.keepAlive = duration
 	}
@@ -111,29 +111,29 @@ func WithKeepAlive(duration time.Duration) Option {
 // WithConnectTimeout limits how long the client will wait when trying to open a connection
 // to an MQTT server before timing out. A duration of 0 never times out.
 // Default 15 seconds.
-func WithConnectTimeout(duration time.Duration) Option {
+func WithConnectTimeout(duration time.Duration) ClientOption {
 	return func(o *options) {
 		o.connectTimeout = duration
 	}
 }
 
-// WithWriteTimeout limits how long the client will wait when trying to publish or subscribe on topic
-func WithWriteTimeout(duration time.Duration) Option {
+// WithWriteTimeout limits how long the client will wait when trying to publish or subscribe on topic.
+func WithWriteTimeout(duration time.Duration) ClientOption {
 	return func(o *options) {
 		o.writeTimeout = duration
 	}
 }
 
-// WithMaxReconnectInterval sets the maximum time that will be waited between reconnection attempts
+// WithMaxReconnectInterval sets the maximum time that will be waited between reconnection attempts.
 // when connection is lost
-func WithMaxReconnectInterval(duration time.Duration) Option {
+func WithMaxReconnectInterval(duration time.Duration) ClientOption {
 	return func(o *options) {
 		o.maxReconnectInterval = duration
 	}
 }
 
-// WithGracefulShutdownPeriod sets the limit that is allowed for existing work to be completed
-func WithGracefulShutdownPeriod(duration time.Duration) Option {
+// WithGracefulShutdownPeriod sets the limit that is allowed for existing work to be completed.
+func WithGracefulShutdownPeriod(duration time.Duration) ClientOption {
 	return func(o *options) {
 		o.gracefulShutdownPeriod = duration
 	}
@@ -141,29 +141,29 @@ func WithGracefulShutdownPeriod(duration time.Duration) Option {
 
 // WithPersistence allows to configure the store to be used by broker
 // Default persistence is in-memory persistence with mqtt.MemoryStore
-func WithPersistence(store Store) Option {
+func WithPersistence(store Store) ClientOption {
 	return func(o *options) {
 		o.store = store
 	}
 }
 
-// WithCustomEncoder allows to transform objects into the desired message bytes
-func WithCustomEncoder(encoder EncoderFunc) Option {
+// WithCustomEncoder allows to transform objects into the desired message bytes.
+func WithCustomEncoder(encoder EncoderFunc) ClientOption {
 	return func(o *options) {
 		o.newEncoder = encoder
 	}
 }
 
-// WithCustomDecoder allows to decode message bytes into the desired object
-func WithCustomDecoder(decoderFunc DecoderFunc) Option {
+// WithCustomDecoder allows to decode message bytes into the desired object.
+func WithCustomDecoder(decoderFunc DecoderFunc) ClientOption {
 	return func(o *options) {
 		o.newDecoder = decoderFunc
 	}
 }
 
 // WithUseBase64Decoder configures a json decoder with a base64.StdEncoding wrapped decoder
-// which decodes base64 encoded message bytes into the passed object
-func WithUseBase64Decoder() Option {
+// which decodes base64 encoded message bytes into the passed object.
+func WithUseBase64Decoder() ClientOption {
 	return func(o *options) {
 		o.newDecoder = base64JsonDecoder
 	}

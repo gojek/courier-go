@@ -27,7 +27,7 @@ func (s *ClientSuite) TestStart() {
 	errConnect := errors.New("err_connect")
 	brokerAddress := os.Getenv("BROKER_ADDRESS") // host:port format
 
-	defOpts := []Option{WithOnConnect(func(_ PubSub) {
+	defOpts := []ClientOption{WithOnConnect(func(_ PubSub) {
 		s.T().Logf("connected")
 	}), WithClientID("clientID")}
 
@@ -39,7 +39,7 @@ func (s *ClientSuite) TestStart() {
 
 	tests := []struct {
 		name          string
-		opts          []Option
+		opts          []ClientOption
 		ctxFunc       func() (context.Context, context.CancelFunc)
 		checkConnect  bool
 		wantErr       error
@@ -56,7 +56,7 @@ func (s *ClientSuite) TestStart() {
 		},
 		{
 			name: "ConnectWaitTimeoutError",
-			opts: []Option{WithConnectTimeout(5 * time.Second)},
+			opts: []ClientOption{WithConnectTimeout(5 * time.Second)},
 			ctxFunc: func() (context.Context, context.CancelFunc) {
 				return context.WithDeadline(context.TODO(), time.Now().Add(10*time.Second))
 			},
@@ -71,7 +71,7 @@ func (s *ClientSuite) TestStart() {
 		},
 		{
 			name: "ConnectError",
-			opts: []Option{WithTCPAddress("127.0.0.1", 9999), WithOnReconnect(func(_ PubSub) {
+			opts: []ClientOption{WithTCPAddress("127.0.0.1", 9999), WithOnReconnect(func(_ PubSub) {
 				s.T().Logf("reconnecting")
 			})},
 			ctxFunc: func() (context.Context, context.CancelFunc) {

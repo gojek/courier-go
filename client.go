@@ -25,7 +25,7 @@ type Client struct {
 // NewClient creates the Client struct with the options provided,
 // it can return error when prometheus.DefaultRegisterer has already
 // been used to register the collected metrics
-func NewClient(opts ...Option) (*Client, error) {
+func NewClient(opts ...ClientOption) (*Client, error) {
 	o := defaultOptions()
 
 	for _, f := range opts {
@@ -63,7 +63,7 @@ func (c *Client) Start() error {
 
 // Stop will disconnect from the broker and finish up any pending work on internal
 // communication workers. This can only block until the period configured with
-// the Option WithGracefulShutdownPeriod.
+// the ClientOption WithGracefulShutdownPeriod.
 func (c *Client) Stop() {
 	c.mqttClient.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 }

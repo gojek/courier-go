@@ -21,7 +21,7 @@ func (s *ClientOptionSuite) Test_apply() {
 
 	tests := []struct {
 		name   string
-		option Option
+		option ClientOption
 		want   *options
 	}{
 		{
@@ -106,7 +106,7 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 
 	tests := []struct {
 		name   string
-		option Option
+		option ClientOption
 		want   *options
 	}{
 		{

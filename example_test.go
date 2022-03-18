@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	courier "github.com/gojek/courier-go"
+	"github.com/gojekfarm/courier-go"
 )
 
 func ExampleNewClient() {

@@ -3,11 +3,11 @@ package otelcourier
 import (
 	"go.opentelemetry.io/otel/trace"
 
-	courier "github.com/gojek/courier-go"
+	courier "github.com/gojekfarm/courier-go"
 )
 
 const (
-	tracerName = "github.com/gojek/courier-go/otelcourier"
+	tracerName = "github.com/gojekfarm/courier-go/otelcourier"
 )
 
 // Tracer implements tracing abilities using OpenTelemetry SDK.

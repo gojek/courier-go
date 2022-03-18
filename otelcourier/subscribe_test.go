@@ -15,7 +15,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 
-	courier "github.com/gojek/courier-go"
+	courier "github.com/gojekfarm/courier-go"
 )
 
 func TestSubscribeTraceSpan(t *testing.T) {
@@ -156,7 +156,7 @@ func Test_instrumentCallback(t *testing.T) {
 	spans := sr.Ended()
 	require.Len(t, spans, 1)
 	span := spans[0]
-	assert.Equal(t, "github.com/gojek/courier-go/otelcourier.Test_instrumentCallback.func1", span.Name())
+	assert.Equal(t, "github.com/gojekfarm/courier-go/otelcourier.Test_instrumentCallback.func1", span.Name())
 }
 
 func Test_instrumentCallbackDisabled(t *testing.T) {

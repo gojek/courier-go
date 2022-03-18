@@ -9,8 +9,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/sdk/trace"
 
-	courier "github.com/gojek/courier-go"
-	"github.com/gojek/courier-go/otelcourier"
+	courier "github.com/gojekfarm/courier-go"
+	"github.com/gojekfarm/courier-go/otelcourier"
 )
 
 func ExampleNewTracer() {

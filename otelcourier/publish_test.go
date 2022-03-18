@@ -15,7 +15,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 
-	courier "github.com/gojek/courier-go"
+	courier "github.com/gojekfarm/courier-go"
 )
 
 func TestPublishTraceSpan(t *testing.T) {

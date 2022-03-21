@@ -28,10 +28,10 @@ test-run:
 	@$(call run-go-mod-dir,go test ./... -covermode=count -coverprofile=coverage.out,"go test")
 
 test-cov: gocov
+	@$(call run-go-mod-dir,$(GOCOV) convert coverage.out > coverage.json)
 	@$(call run-go-mod-dir,$(GOCOV) convert coverage.out | $(GOCOV) report)
 
-test-xml: gocov gocov-xml
-	@$(call run-go-mod-dir,$(GOCOV) convert coverage.out > coverage.json)
+test-xml: test-cov gocov-xml
 	@jq -n '{ Packages: [ inputs.Packages ] | add }' $(shell find . -type f -name 'coverage.json' | sort) | $(GOCOVXML) > coverage.xml
 
 .PHONY: check

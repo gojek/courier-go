@@ -1,4 +1,5 @@
 ALL_GO_MOD_DIRS := $(shell find . -type f -name 'go.mod' -exec dirname {} \; | sort)
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 
 fmt:
 	@$(call run-go-mod-dir,go vet ./...,"go fmt")
@@ -10,7 +11,7 @@ lint: golangci-lint
 	@$(call run-go-mod-dir,$(GOLANGCI_LINT) run --timeout=10m -v,".bin/golangci-lint")
 
 .PHONY: ci
-ci: test
+ci: test test-cov test-xml
 
 imports: gci
 	@$(call run-go-mod-dir,$(GCI) -w -local github.com/gojek ./ | { grep -v -e 'skip file .*' || true; },".bin/gci")
@@ -21,13 +22,17 @@ gomod.tidy:
 
 ## test: Run all tests
 .PHONY: test
-test: check test-run test-cov
+test: check test-run
 
 test-run:
 	@$(call run-go-mod-dir,go test ./... -covermode=count -coverprofile=coverage.out,"go test")
 
 test-cov: gocov
 	@$(call run-go-mod-dir,$(GOCOV) convert coverage.out | $(GOCOV) report)
+
+test-xml: gocov gocov-xml
+	@$(call run-go-mod-dir,$(GOCOV) convert coverage.out > coverage.json)
+	@jq -n '{ Packages: [ inputs.Packages ] | add }' $(shell find . -type f -name 'coverage.json' | sort) | $(GOCOVXML) > coverage.xml
 
 .PHONY: check
 check: fmt vet lint imports
@@ -47,7 +52,9 @@ GOCOV = $(shell pwd)/.bin/gocov
 gocov:
 	$(call go-get-tool,$(GOCOV),github.com/axw/gocov/gocov@v1.0.0)
 
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+GOCOVXML = $(shell pwd)/.bin/gocov-xml
+gocov-xml:
+	$(call go-get-tool,$(GOCOVXML),github.com/AlekSi/gocov-xml@v1.0.0)
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 define go-get-tool

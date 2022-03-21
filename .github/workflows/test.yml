@@ -31,7 +31,16 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      - name: Install jq
+        run: apt update && apt -y install jq
       - name: Test
-        run: make test
+        run: make ci
         env:
           BROKER_ADDRESS: 'mqtt:1883'
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          fail_ci_if_error: true
+          verbose: true

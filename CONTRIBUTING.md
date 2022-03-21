@@ -1,6 +1,6 @@
 # Courier Go Client - Contributing
 
-Darkroom `github.com/gojekfarm/courier-go` is an open-source project.
+Courier Go Client `github.com/gojekfarm/courier-go` is an open-source project.
 It is licensed using the [MIT License][1].
 We appreciate pull requests; here are our guidelines:
 

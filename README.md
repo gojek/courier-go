@@ -2,7 +2,7 @@
 
 [![build][build-workflow-badge]][build-workflow]
 [![lint][lint-workflow-badge]][lint-workflow]
-[![coverage][coverage-badge]][coveralls]
+[![codecov][coverage-badge]][codecov]
 [![docs][docs-badge]][pkg-dev]
 [![go-report-card][report-badge]][report-card]
 
@@ -39,8 +39,8 @@ Courier Go Client is [MIT licensed](./LICENSE).
 [build-workflow]: https://github.com/gojekfarm/courier-go/actions?query=workflow%3Abuild
 [lint-workflow-badge]: https://github.com/gojekfarm/courier-go/workflows/lint/badge.svg
 [lint-workflow]: https://github.com/gojekfarm/courier-go/actions?query=workflow%3Alint
-[coverage-badge]: https://coveralls.io/repos/github/gojek/courier-go/badge.svg?branch=master
-[coveralls]: https://coveralls.io/github/gojek/courier-go?branch=master
+[coverage-badge]: https://codecov.io/gh/gojekfarm/courier-go/branch/main/graph/badge.svg?token=QPLV2ZDE84
+[codecov]: https://codecov.io/gh/gojekfarm/courier-go
 [docs-badge]: https://pkg.go.dev/badge/github.com/gojekfarm/courier-go
 [pkg-dev]: https://pkg.go.dev/github.com/gojekfarm/courier-go
 [report-badge]: https://goreportcard.com/badge/github.com/gojekfarm/courier-go

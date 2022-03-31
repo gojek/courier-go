@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -39,6 +40,22 @@ func TestControlPlane(t *testing.T) {
 	if err := snapshotCache.SetSnapshot(context.Background(), "52fdfc07-2182-454f-963f-5f0f9a621d72", generateSnap()); err != nil {
 		t.Error(err)
 	}
+
+	tick := time.NewTicker(15 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				tick.Stop()
+				return
+			case <-tick.C:
+				fmt.Println("update")
+				if err := snapshotCache.SetSnapshot(context.Background(), "52fdfc07-2182-454f-963f-5f0f9a621d72", generateSnap()); err != nil {
+					t.Error(err)
+				}
+			}
+		}
+	}()
 
 	srv := grpc.NewServer()
 	hSrv := serverv3.NewServer(ctx, snapshotCache, serverv3.CallbackFuncs{
@@ -91,8 +108,12 @@ func TestControlPlane(t *testing.T) {
 	srv.GracefulStop()
 }
 
+var ops uint64
+
 func generateSnap() cache.Snapshot {
-	snap, _ := cache.NewSnapshot("1",
+	atomic.AddUint64(&ops, 1)
+	v := fmt.Sprintf("%d", ops)
+	snap, _ := cache.NewSnapshot(v,
 		map[resource.Type][]types.Resource{
 			resource.ClusterType: {
 				&cluster.Cluster{

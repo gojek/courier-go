@@ -25,7 +25,7 @@ type Client struct {
 	node *corev3.Node
 }
 
-func (c *Client) streamEndpoints(ctx context.Context, resourceNames []string, version, nonce string) error {
+func (c *Client) streamEndpoints(ctx context.Context, resourceNames []string) error {
 	ac, err := c.adsClient(ctx)
 	if err != nil {
 		return err
@@ -36,8 +36,8 @@ func (c *Client) streamEndpoints(ctx context.Context, resourceNames []string, ve
 			Node:          c.node,
 			TypeUrl:       V3ClusterTypeURL,
 			ResourceNames: resourceNames,
-			VersionInfo:   version,
-			ResponseNonce: nonce,
+			VersionInfo:   "",
+			ResponseNonce: "",
 		}); err != nil {
 			panic(err)
 		}
@@ -57,6 +57,15 @@ func (c *Client) streamEndpoints(ctx context.Context, resourceNames []string, ve
 			}
 
 			fmt.Println("Received v3.Cluster", cls)
+			if err := ac.Send(&discoveryv3.DiscoveryRequest{
+				Node:          c.node,
+				TypeUrl:       V3ClusterTypeURL,
+				ResourceNames: resourceNames,
+				VersionInfo:   dr.VersionInfo,
+				ResponseNonce: dr.Nonce,
+			}); err != nil {
+				panic(err)
+			}
 		case err := <-errCh:
 			close(errCh)
 			return err

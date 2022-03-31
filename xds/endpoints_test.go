@@ -49,7 +49,7 @@ func TestClient_streamEndpoints(t *testing.T) {
 
 	ctx, _ := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
 
-	if err := c.streamEndpoints(ctx, []string{"customer"}, "", ""); err != nil {
+	if err := c.streamEndpoints(ctx, []string{"customer"}); err != nil {
 		panic(err)
 	}
 }

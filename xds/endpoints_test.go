@@ -2,11 +2,12 @@ package xds
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/gojekfarm/courier-go/xds/bootstrap"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"os"
 	"os/signal"
 	"testing"
@@ -14,23 +15,33 @@ import (
 
 func TestClient_streamEndpoints(t *testing.T) {
 	d, err := json.Marshal(&bootstrap.Config{XDSServer: &bootstrap.ServerConfig{
-		ServerURI: "",
-		NodeProto: nil,
+		ServerURI: "localhost:9100",
+		NodeProto: &corev3.Node{
+			Id:      "52fdfc07-2182-454f-963f-5f0f9a621d72",
+			Cluster: "pusher",
+			Metadata: &structpb.Struct{Fields: map[string]*structpb.Value{
+				"APP": {Kind: &structpb.Value_StringValue{StringValue: "pusher"}},
+			}},
+			Locality: &corev3.Locality{
+				Region: "asia-east1",
+				Zone:   "asia-east1-a",
+			},
+		},
 	}})
 	if err != nil {
 		t.Error(err)
 	}
 
-	if err := os.Setenv("COURIER_XDS_BOOTSTRAP_CONFIG_BASE64", base64.StdEncoding.EncodeToString(d)); err != nil {
-		t.Error(err)
-	}
-
-	cfg, err := bootstrap.NewConfig()
+	cfg, err := bootstrap.NewConfigFromContents(d)
 	if err != nil {
 		t.Error(err)
 	}
 
-	cc, _ := grpc.Dial(cfg.XDSServer.ServerURI)
+	cc, err := grpc.Dial(cfg.XDSServer.ServerURI, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Error(err)
+	}
+
 	c := &Client{
 		cc:   cc,
 		node: cfg.XDSServer.NodeProto.(*corev3.Node),

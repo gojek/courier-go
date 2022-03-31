@@ -3,15 +3,19 @@ package xds
 import (
 	"context"
 	"fmt"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 const (
-	googleapiPrefix    = "type.googleapis.com/"
-	V3EndpointsType    = "envoy.config.endpoint.v3.ClusterLoadAssignment"
-	V3EndpointsTypeURL = googleapiPrefix + V3EndpointsType
+	googleapiPrefix = "type.googleapis.com/"
+
+	V3ClusterType    = "envoy.config.cluster.v3.Cluster"
+	V3ClusterTypeURL = googleapiPrefix + V3ClusterType
 )
 
 type adsClient discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
@@ -28,13 +32,15 @@ func (c *Client) streamEndpoints(ctx context.Context, resourceNames []string, ve
 	}
 
 	go func() {
-		_ = ac.Send(&discoveryv3.DiscoveryRequest{
+		if err := ac.Send(&discoveryv3.DiscoveryRequest{
 			Node:          c.node,
-			TypeUrl:       V3EndpointsTypeURL,
+			TypeUrl:       V3ClusterTypeURL,
 			ResourceNames: resourceNames,
 			VersionInfo:   version,
 			ResponseNonce: nonce,
-		})
+		}); err != nil {
+			panic(err)
+		}
 	}()
 
 	ch, errCh := c.recv(ctx, ac)
@@ -44,7 +50,13 @@ func (c *Client) streamEndpoints(ctx context.Context, resourceNames []string, ve
 		case <-ctx.Done():
 			return nil
 		case dr := <-ch:
-			fmt.Println("Received v3.DiscoveryResponse", dr.String())
+			cls := new(cluster.Cluster)
+
+			if err := anypb.UnmarshalTo(&anypb.Any{TypeUrl: dr.GetResources()[0].GetTypeUrl(), Value: dr.GetResources()[0].GetValue()}, cls, proto.UnmarshalOptions{}); err != nil {
+				errCh <- err
+			}
+
+			fmt.Println("Received v3.Cluster", cls)
 		case err := <-errCh:
 			close(errCh)
 			return err

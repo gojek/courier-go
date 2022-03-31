@@ -5,13 +5,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/golang/protobuf/jsonpb"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/proto"
 	"os"
 	"strings"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/gojekfarm/courier-go"
+	"github.com/golang/protobuf/jsonpb"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -23,11 +24,16 @@ const (
 	courierUserAgentName            = "Courier Go"
 	clientFeatureNoOverprovisioning = "envoy.lb.does_not_support_overprovisioning"
 	clientFeatureResourceWrapper    = "xds.config.resource-in-sotw"
+
+	xDSBootstrapFileNameEnvVar    = "COURIER_XDS_BOOTSTRAP"
+	xDSBootstrapFileContentEnvVar = "COURIER_XDS_BOOTSTRAP_CONFIG_BASE64"
 )
 
 var (
-	xDSBootstrapFileName    = os.Getenv("COURIER_XDS_BOOTSTRAP")
-	xDSBootstrapFileContent = os.Getenv("COURIER_XDS_BOOTSTRAP_CONFIG_BASE64")
+	xDSBootstrapFileName    = os.Getenv(xDSBootstrapFileNameEnvVar)
+	xDSBootstrapFileContent = os.Getenv(xDSBootstrapFileContentEnvVar)
+
+	jsonUnmarshaler = jsonpb.Unmarshaler{AllowUnknownFields: true}
 )
 
 func readXDSBootstrapConfig() ([]byte, error) {
@@ -40,7 +46,7 @@ func readXDSBootstrapConfig() ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("none of the bootstrap environment variables (%q or %q) defined",
-		xDSBootstrapFileName, xDSBootstrapFileContent)
+		xDSBootstrapFileNameEnvVar, xDSBootstrapFileContentEnvVar)
 }
 
 // Config provides the xDS client with several key bits of information that it
@@ -57,7 +63,7 @@ func (c *Config) updateNodeProto(node *corev3.Node) {
 	}
 
 	node.UserAgentName = courierUserAgentName
-	node.UserAgentVersionType = &corev3.Node_UserAgentVersion{UserAgentVersion: grpc.Version}
+	node.UserAgentVersionType = &corev3.Node_UserAgentVersion{UserAgentVersion: courier.Version()}
 	node.ClientFeatures = append(node.ClientFeatures, clientFeatureNoOverprovisioning, clientFeatureResourceWrapper)
 	c.XDSServer.NodeProto = node
 }
@@ -73,36 +79,21 @@ func NewConfig() (*Config, error) {
 func NewConfigFromContents(data []byte) (*Config, error) {
 	cfg := new(Config)
 
-	var jsonData map[string]json.RawMessage
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("xds: Failed to parse bootstrap config: %v", err)
 	}
 
-	node := new(corev3.Node)
-	m := jsonpb.Unmarshaler{AllowUnknownFields: true}
-	for k, v := range jsonData {
-		switch k {
-		case "node":
-			if err := m.Unmarshal(bytes.NewReader(v), node); err != nil {
-				return nil, fmt.Errorf("xds: jsonpb.Unmarshal(%v) for field %q failed during bootstrap: %v", string(v), k, err)
-			}
-		case "xds_server":
-			srv := new(ServerConfig)
-			if err := json.Unmarshal(v, srv); err != nil {
-				return nil, fmt.Errorf("xds: json.Unmarshal(data) for field %q failed during bootstrap: %v", k, err)
-			}
-			cfg.XDSServer = srv
-		default:
-		}
-	}
-
-	cfg.updateNodeProto(node)
 	return cfg, nil
+}
+
+type xdsNode struct {
+	node proto.Message
 }
 
 type xdsServer struct {
 	ServerURI      string   `json:"server_uri"`
 	ServerFeatures []string `json:"server_features"`
+	Node           xdsNode  `json:"node"`
 }
 
 // ServerConfig contains the configuration to connect to a server, including
@@ -139,6 +130,7 @@ func (sc *ServerConfig) String() string {
 func (sc ServerConfig) MarshalJSON() ([]byte, error) {
 	server := xdsServer{
 		ServerURI: sc.ServerURI,
+		Node:      xdsNode{node: sc.NodeProto},
 	}
 	server.ServerFeatures = []string{serverFeaturesV3}
 	return json.Marshal(server)
@@ -151,5 +143,26 @@ func (sc *ServerConfig) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("xds: json.Unmarshal(data) for field ServerConfig failed during bootstrap: %v", err)
 	}
 	sc.ServerURI = server.ServerURI
+	sc.NodeProto = server.Node.node
+	return nil
+}
+
+// MarshalJSON marshals the ServerConfig to json.
+func (n xdsNode) MarshalJSON() ([]byte, error) {
+	return json.Marshal(n.node)
+}
+
+// UnmarshalJSON takes the json data (a server) and unmarshals it to the struct.
+func (n *xdsNode) UnmarshalJSON(data []byte) error {
+	in := new(corev3.Node)
+	if err := jsonUnmarshaler.Unmarshal(bytes.NewReader(data), in); err != nil {
+		return fmt.Errorf("xds: json.Unmarshal(data) for field NodeProto failed during bootstrap: %v", err)
+	}
+
+	in.UserAgentName = courierUserAgentName
+	in.UserAgentVersionType = &corev3.Node_UserAgentVersion{UserAgentVersion: grpc.Version}
+	in.ClientFeatures = append(in.ClientFeatures, clientFeatureNoOverprovisioning, clientFeatureResourceWrapper)
+
+	n.node = in
 	return nil
 }

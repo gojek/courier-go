@@ -3,9 +3,9 @@ package test
 import (
 	"context"
 	"fmt"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"net"
 	"os"
 	"os/signal"
@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -115,36 +113,28 @@ func generateSnap() cache.Snapshot {
 	v := fmt.Sprintf("%d", ops)
 	snap, _ := cache.NewSnapshot(v,
 		map[resource.Type][]types.Resource{
-			resource.ClusterType: {
-				&cluster.Cluster{
-					Name:                 "customer",
-					ConnectTimeout:       durationpb.New(5 * time.Second),
-					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS},
-					LbPolicy:             cluster.Cluster_ROUND_ROBIN,
-					LoadAssignment: &endpoint.ClusterLoadAssignment{
-						ClusterName: "customer",
-						Endpoints: []*endpoint.LocalityLbEndpoints{{
-							LbEndpoints: []*endpoint.LbEndpoint{{
-								HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-									Endpoint: &endpoint.Endpoint{
-										Address: &core.Address{
-											Address: &core.Address_SocketAddress{
-												SocketAddress: &core.SocketAddress{
-													Protocol: core.SocketAddress_TCP,
-													Address:  "customer-internal.golabs.io",
-													PortSpecifier: &core.SocketAddress_PortValue{
-														PortValue: 1883,
-													},
-												},
+			resource.EndpointType: {&endpoint.ClusterLoadAssignment{
+				ClusterName: "customer",
+				Endpoints: []*endpoint.LocalityLbEndpoints{{
+					LbEndpoints: []*endpoint.LbEndpoint{{
+						HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+							Endpoint: &endpoint.Endpoint{
+								Address: &core.Address{
+									Address: &core.Address_SocketAddress{
+										SocketAddress: &core.SocketAddress{
+											Protocol: core.SocketAddress_TCP,
+											Address:  "localhost",
+											PortSpecifier: &core.SocketAddress_PortValue{
+												PortValue: 1883,
 											},
 										},
 									},
 								},
-							}},
-						}},
-					},
-					DnsLookupFamily: cluster.Cluster_V4_ONLY,
-				},
+							},
+						},
+					}},
+				}},
+			},
 			},
 		},
 	)

@@ -2,6 +2,7 @@ package courier
 
 import (
 	"os"
+	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -20,6 +21,9 @@ type Client struct {
 	pMiddlewares  []publishMiddleware
 	sMiddlewares  []subscribeMiddleware
 	usMiddlewares []unsubscribeMiddleware
+
+	reloader   Reloader
+	reloaderMu sync.Mutex //Synchronises calls to the reloadConfig
 }
 
 // NewClient creates the Client struct with the clientOptions provided,
@@ -66,6 +70,25 @@ func (c *Client) Start() error {
 // the ClientOption WithGracefulShutdownPeriod.
 func (c *Client) Stop() {
 	c.mqttClient.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+}
+
+// ReloadConfig stops the old connection and starts a new connection with the
+// newly provided client options.
+func (c *Client) ReloadConfig(opts ...ClientOption) (err error) {
+	if len(opts) == 0{
+		return
+	}
+
+	c.reloaderMu.Lock()
+	c.Stop()
+	for _, f := range opts {
+		f(c.options)
+	}
+
+	c.mqttClient = newClientFunc(toClientOptions(c, c.options))
+	err = c.Start()
+	c.reloaderMu.Unlock()
+	return
 }
 
 func (c *Client) handleToken(t mqtt.Token, timeoutErr error) error {

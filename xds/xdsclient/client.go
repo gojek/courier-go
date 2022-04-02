@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gojekfarm/courier-go/xds/backoff"
 	"github.com/gojekfarm/courier-go/xds/client"
+	"github.com/gojekfarm/courier-go/xds/types"
 	"github.com/gojekfarm/courier-go/xds/updatehandler"
 	"google.golang.org/grpc/credentials/insecure"
 	"log"
@@ -45,7 +46,7 @@ type Client struct {
 
 // New creates a new client with the provided config and starts a subscription for
 // resources defined in endpoints.
-func New(config *bootstrap.ServerConfig, endpoints ...string) (_ *Client, retErr error) {
+func New(config *bootstrap.ServerConfig, updateHandlerCfg updatehandler.Config) (_ *Client, retErr error) {
 	switch {
 	case config == nil:
 		return nil, errors.New("xds: no xds_server provided")
@@ -56,9 +57,10 @@ func New(config *bootstrap.ServerConfig, endpoints ...string) (_ *Client, retErr
 	}
 
 	ret := &Client{
-		config:    config,
-		backoff:   backoff.DefaultExponential.Backoff,
-		endpoints: sliceToMap(endpoints),
+		config:        config,
+		backoff:       backoff.DefaultExponential.Backoff,
+		endpoints:     endpointWatcherSliceToMap(updateHandlerCfg.Epw),
+		updateHandler: updatehandler.New(updateHandlerCfg),
 	}
 
 	defer func() {
@@ -86,7 +88,6 @@ func New(config *bootstrap.ServerConfig, endpoints ...string) (_ *Client, retErr
 
 	if ret.client, err = client.NewClient(ctx, config.NodeProto.(*v3corepb.Node), cc); err != nil {
 		if err != nil {
-			//ToDo: Implement update handler
 			ret.updateHandler.NewConnectionError(err)
 			return nil, fmt.Errorf("xds: failed to create EDS stream {%s}: %v", config.ServerURI, err)
 		}
@@ -118,14 +119,16 @@ func (c *Client) Close() {
 }
 
 //AddWatchEndpoint adds to the existing list of resource subscriptions
-func (c *Client) AddWatchEndpoint(endpoint string) {
-	c.endpoints[endpoint] = struct{}{}
+func (c *Client) AddWatchEndpoint(watcher types.EndpointWatcher) {
+	c.endpoints[watcher.Endpoint] = struct{}{}
+	c.updateHandler.AddEndpointWatcher(watcher)
 	c.send("")
 }
 
 //RemoveWatchEndpoint removes from the existing list of resources
-func (c *Client) RemoveWatchEndpoint(endpoint string) {
-	delete(c.endpoints, endpoint)
+func (c *Client) RemoveWatchEndpoint(watcher types.EndpointWatcher) {
+	delete(c.endpoints, watcher.Endpoint)
+	c.updateHandler.RemoveEndpointWatcher(watcher)
 	c.send("")
 }
 
@@ -228,13 +231,14 @@ func (c *Client) recv() bool {
 			continue
 		}
 
+		c.version, c.nonce = version, nonce
 		c.send("")
 		log.Printf("Sending ACK for version: %v, nonce: %v", version, nonce)
 		success = true
 	}
 }
 
-//ToDo: Inside handleResponse we call update handlers and ack/nack the DiscoveryResponse or may be return this to recv, the caller
+//handleResponse calls update handlers and based on the error returned ack/nack is called by the caller
 func (c *Client) handleResponse(resp proto.Message) (string, string, error) {
 	resources, version, nonce, err := c.client.ParseResponse(resp)
 	if err != nil {
@@ -259,20 +263,4 @@ func (c *Client) handleResponse(resp proto.Message) (string, string, error) {
 	c.updateHandler.NewEndpoints(addressMap)
 
 	return version, nonce, err
-}
-
-func mapToSlice(m map[string]struct{}) []string {
-	ret := make([]string, 0, len(m))
-	for i := range m {
-		ret = append(ret, i)
-	}
-	return ret
-}
-
-func sliceToMap(s []string) map[string]struct{} {
-	ret := make(map[string]struct{}, len(s))
-	for _, v := range s {
-		ret[v] = struct{}{}
-	}
-	return ret
 }

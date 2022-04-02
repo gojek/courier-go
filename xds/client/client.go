@@ -85,7 +85,6 @@ func (c *client) SendRequest(resourceNames []string, version, nonce, errMsg stri
 // stream.
 func (c *client) Receive() (proto.Message, error) {
 	resp, err := c.edsClient.Recv()
-	fmt.Println("OOOOOOOO Very many responses happening: ", resp)
 	if err != nil {
 		return nil, fmt.Errorf("xds: stream.Recv() failed: %v", err)
 	}

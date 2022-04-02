@@ -6,6 +6,8 @@ import (
 	"fmt"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/gojekfarm/courier-go/xds/bootstrap"
+	"github.com/gojekfarm/courier-go/xds/types"
+	"github.com/gojekfarm/courier-go/xds/updatehandler"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"os"
 	"os/signal"
@@ -36,12 +38,21 @@ func TestClient_streamEndpoints(t *testing.T) {
 		t.Error(err)
 	}
 
-	c, err := New(cfg.XDSServer, "customer")
+	c, err := New(cfg.XDSServer, updatehandler.Config{
+		ConnErrCallback: nil,
+		Epw: []types.EndpointWatcher{{
+			Endpoint: "customer",
+			Callback: func(strings []string) {
+				fmt.Println(strings)
+			},
+		},
+		},
+	})
 
 	fmt.Println(err)
 
 	ctx, _ := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
 
-	<- ctx.Done()
+	<-ctx.Done()
 	c.Close()
 }

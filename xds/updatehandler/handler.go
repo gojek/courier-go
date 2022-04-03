@@ -3,10 +3,8 @@ package updatehandler
 import (
 	"github.com/gojekfarm/courier-go/xds/types"
 	"log"
+	"sort"
 	"sync"
-
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 type Config struct {
@@ -62,7 +60,7 @@ func (h *endpointUpdateHandler) NewEndpoints(endpoints map[string][]string) {
 		log.Printf("No callback registered for subscribed resource: %s", endpoint)
 	}
 
-	h.endpoints = endpoints
+	h.endpoints = updates
 }
 
 func (h *endpointUpdateHandler) NewConnectionError(err error) {
@@ -87,12 +85,28 @@ func (h *endpointUpdateHandler) initiateEndpoints(epw []types.EndpointWatcher) {
 func (h *endpointUpdateHandler) getDiff(updatedEndpoints map[string][]string) map[string][]string {
 	ret := make(map[string][]string)
 
+	//check endpointList for endpoints present in updateHandler endpoints
 	for key, val := range h.endpoints {
 		newVal, ok := updatedEndpoints[key]
-		if ok && !cmp.Equal(val, newVal, cmpopts.SortSlices(func(a, b string) bool { return a < b })) {
+
+		if ok && !compareSlices(val, newVal) {
 			ret[key] = newVal
 		}
 	}
 
 	return ret
+}
+
+func compareSlices(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	sort.Strings(a)
+	sort.Strings(b)
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

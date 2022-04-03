@@ -22,7 +22,6 @@ type Client struct {
 	sMiddlewares  []subscribeMiddleware
 	usMiddlewares []unsubscribeMiddleware
 
-	reloader   Reloader
 	reloaderMu sync.Mutex //Synchronises calls to the reloadConfig
 }
 
@@ -74,12 +73,13 @@ func (c *Client) Stop() {
 
 // ReloadConfig stops the old connection and starts a new connection with the
 // newly provided client options.
-func (c *Client) ReloadConfig(opts ...ClientOption) (err error) {
+func (c *Client) reloadConfig(opts ...ClientOption) (err error) {
 	if len(opts) == 0{
 		return
 	}
 
 	c.reloaderMu.Lock()
+	defer c.reloaderMu.Unlock()
 	c.Stop()
 	for _, f := range opts {
 		f(c.options)
@@ -87,7 +87,6 @@ func (c *Client) ReloadConfig(opts ...ClientOption) (err error) {
 
 	c.mqttClient = newClientFunc(toClientOptions(c, c.options))
 	err = c.Start()
-	c.reloaderMu.Unlock()
 	return
 }
 

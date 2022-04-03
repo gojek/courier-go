@@ -1,11 +1,10 @@
 package courier
 
 import (
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"os"
 	"sync"
 	"time"
-
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 var newClientFunc = mqtt.NewClient
@@ -22,7 +21,7 @@ type Client struct {
 	sMiddlewares  []subscribeMiddleware
 	usMiddlewares []unsubscribeMiddleware
 
-	reloaderMu sync.Mutex //Synchronises calls to the reloadConfig
+	mu sync.RWMutex
 }
 
 // NewClient creates the Client struct with the clientOptions provided,
@@ -42,17 +41,33 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	c.subscriber = subscriberFuncs(c)
 	c.unsubscriber = unsubscriberHandler(c)
 
+	if o.resolver != nil {
+		go c.watchAddressUpdates(o.resolver)
+	}
+
 	return c, nil
+}
+
+func (c *Client) client() mqtt.Client {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.mqttClient
 }
 
 // IsConnected checks whether the client is connected to the broker
 func (c *Client) IsConnected() bool {
-	return c.mqttClient != nil && c.mqttClient.IsConnectionOpen()
+	cc := c.client()
+	return cc != nil && cc.IsConnectionOpen()
 }
 
 // Start will attempt to connect to the broker.
 func (c *Client) Start() error {
-	t := c.mqttClient.Connect()
+	return c.start(c.client())
+}
+
+func (c *Client) start(cc mqtt.Client) error {
+	t := cc.Connect()
 	if !t.WaitTimeout(c.options.connectTimeout) {
 		return ErrConnectTimeout
 	}
@@ -68,26 +83,11 @@ func (c *Client) Start() error {
 // communication workers. This can only block until the period configured with
 // the ClientOption WithGracefulShutdownPeriod.
 func (c *Client) Stop() {
-	c.mqttClient.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+	c.stop(c.client())
 }
 
-// ReloadConfig stops the old connection and starts a new connection with the
-// newly provided client options.
-func (c *Client) reloadConfig(opts ...ClientOption) (err error) {
-	if len(opts) == 0{
-		return
-	}
-
-	c.reloaderMu.Lock()
-	defer c.reloaderMu.Unlock()
-	c.Stop()
-	for _, f := range opts {
-		f(c.options)
-	}
-
-	c.mqttClient = newClientFunc(toClientOptions(c, c.options))
-	err = c.Start()
-	return
+func (c *Client) stop(cc mqtt.Client) {
+	cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 }
 
 func (c *Client) handleToken(t mqtt.Token, timeoutErr error) error {

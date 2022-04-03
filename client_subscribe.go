@@ -40,12 +40,12 @@ func subscriberFuncs(c *Client) Subscriber {
 	return NewSubscriberFuncs(
 		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
 			o := composeOptions(opts)
-			t := c.mqttClient.Subscribe(topic, o.qos, callbackWrapper(c, callback))
+			t := c.client().Subscribe(topic, o.qos, callbackWrapper(c, callback))
 
 			return c.handleToken(t, ErrSubscribeTimeout)
 		},
 		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error {
-			t := c.mqttClient.SubscribeMultiple(routeFilters(topicsWithQos), callbackWrapper(c, callback))
+			t := c.client().SubscribeMultiple(routeFilters(topicsWithQos), callbackWrapper(c, callback))
 
 			return c.handleToken(t, ErrSubscribeMultipleTimeout)
 		},

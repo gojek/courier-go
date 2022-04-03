@@ -35,7 +35,7 @@ func publishHandler(c *Client) Publisher {
 		}
 
 		o := composeOptions(opts)
-		t := c.mqttClient.Publish(topic, o.qos, o.retained, buf.Bytes())
+		t := c.client().Publish(topic, o.qos, o.retained, buf.Bytes())
 
 		return c.handleToken(t, ErrPublishTimeout)
 	})

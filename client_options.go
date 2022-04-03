@@ -172,6 +172,7 @@ func WithUseBase64Decoder() ClientOption {
 type clientOptions struct {
 	username, clientID, password,
 	brokerAddress string
+	resolver Resolver
 
 	autoReconnect, maintainOrder, cleanSession bool
 

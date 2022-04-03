@@ -26,7 +26,7 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc) {
 
 func unsubscriberHandler(c *Client) Unsubscriber {
 	return UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
-		t := c.mqttClient.Unsubscribe(topics...)
+		t := c.client().Unsubscribe(topics...)
 
 		return c.handleToken(t, ErrUnsubscribeTimeout)
 	})

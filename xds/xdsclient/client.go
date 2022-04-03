@@ -46,7 +46,7 @@ type Client struct {
 
 // New creates a new client with the provided config and starts a subscription for
 // resources defined in endpoints.
-func New(config *bootstrap.ServerConfig, updateHandlerCfg updatehandler.Config) (_ *Client, retErr error) {
+func New(config *bootstrap.ServerConfig, updateHandlerCfg updatehandler.Config) (xdsClient *Client, retErr error) {
 	switch {
 	case config == nil:
 		return nil, errors.New("xds: no xds_server provided")
@@ -103,7 +103,7 @@ func New(config *bootstrap.ServerConfig, updateHandlerCfg updatehandler.Config) 
 	return ret, nil
 }
 
-func (c *Client) Close() {
+func (c *Client) Close() error {
 	// Note that Close needs to check for nils even if some of them are always
 	// set in the constructor. This is because the constructor defers Close() in
 	// error cases, and the fields might not be set when the error happens.
@@ -111,11 +111,9 @@ func (c *Client) Close() {
 		c.stopRunGoroutine()
 	}
 	if c.cc != nil {
-		if err := c.cc.Close(); err != nil {
-			log.Printf("xds: Error closing client connection: %v", err)
-		}
-
+		return c.cc.Close()
 	}
+	return nil
 }
 
 //AddWatchEndpoint adds to the existing list of resource subscriptions

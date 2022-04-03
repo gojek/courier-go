@@ -13,34 +13,37 @@ import (
 type XdsReloader struct {
 	c    *Client
 	opts []ClientOption
+
+	connErrCallback func(error)
+	reloadCallback  func([]string, error)
 }
 
-func UseXDSReloader(config *bootstrap.ServerConfig, watchEndpoint string, c *Client, initClientOpts ...ClientOption) error {
-	reloader := XdsReloader{
-		c:    c,
-		opts: initClientOpts,
-	}
-
-	_, err := xdsclient.New(config, updatehandler.Config{
-		ConnErrCallback: reloader.ConnErrCallback,
+// UseXDSReloader initializes an xdsClient that watches the specified watchEndpoint and reloads the provided courier client whenever an update is received
+// for this endpoint. connErrCallback and reloadCallback are called when connection errors and config reloads are received.
+func UseXDSReloader(config *bootstrap.ServerConfig, watchEndpoint string, xdsReloader XdsReloader) (*xdsclient.Client, error) {
+	xdsClient, err := xdsclient.New(config, updatehandler.Config{
+		ConnErrCallback: xdsReloader.connErr,
 		Epw: []types.EndpointWatcher{
 			{
 				Endpoint: watchEndpoint,
-				Callback: reloader.ClientReload,
+				Callback: xdsReloader.clientReload,
 			},
 		},
 	})
 
-	return err
+	return xdsClient, err
 }
 
-func (xds *XdsReloader) ClientReload(addresses []string) {
+func (xds *XdsReloader) clientReload(addresses []string) {
 	var (
 		host string
 		port uint16
 		err  error
 	)
 
+	if xds.reloadCallback != nil {
+		defer xds.reloadCallback(addresses, err)
+	}
 	//Use the first valid address from the list of addresses
 	for _, address := range addresses {
 		if host, port, err = getHostPort(address); err == nil {
@@ -49,7 +52,6 @@ func (xds *XdsReloader) ClientReload(addresses []string) {
 	}
 
 	if err != nil {
-		log.Printf("No valid address obtained: %v", addresses)
 		return
 	}
 
@@ -62,8 +64,10 @@ func (xds *XdsReloader) ClientReload(addresses []string) {
 	}
 }
 
-func (xds *XdsReloader) ConnErrCallback(err error) {
-	log.Printf("Connection error from xds client: %v", err)
+func (xds *XdsReloader) connErr(err error) {
+	if xds.connErrCallback != nil {
+		xds.connErrCallback(err)
+	}
 }
 
 func getHostPort(address string) (string, uint16, error) {

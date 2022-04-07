@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/gojekfarm/courier-go/xds/backoff"
 	"github.com/gojekfarm/courier-go/xds/client"
-	"github.com/gojekfarm/courier-go/xds/types"
 	"github.com/gojekfarm/courier-go/xds/updatehandler"
 	"google.golang.org/grpc/credentials/insecure"
 	"log"
@@ -22,6 +21,8 @@ import (
 	"github.com/gojekfarm/courier-go/xds/bootstrap"
 )
 
+// ToDo: Make this implement resolver. xds:///<customer-broker>
+
 type Client struct {
 	config *bootstrap.ServerConfig
 
@@ -36,6 +37,7 @@ type Client struct {
 
 	updateHandler updatehandler.UpdateHandler
 
+	//ToDo: should have a single endpoint
 	endpoints map[string]struct{}
 	// version contains the version that was acked (the version in the ack
 	// request that was sent on wire).
@@ -114,20 +116,6 @@ func (c *Client) Close() error {
 		return c.cc.Close()
 	}
 	return nil
-}
-
-//AddWatchEndpoint adds to the existing list of resource subscriptions
-func (c *Client) AddWatchEndpoint(watcher types.EndpointWatcher) {
-	c.endpoints[watcher.Endpoint] = struct{}{}
-	c.updateHandler.AddEndpointWatcher(watcher)
-	c.send("")
-}
-
-//RemoveWatchEndpoint removes from the existing list of resources
-func (c *Client) RemoveWatchEndpoint(watcher types.EndpointWatcher) {
-	delete(c.endpoints, watcher.Endpoint)
-	c.updateHandler.RemoveEndpointWatcher(watcher)
-	c.send("")
 }
 
 // run starts an ADS stream (and backs off exponentially, if the previous

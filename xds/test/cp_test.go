@@ -14,13 +14,8 @@ import (
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/service/endpoint/v3"
-	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/service/listener/v3"
-	routev3 "github.com/envoyproxy/go-control-plane/envoy/service/route/v3"
-	runtimev3 "github.com/envoyproxy/go-control-plane/envoy/service/runtime/v3"
-	secretv3 "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	serverv3 "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"google.golang.org/grpc"
@@ -143,11 +138,5 @@ func generateSnap() cache.Snapshot {
 
 func registerServer(grpcServer *grpc.Server, server serverv3.Server) {
 	// register services
-	discoveryv3.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 	endpointv3.RegisterEndpointDiscoveryServiceServer(grpcServer, server)
-	clusterv3.RegisterClusterDiscoveryServiceServer(grpcServer, server)
-	routev3.RegisterRouteDiscoveryServiceServer(grpcServer, server)
-	listenerv3.RegisterListenerDiscoveryServiceServer(grpcServer, server)
-	secretv3.RegisterSecretDiscoveryServiceServer(grpcServer, server)
-	runtimev3.RegisterRuntimeDiscoveryServiceServer(grpcServer, server)
 }

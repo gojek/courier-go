@@ -26,8 +26,12 @@ type endpointUpdateHandler struct {
 }
 
 func New(cfg Config) UpdateHandler {
-	h := &endpointUpdateHandler{connErrCallback: cfg.ConnErrCallback}
-	h.initiateEndpoints(cfg.Epw)
+	h := &endpointUpdateHandler{}
+	if cfg.ConnErrCallback != nil {
+		h.connErrCallback = cfg.ConnErrCallback
+	}
+
+	h.initializeEndpoints(cfg.Epw)
 	return h
 }
 
@@ -69,7 +73,7 @@ func (h *endpointUpdateHandler) NewConnectionError(err error) {
 	}
 }
 
-func (h *endpointUpdateHandler) initiateEndpoints(epw []types.EndpointWatcher) {
+func (h *endpointUpdateHandler) initializeEndpoints(epw []types.EndpointWatcher) {
 	endpoints := make(map[string][]string)
 	callbacks := make(map[string]types.CallbackFunc)
 

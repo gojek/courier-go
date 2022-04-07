@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	v3endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"log"
+	"time"
 
 	v3corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	v3discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -17,49 +19,44 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-func NewClient(ctx context.Context, nodeProto *v3corepb.Node, cc *grpc.ClientConn) (Client, error) {
-	edsClient, err := v3edsgrpc.NewEndpointDiscoveryServiceClient(cc).StreamEndpoints(ctx, grpc.WaitForReady(true))
-	if err != nil {
-		return nil, err
-	}
-
+// NewClient returns a new eDS client stream using the *grpc.ClientConn provided.
+func NewClient(xdsTarget string, nodeProto *v3corepb.Node, cc grpc.ClientConnInterface) (Client, error) {
 	v3c := &client{
 		nodeProto: nodeProto,
-		edsClient:    edsClient,
+		cc:        cc,
+		xdsTarget: xdsTarget,
 	}
 	return v3c, nil
 }
 
 type edsStream v3edsgrpc.EndpointDiscoveryService_StreamEndpointsClient
 
-// client performs the actual xDS RPCs using the xDS v3 API. It creates an
-// EDS stream on which the different types of xDS requests and responses
+// client performs the actual eDS RPCs using the eDS v3 API. It creates an
+// EDS stream on which the different types of eDS requests and responses
 // are multiplexed.
 type client struct {
-	nodeProto *v3corepb.Node
-	edsClient edsStream
+	nodeProto  *v3corepb.Node
+	cc         grpc.ClientConnInterface
+	stream     edsStream
+	vsn, nonce string
+	xdsTarget  string
+
+	receiveChan chan []*v3endpointpb.ClusterLoadAssignment
 }
 
-type Client interface {
-	// RestartEDSClient returns a new xDS client stream specific to the underlying
-	// transport protocol version.
-	RestartEDSClient(ctx context.Context, cc *grpc.ClientConn) error
-	// SendRequest constructs and sends out a DiscoveryRequest message specific
-	// to the underlying transport protocol version.
-	SendRequest(resourceNames []string, version, nonce, errMsg string) error
-	// ParseResponse type asserts message to the versioned response, and
-	// retrieves the fields.
-	ParseResponse(r proto.Message) ([]*anypb.Any, string, string, error)
-
-	// Receive uses the provided stream to receive a response.
-	Receive() (proto.Message, error)
+func (c *client) startEDSStream(ctx context.Context) (edsStream, error) {
+	c.vsn, c.nonce = "", ""
+	return v3edsgrpc.NewEndpointDiscoveryServiceClient(c.cc).StreamEndpoints(ctx, grpc.WaitForReady(true))
 }
 
-func (c *client) RestartEDSClient(ctx context.Context, cc *grpc.ClientConn) error {
-	edsClient, err :=  v3edsgrpc.NewEndpointDiscoveryServiceClient(cc).StreamEndpoints(ctx, grpc.WaitForReady(true))
-	c.edsClient = edsClient
+func (c *client) Start(ctx context.Context) error {
+	edsStream, err := c.startEDSStream(ctx)
+	if err != nil {
+		return err
+	}
 
-	return err
+	c.stream = edsStream
+	return c.SendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, "")
 }
 
 func (c *client) SendRequest(resourceNames []string, version, nonce, errMsg string) error {
@@ -75,22 +72,79 @@ func (c *client) SendRequest(resourceNames []string, version, nonce, errMsg stri
 			Code: int32(codes.InvalidArgument), Message: errMsg,
 		}
 	}
-	if err := c.edsClient.Send(req); err != nil {
+	if err := c.stream.Send(req); err != nil {
 		return fmt.Errorf("xds: stream.Send(%+v) failed: %v", req, err)
 	}
 	return nil
 }
 
-// Receive blocks on the receipt of one response message on the provided
-// stream.
-func (c *client) Receive() (proto.Message, error) {
-	resp, err := c.edsClient.Recv()
+func (c *client) Receive() <-chan []*v3endpointpb.ClusterLoadAssignment {
+	resp, err := c.stream.Recv()
 	if err != nil {
-		return nil, fmt.Errorf("xds: stream.Recv() failed: %v", err)
+		return nil
 	}
 	log.Printf("ADS response received, type: %v\n", resp.GetTypeUrl())
 	log.Printf("ADS response received: %+v", resp)
-	return resp, nil
+
+	resources, vsn, nonce, err := c.ParseResponse(resp)
+	if err != nil {
+		//ToDo: errMsg
+		c.SendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, "")
+		log.Printf("some error")
+	}
+
+	c.vsn, c.nonce = vsn, nonce
+
+	clas := make([]*v3endpointpb.ClusterLoadAssignment, 0, len(resources))
+	for _, any := range resources {
+		cla := &v3endpointpb.ClusterLoadAssignment{}
+
+		proto.Unmarshal(any.GetValue(), cla)
+
+		clas = append(clas, cla)
+	}
+
+	return clas
+}
+
+func (c *client) run(ctx context.Context) {
+	retries := 0
+	streamRunning := true
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		if retries != 0 {
+			timer := time.NewTimer(c.backoff(retries))
+			select {
+			case <-timer.C:
+			case <-ctx.Done():
+				if !timer.Stop() {
+					<-timer.C
+				}
+				return
+			}
+		}
+
+		retries++
+
+		//restart if xds stream if not already running
+		if !streamRunning {
+			if err := c.Start(ctx); err != nil {
+				//ToDo: Send metrics here and logger here
+				log.Printf("xds: Error recovering from broken stream: %v", err)
+				streamRunning = false
+				continue
+			}
+			streamRunning = true
+
+			retries = 0
+		}
+	}
 }
 
 func (c *client) ParseResponse(r proto.Message) ([]*anypb.Any, string, string, error) {

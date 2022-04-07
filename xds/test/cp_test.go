@@ -109,7 +109,7 @@ func generateSnap() cache.Snapshot {
 	snap, _ := cache.NewSnapshot(v,
 		map[resource.Type][]types.Resource{
 			resource.EndpointType: {&endpoint.ClusterLoadAssignment{
-				ClusterName: "customer",
+				ClusterName: "xds:///broker.domain",
 				Endpoints: []*endpoint.LocalityLbEndpoints{{
 					LbEndpoints: []*endpoint.LbEndpoint{{
 						HostIdentifier: &endpoint.LbEndpoint_Endpoint{

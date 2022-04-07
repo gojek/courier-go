@@ -1,7 +1,6 @@
 package xds
 
 import (
-	"context"
 	v3endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/gojekfarm/courier-go"
 	"sort"
@@ -9,6 +8,7 @@ import (
 
 type clusterUpdateReceiver interface {
 	Receive() <-chan []*v3endpointpb.ClusterLoadAssignment
+	Done() <-chan struct{}
 }
 
 type weightedEp struct {
@@ -24,10 +24,15 @@ type Resolver struct {
 var _ courier.Resolver = (*Resolver)(nil)
 
 func NewResolver(rc clusterUpdateReceiver) *Resolver {
-	return &Resolver{
+	r :=  &Resolver{
 		rc: rc,
 		ch: make(chan []courier.TCPAddress),
 	}
+
+	go r.run()
+
+	return r
+
 }
 
 func (r *Resolver) UpdateChan() <-chan []courier.TCPAddress {
@@ -35,15 +40,13 @@ func (r *Resolver) UpdateChan() <-chan []courier.TCPAddress {
 }
 
 func (r *Resolver) Done() <-chan struct{} {
-	close(r.ch)
-	done := make(chan struct{}, 1)
-	return done
+	return r.rc.Done()
 }
 
-func (r *Resolver) run(ctx context.Context) {
+func (r *Resolver) run() {
 	for {
 		select {
-		case <-ctx.Done():
+		case <-r.Done():
 			return
 		case resources := <-r.rc.Receive():
 			var weightedEndpoints []weightedEp

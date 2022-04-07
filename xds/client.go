@@ -51,6 +51,7 @@ type Client struct {
 	xdsTarget  string
 	strategy   backoff.Strategy
 
+	done        chan struct{}
 	receiveChan chan []*v3endpointpb.ClusterLoadAssignment
 }
 
@@ -60,12 +61,14 @@ func (c *Client) startEDSStream(ctx context.Context) (edsStream, error) {
 }
 
 func (c *Client) Start(ctx context.Context) error {
+	fmt.Println("restarting stream")
 	edsStream, err := c.startEDSStream(ctx)
 	if err != nil {
 		return err
 	}
 
 	c.stream = edsStream
+	go c.run(ctx)
 	return c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, "")
 }
 
@@ -96,11 +99,12 @@ func (c *Client) run(ctx context.Context) {
 	retries := 0
 	streamRunning := true
 
-	go c.startReceive(ctx)
+	//go c.startReceive(ctx)
 
 	for {
 		select {
 		case <-ctx.Done():
+			close(c.done)
 			return
 		default:
 		}
@@ -131,6 +135,47 @@ func (c *Client) run(ctx context.Context) {
 
 			retries = 0
 		}
+
+		success := func() bool {
+			success := false
+			for {
+				fmt.Println("Restarting recv loop ")
+				resp, err := c.stream.Recv()
+				if err != nil {
+					log.Printf("Recv err %v", err)
+					return success
+				}
+				log.Printf("ADS response received, type: %v\n", resp.GetTypeUrl())
+				log.Printf("ADS response received: %+v", resp)
+
+				resources, vsn, nonce, err := c.parseResponse(resp)
+				if err != nil {
+					c.nack(err)
+					success = true
+					continue
+				}
+
+				c.vsn, c.nonce = vsn, nonce
+
+				c.ack()
+				success = true
+
+				clas := make([]*v3endpointpb.ClusterLoadAssignment, 0, len(resources))
+				for _, any := range resources {
+					cla := new(v3endpointpb.ClusterLoadAssignment)
+					_ = proto.Unmarshal(any.GetValue(), cla)
+					clas = append(clas, cla)
+				}
+
+				fmt.Println("Pushing to receivechan, ", clas)
+				c.receiveChan <- clas
+				fmt.Println("Pushed to receivechan, ", clas)
+			}
+		}()
+
+		if success {
+			retries = 0
+		}
 	}
 }
 
@@ -159,6 +204,7 @@ func (c *Client) startReceive(ctx context.Context) {
 			close(c.receiveChan)
 			return
 		default:
+			fmt.Println("Restarting recv loop ")
 			resp, err := c.stream.Recv()
 			if err != nil {
 				log.Printf("Recv err %v", err)
@@ -184,9 +230,15 @@ func (c *Client) startReceive(ctx context.Context) {
 				clas = append(clas, cla)
 			}
 
+			fmt.Println("Pushing to receivechan, ", clas)
 			c.receiveChan <- clas
+			fmt.Println("Pushed to receivechan, ", clas)
 		}
 	}
+}
+
+func (c *Client) Done() <-chan struct{} {
+	return c.done
 }
 
 func (c *Client) nack(err error) {

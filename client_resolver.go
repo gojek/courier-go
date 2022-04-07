@@ -31,6 +31,7 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 		case <-r.Done():
 			return
 		case addrs := <-r.UpdateChan():
+			fmt.Printf("New address received: %v \n", addrs)
 			if len(addrs) == 0 {
 				break
 			}

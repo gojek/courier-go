@@ -38,16 +38,22 @@ func (c *Client) UseSubscriberMiddleware(mwf ...SubscriberMiddlewareFunc) {
 
 func subscriberFuncs(c *Client) Subscriber {
 	return NewSubscriberFuncs(
-		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
+		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) (err error) {
 			o := composeOptions(opts)
-			t := c.client().Subscribe(topic, o.qos, callbackWrapper(c, callback))
+			c.execute(func(cc mqtt.Client) {
+				t := cc.Subscribe(topic, o.qos, callbackWrapper(c, callback))
+				err = c.handleToken(t, ErrSubscribeTimeout)
+			})
 
-			return c.handleToken(t, ErrSubscribeTimeout)
+			return
 		},
-		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error {
-			t := c.client().SubscribeMultiple(routeFilters(topicsWithQos), callbackWrapper(c, callback))
+		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) (err error) {
+			c.execute(func(cc mqtt.Client) {
+				t := cc.SubscribeMultiple(routeFilters(topicsWithQos), callbackWrapper(c, callback))
+				err = c.handleToken(t, ErrSubscribeTimeout)
+			})
 
-			return c.handleToken(t, ErrSubscribeMultipleTimeout)
+			return
 		},
 	)
 }

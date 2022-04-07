@@ -47,7 +47,12 @@ func (c *Client) newClient(addrs []TCPAddress) mqtt.Client {
 	c.options.brokerAddress = fmt.Sprintf("tcp://%s:%d", addr.Host, addr.Port)
 	cc := newClientFunc(toClientOptions(c, c.options))
 
-	if err := c.start(cc); err != nil {
+	t := cc.Connect()
+	if !t.WaitTimeout(c.options.connectTimeout) {
+		return c.newClient(addrs)
+	}
+
+	if err := t.Error(); err != nil {
 		// TODO: add retry backoff or use ExponentialStartStrategy utility
 		return c.newClient(addrs)
 	}
@@ -61,5 +66,8 @@ func (c *Client) reloadClient(cc mqtt.Client) {
 
 	oldClient := c.mqttClient
 	c.mqttClient = cc
-	go c.stop(oldClient)
+
+	go func() {
+		oldClient.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+	}()
 }

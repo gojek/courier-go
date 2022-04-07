@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gojekfarm/courier-go/xds"
 	"github.com/gojekfarm/courier-go/xds/backoff"
-	"github.com/gojekfarm/courier-go/xds/client"
 	"github.com/gojekfarm/courier-go/xds/updatehandler"
 	"google.golang.org/grpc/credentials/insecure"
 	"log"
@@ -27,7 +27,7 @@ type Client struct {
 	config *bootstrap.ServerConfig
 
 	cc     *grpc.ClientConn
-	client client.Client
+	client xds.Client
 
 	backoff func(int) time.Duration
 
@@ -88,7 +88,7 @@ func New(config *bootstrap.ServerConfig, updateHandlerCfg updatehandler.Config) 
 	}
 	ret.cc = cc
 
-	if ret.client, err = client.NewClient(ctx, config.NodeProto.(*v3corepb.Node), cc); err != nil {
+	if ret.client, err = xds.NewClient(ctx, config.NodeProto.(*v3corepb.Node), cc); err != nil {
 		if err != nil {
 			ret.updateHandler.NewConnectionError(err)
 			return nil, fmt.Errorf("xds: failed to create EDS stream {%s}: %v", config.ServerURI, err)

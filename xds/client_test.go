@@ -1,4 +1,4 @@
-package client
+package xds
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	v3corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	v3discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"github.com/gojekfarm/courier-go/xds/client"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/mock"
 	statuspb "google.golang.org/genproto/googleapis/rpc/status"
@@ -57,14 +58,14 @@ func Test_client_ParseResponse(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "unrecognised_message_type",
+			name:    "unrecognised_message_type",
 			message: &anypb.Any{TypeUrl: "random_message"},
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &client{}
+			c := &Client{}
 			resources, vsn, nonce, err := c.ParseResponse(tt.message)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseResponse() error = %v, wantErr %v", err, tt.wantErr)
@@ -95,14 +96,14 @@ func Test_client_Receive(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		edsClient func() *mockEds
+		edsClient func() *client.mockEds
 		msg       proto.Message
 		wantErr   bool
 	}{
 		{
 			name: "receive_success",
-			edsClient: func() *mockEds {
-				es := &mockEds{mock.Mock{}}
+			edsClient: func() *client.mockEds {
+				es := &client.mockEds{mock.Mock{}}
 				es.On("Recv").Return(discoveryResponse, nil)
 				return es
 			},
@@ -111,8 +112,8 @@ func Test_client_Receive(t *testing.T) {
 		},
 		{
 			name: "receive_error",
-			edsClient: func() *mockEds {
-				es := &mockEds{mock.Mock{}}
+			edsClient: func() *client.mockEds {
+				es := &client.mockEds{mock.Mock{}}
 				es.On("Recv").Return(nil, errors.New("some error"))
 				return es
 			},
@@ -123,7 +124,7 @@ func Test_client_Receive(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			edsClient := tt.edsClient()
-			c := &client{
+			c := &Client{
 				stream: edsClient,
 			}
 
@@ -145,23 +146,23 @@ func Test_client_RestartEDSClient(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		conn    func() *mockConnection
+		conn    func() *client.mockConnection
 		wantErr bool
 	}{
 		{
 			name: "success",
-			conn: func() *mockConnection {
-				m := &mockConnection{mock.Mock{}}
+			conn: func() *client.mockConnection {
+				m := &client.mockConnection{mock.Mock{}}
 				m.On("NewStream", mock.Anything, mock.Anything,
 					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
-					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(&mockEds{}, nil)
+					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(&client.mockEds{}, nil)
 				return m
 			},
 		},
 		{
 			name: "failure",
-			conn: func() *mockConnection {
-				m := &mockConnection{mock.Mock{}}
+			conn: func() *client.mockConnection {
+				m := &client.mockConnection{mock.Mock{}}
 				m.On("NewStream", mock.Anything, mock.Anything,
 					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
 					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(nil, errors.New("some error"))
@@ -173,8 +174,8 @@ func Test_client_RestartEDSClient(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			oldEdsClient := &mockEds{mock.Mock{}}
-			c := &client{
+			oldEdsClient := &client.mockEds{mock.Mock{}}
+			c := &Client{
 				stream: oldEdsClient,
 			}
 
@@ -189,7 +190,7 @@ func Test_client_RestartEDSClient(t *testing.T) {
 }
 
 func Test_client_SendRequest(t *testing.T) {
-	c := client{
+	c := Client{
 		nodeProto: &v3corepb.Node{
 			Id:      "123",
 			Cluster: "cluster",
@@ -237,7 +238,7 @@ func Test_client_SendRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			edsClient := &mockEds{mock.Mock{}}
+			edsClient := &client.mockEds{mock.Mock{}}
 			if tt.wantErr {
 				edsClient.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
@@ -290,14 +291,14 @@ func Test_client_SendRequest(t *testing.T) {
 func TestNewClient(t *testing.T) {
 	tests := []struct {
 		name    string
-		cc      func(m *mockEds) grpc.ClientConnInterface
+		cc      func(m *client.mockEds) grpc.ClientConnInterface
 		want    Client
 		wantErr bool
 	}{
 		{
 			name: "success",
-			cc: func(me *mockEds) grpc.ClientConnInterface {
-				m := mockConnection{mock.Mock{}}
+			cc: func(me *client.mockEds) grpc.ClientConnInterface {
+				m := client.mockConnection{mock.Mock{}}
 
 				m.On("NewStream", mock.Anything, mock.Anything,
 					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
@@ -308,8 +309,8 @@ func TestNewClient(t *testing.T) {
 		},
 		{
 			name: "failure",
-			cc: func(_ *mockEds) grpc.ClientConnInterface {
-				m := mockConnection{mock.Mock{}}
+			cc: func(_ *client.mockEds) grpc.ClientConnInterface {
+				m := client.mockConnection{mock.Mock{}}
 
 				m.On("NewStream", mock.Anything, mock.Anything,
 					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
@@ -323,9 +324,9 @@ func TestNewClient(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			eds := &mockEds{mock.Mock{}}
+			eds := &client.mockEds{mock.Mock{}}
 			cc := tt.cc(eds)
-			wantClient := client{
+			wantClient := Client{
 				nodeProto: &v3corepb.Node{
 					Id:      "123",
 					Cluster: "cluster",
@@ -345,11 +346,11 @@ func TestNewClient(t *testing.T) {
 				return
 			}
 
-			if (err == nil) && !(proto.Equal(got.(*client).nodeProto, wantClient.nodeProto)) {
-				t.Errorf("NewClient() got = %v, want %v", got.(*client).nodeProto, wantClient.nodeProto)
+			if (err == nil) && !(proto.Equal(got.(*Client).nodeProto, wantClient.nodeProto)) {
+				t.Errorf("NewClient() got = %v, want %v", got.(*Client).nodeProto, wantClient.nodeProto)
 			}
 
-			cc.(*mockConnection).AssertExpectations(t)
+			cc.(*client.mockConnection).AssertExpectations(t)
 		})
 	}
 }

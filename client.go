@@ -48,46 +48,42 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) client() mqtt.Client {
+func (c *Client) execute(f func(mqtt.Client)) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	return c.mqttClient
+	f(c.mqttClient)
 }
 
 // IsConnected checks whether the client is connected to the broker
-func (c *Client) IsConnected() bool {
-	cc := c.client()
-	return cc != nil && cc.IsConnectionOpen()
+func (c *Client) IsConnected() (online bool) {
+	c.execute(func(cc mqtt.Client) {
+		online = cc != nil && cc.IsConnectionOpen()
+	})
+	return
 }
 
 // Start will attempt to connect to the broker.
-func (c *Client) Start() error {
-	return c.start(c.client())
-}
+func (c *Client) Start() (err error) {
+	c.execute(func(cc mqtt.Client) {
+		t := cc.Connect()
+		if !t.WaitTimeout(c.options.connectTimeout) {
+			err = ErrConnectTimeout
+			return
+		}
 
-func (c *Client) start(cc mqtt.Client) error {
-	t := cc.Connect()
-	if !t.WaitTimeout(c.options.connectTimeout) {
-		return ErrConnectTimeout
-	}
-
-	if err := t.Error(); err != nil {
-		return err
-	}
-
-	return nil
+		err = t.Error()
+	})
+	return
 }
 
 // Stop will disconnect from the broker and finish up any pending work on internal
 // communication workers. This can only block until the period configured with
 // the ClientOption WithGracefulShutdownPeriod.
 func (c *Client) Stop() {
-	c.stop(c.client())
-}
-
-func (c *Client) stop(cc mqtt.Client) {
-	cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+	c.execute(func(cc mqtt.Client) {
+		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+	})
 }
 
 func (c *Client) handleToken(t mqtt.Token, timeoutErr error) error {

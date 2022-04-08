@@ -11,25 +11,24 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"os"
 	"os/signal"
-	"testing"
 )
 
-func TestNewResolver(t *testing.T) {
+func ExampleNewResolver() {
 	cfg, err := bootstrap.NewConfigFromContents([]byte(`{
-  "xds_server": {
-    "server_uri": "localhost:9100",
-    "node": {
-      "id": "52fdfc07-2182-454f-963f-5f0f9a621d72",
-      "cluster": "cluster",
-      "metadata": {
-        "TRAFFICDIRECTOR_GCP_PROJECT_NUMBER": "123456789012345",
-        "TRAFFICDIRECTOR_NETWORK_NAME": "thedefault"
-      },
-      "locality": {
-        "zone": "uscentral-5"
-      }
-    }
-  }
+ "xds_server": {
+   "server_uri": "localhost:9100",
+   "node": {
+     "id": "52fdfc07-2182-454f-963f-5f0f9a621d72",
+     "cluster": "cluster",
+     "metadata": {
+       "TRAFFICDIRECTOR_GCP_PROJECT_NUMBER": "123456789012345",
+       "TRAFFICDIRECTOR_NETWORK_NAME": "thedefault"
+     },
+     "locality": {
+       "zone": "uscentral-5"
+     }
+   }
+ }
 }`,
 	))
 	if err != nil {

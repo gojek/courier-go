@@ -1,356 +1,513 @@
 package xds
-//
-//import (
-//	"context"
-//	"errors"
-//	"fmt"
-//	v3corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-//	v3discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-//	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-//	"github.com/gojekfarm/courier-go/xds/client"
-//	"github.com/golang/protobuf/proto"
-//	"github.com/stretchr/testify/mock"
-//	statuspb "google.golang.org/genproto/googleapis/rpc/status"
-//	"google.golang.org/grpc"
-//	"google.golang.org/grpc/codes"
-//	"google.golang.org/protobuf/types/known/anypb"
-//	"reflect"
-//	"testing"
-//)
-//
-//func Test_client_ParseResponse(t *testing.T) {
-//	tests := []struct {
-//		name      string
-//		message   proto.Message
-//		resources []*anypb.Any
-//		vsn       string
-//		nonce     string
-//		wantErr   bool
-//	}{
-//		{
-//			name: "parse_success",
-//			message: &v3discoverypb.DiscoveryResponse{
-//				VersionInfo: "1",
-//				Resources: []*anypb.Any{{
-//					TypeUrl: resource.EndpointType,
-//				}},
-//				TypeUrl: resource.EndpointType,
-//				Nonce:   "1",
-//			},
-//			resources: []*anypb.Any{{
-//				TypeUrl: resource.EndpointType,
-//			}},
-//			vsn:   "1",
-//			nonce: "1",
-//		},
-//		{
-//			name: "parse_failure",
-//			message: &v3discoverypb.DiscoveryResponse{
-//				VersionInfo: "1",
-//				Resources: []*anypb.Any{{
-//					TypeUrl: resource.ClusterType,
-//				}},
-//				TypeUrl: resource.ClusterType,
-//				Nonce:   "1",
-//			},
-//			vsn:     "",
-//			nonce:   "",
-//			wantErr: true,
-//		},
-//		{
-//			name:    "unrecognised_message_type",
-//			message: &anypb.Any{TypeUrl: "random_message"},
-//			wantErr: true,
-//		},
-//	}
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			c := &Client{}
-//			resources, vsn, nonce, err := c.ParseResponse(tt.message)
-//			if (err != nil) != tt.wantErr {
-//				t.Errorf("ParseResponse() error = %v, wantErr %v", err, tt.wantErr)
-//				return
-//			}
-//			if !reflect.DeepEqual(resources, tt.resources) {
-//				t.Errorf("ParseResponse() got = %v, want %v", resources, tt.resources)
-//			}
-//			if vsn != tt.vsn {
-//				t.Errorf("ParseResponse() got = %v, want %v", vsn, tt.vsn)
-//			}
-//			if nonce != tt.nonce {
-//				t.Errorf("ParseResponse() got = %v, want %v", nonce, tt.nonce)
-//			}
-//		})
-//	}
-//}
-//
-//func Test_client_Receive(t *testing.T) {
-//	discoveryResponse := &v3discoverypb.DiscoveryResponse{
-//		VersionInfo: "1",
-//		Resources: []*anypb.Any{{
-//			TypeUrl: resource.ClusterType,
-//		}},
-//		TypeUrl: resource.ClusterType,
-//		Nonce:   "1",
-//	}
-//
-//	tests := []struct {
-//		name      string
-//		edsClient func() *client.mockEds
-//		msg       proto.Message
-//		wantErr   bool
-//	}{
-//		{
-//			name: "receive_success",
-//			edsClient: func() *client.mockEds {
-//				es := &client.mockEds{mock.Mock{}}
-//				es.On("Recv").Return(discoveryResponse, nil)
-//				return es
-//			},
-//			msg:     discoveryResponse,
-//			wantErr: false,
-//		},
-//		{
-//			name: "receive_error",
-//			edsClient: func() *client.mockEds {
-//				es := &client.mockEds{mock.Mock{}}
-//				es.On("Recv").Return(nil, errors.New("some error"))
-//				return es
-//			},
-//			wantErr: true,
-//		},
-//	}
-//
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			edsClient := tt.edsClient()
-//			c := &Client{
-//				stream: edsClient,
-//			}
-//
-//			got, err := c.Receive()
-//			if (err != nil) != tt.wantErr {
-//				t.Errorf("Receive() error = %v, wantErr %v", err, tt.wantErr)
-//				return
-//			}
-//			if !reflect.DeepEqual(got, tt.msg) {
-//				t.Errorf("Receive() got = %v, want %v", got, tt.msg)
-//			}
-//
-//			edsClient.AssertExpectations(t)
-//		})
-//	}
-//}
-//
-//func Test_client_RestartEDSClient(t *testing.T) {
-//
-//	tests := []struct {
-//		name    string
-//		conn    func() *client.mockConnection
-//		wantErr bool
-//	}{
-//		{
-//			name: "success",
-//			conn: func() *client.mockConnection {
-//				m := &client.mockConnection{mock.Mock{}}
-//				m.On("NewStream", mock.Anything, mock.Anything,
-//					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
-//					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(&client.mockEds{}, nil)
-//				return m
-//			},
-//		},
-//		{
-//			name: "failure",
-//			conn: func() *client.mockConnection {
-//				m := &client.mockConnection{mock.Mock{}}
-//				m.On("NewStream", mock.Anything, mock.Anything,
-//					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
-//					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(nil, errors.New("some error"))
-//				return m
-//			},
-//			wantErr: true,
-//		},
-//	}
-//
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			oldEdsClient := &client.mockEds{mock.Mock{}}
-//			c := &Client{
-//				stream: oldEdsClient,
-//			}
-//
-//			if err := c.RestartEDSClient(context.Background(), tt.conn()); (err != nil) != tt.wantErr {
-//				t.Errorf("RestartEDSClient() error = %v, wantErr %v", err, tt.wantErr)
-//				if c.stream != oldEdsClient {
-//					t.Errorf("RestartEDSClient() c.stream = %v, want %v", c.stream, oldEdsClient)
-//				}
-//			}
-//		})
-//	}
-//}
-//
-//func Test_client_SendRequest(t *testing.T) {
-//	c := Client{
-//		nodeProto: &v3corepb.Node{
-//			Id:      "123",
-//			Cluster: "cluster",
-//		},
-//	}
-//
-//	tests := []struct {
-//		name          string
-//		resourceNames []string
-//		version       string
-//		nonce         string
-//		errMsg        string
-//		wantErr       bool
-//		err           error
-//	}{
-//		{
-//			name:          "success",
-//			resourceNames: []string{"cluster-1", "cluster-2"},
-//			version:       "1",
-//			nonce:         "1",
-//			errMsg:        "",
-//		},
-//		{
-//			name:          "success_with_error_msg",
-//			resourceNames: []string{"cluster-1", "cluster-2"},
-//			version:       "1",
-//			nonce:         "1",
-//			errMsg:        "some error",
-//		},
-//		{
-//			name:          "failure",
-//			resourceNames: []string{"cluster-1", "cluster-2"},
-//			version:       "1",
-//			nonce:         "1",
-//			wantErr:       true,
-//			err: fmt.Errorf("xds: stream.Send(%+v) failed: %v", &v3discoverypb.DiscoveryRequest{
-//				Node:          c.nodeProto,
-//				TypeUrl:       resource.EndpointType,
-//				ResourceNames: []string{"cluster-1", "cluster-2"},
-//				VersionInfo:   "1",
-//				ResponseNonce: "1",
-//			}, "some error"),
-//		},
-//	}
-//
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			edsClient := &client.mockEds{mock.Mock{}}
-//			if tt.wantErr {
-//				edsClient.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
-//					expectedRequest := &v3discoverypb.DiscoveryRequest{
-//						Node:          c.nodeProto,
-//						TypeUrl:       resource.EndpointType,
-//						ResourceNames: tt.resourceNames,
-//						VersionInfo:   tt.version,
-//						ResponseNonce: tt.nonce,
-//					}
-//
-//					if tt.errMsg != "" {
-//						expectedRequest.ErrorDetail = &statuspb.Status{
-//							Code: int32(codes.InvalidArgument), Message: tt.errMsg,
-//						}
-//					}
-//					return proto.Equal(expectedRequest, req)
-//				})).Return(errors.New("some error"))
-//			}
-//			edsClient.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
-//				expectedRequest := &v3discoverypb.DiscoveryRequest{
-//					Node:          c.nodeProto,
-//					TypeUrl:       resource.EndpointType,
-//					ResourceNames: tt.resourceNames,
-//					VersionInfo:   tt.version,
-//					ResponseNonce: tt.nonce,
-//				}
-//
-//				if tt.errMsg != "" {
-//					expectedRequest.ErrorDetail = &statuspb.Status{
-//						Code: int32(codes.InvalidArgument), Message: tt.errMsg,
-//					}
-//				}
-//				return proto.Equal(expectedRequest, req)
-//			})).Return(nil)
-//
-//			c.stream = edsClient
-//
-//			err := c.SendRequest(tt.resourceNames, tt.version, tt.nonce, tt.errMsg)
-//			if (err != nil) != tt.wantErr {
-//				t.Errorf("SendRequest() error = %v, wantErr %v", err, tt.wantErr)
-//			}
-//
-//			if (err != nil) && (errors.Is(err, tt.err)) {
-//				t.Errorf("SendRequest() error = %v, wantErr %v", err, tt.err)
-//			}
-//		})
-//	}
-//}
-//
-//func TestNewClient(t *testing.T) {
-//	tests := []struct {
-//		name    string
-//		cc      func(m *client.mockEds) grpc.ClientConnInterface
-//		want    Client
-//		wantErr bool
-//	}{
-//		{
-//			name: "success",
-//			cc: func(me *client.mockEds) grpc.ClientConnInterface {
-//				m := client.mockConnection{mock.Mock{}}
-//
-//				m.On("NewStream", mock.Anything, mock.Anything,
-//					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
-//					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(me, nil)
-//
-//				return &m
-//			},
-//		},
-//		{
-//			name: "failure",
-//			cc: func(_ *client.mockEds) grpc.ClientConnInterface {
-//				m := client.mockConnection{mock.Mock{}}
-//
-//				m.On("NewStream", mock.Anything, mock.Anything,
-//					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
-//					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(nil, errors.New("some error"))
-//
-//				return &m
-//			},
-//			wantErr: true,
-//		},
-//	}
-//
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			eds := &client.mockEds{mock.Mock{}}
-//			cc := tt.cc(eds)
-//			wantClient := Client{
-//				nodeProto: &v3corepb.Node{
-//					Id:      "123",
-//					Cluster: "cluster",
-//				},
-//				stream: eds,
-//			}
-//
-//			got, err := NewClient(context.Background(),
-//				&v3corepb.Node{
-//					Id:      "123",
-//					Cluster: "cluster",
-//				},
-//				cc)
-//
-//			if (err != nil) != tt.wantErr {
-//				t.Errorf("NewClient() error = %v, wantErr %v", err, tt.wantErr)
-//				return
-//			}
-//
-//			if (err == nil) && !(proto.Equal(got.(*Client).nodeProto, wantClient.nodeProto)) {
-//				t.Errorf("NewClient() got = %v, want %v", got.(*Client).nodeProto, wantClient.nodeProto)
-//			}
-//
-//			cc.(*client.mockConnection).AssertExpectations(t)
-//		})
-//	}
-//}
+
+import (
+	"context"
+	"errors"
+	v3corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	v3endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	v3discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"github.com/gojekfarm/courier-go/xds/backoff"
+	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/mock"
+	statuspb "google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"reflect"
+	"testing"
+	"time"
+)
+
+func TestNewClient(t *testing.T) {
+	opts := Options{
+		XDSTarget: "cluster",
+		NodeProto: &v3corepb.Node{
+			Id: "id",
+		},
+		ClientConn:      &mockConnection{mock.Mock{}},
+		BackoffStrategy: backoff.DefaultExponential,
+	}
+
+	client := NewClient(opts)
+
+	if !proto.Equal(client.nodeProto, opts.NodeProto) ||
+		opts.XDSTarget != client.xdsTarget ||
+		opts.ClientConn != client.cc ||
+		opts.BackoffStrategy != client.strategy {
+		t.Errorf("NewClient() init error")
+	}
+}
+
+func TestClient_Done(t *testing.T) {
+	done := make(chan struct{})
+
+	c := &Client{
+		done: done,
+	}
+
+	got := c.Done()
+
+	go func() {
+		done <- struct{}{}
+	}()
+
+	received := <-got
+
+	if received != struct{}{} {
+		t.Errorf("Receiving on done channel failed")
+	}
+}
+
+func TestClient_Receive(t *testing.T) {
+	receiveChan := make(chan []*v3endpointpb.ClusterLoadAssignment)
+
+	c := &Client{
+		receiveChan: receiveChan,
+	}
+
+	got := c.Receive()
+	go func() {
+		receiveChan <- []*v3endpointpb.ClusterLoadAssignment{}
+	}()
+
+	received := <-got
+
+	if !reflect.DeepEqual(received, []*v3endpointpb.ClusterLoadAssignment{}) {
+		t.Errorf("Receiving on receive channel failed")
+	}
+}
+
+func TestClient_Start(t *testing.T) {
+	targets := []string{"cluster"}
+
+	tests := []struct {
+		name           string
+		mockEds        func() *mockEds
+		mockConnection func(*mockEds) *mockConnection
+		wantConnErr    bool
+	}{
+		{
+			name: "success",
+			mockEds: func() *mockEds {
+				eds := &mockEds{mock.Mock{}}
+				eds.On("RecvMsg", mock.AnythingOfType("*envoy_service_discovery_v3.DiscoveryResponse")).Return(errors.New("some error"))
+
+				eds.On("SendMsg", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
+					expectedRequest := &v3discoverypb.DiscoveryRequest{
+						TypeUrl:       resource.EndpointType,
+						ResourceNames: targets,
+						VersionInfo:   "",
+						ResponseNonce: "",
+					}
+					return proto.Equal(expectedRequest, req)
+				})).Return(nil)
+
+				return eds
+			},
+			mockConnection: func(eds *mockEds) *mockConnection {
+				conn := &mockConnection{mock.Mock{}}
+				conn.On("NewStream", mock.Anything, mock.Anything,
+					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
+					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(eds, nil)
+
+				return conn
+			},
+		},
+		{
+			name: "error_initializing_client_stream",
+			mockConnection: func(_ *mockEds) *mockConnection {
+				conn := &mockConnection{mock.Mock{}}
+				conn.On("NewStream", mock.Anything, mock.Anything,
+					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
+					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(nil, errors.New("some error"))
+
+				return conn
+			},
+			wantConnErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			var eds *mockEds
+			if tt.mockEds != nil {
+				eds = tt.mockEds()
+			}
+
+			cc := tt.mockConnection(eds)
+
+			c := Client{
+				cc:        cc,
+				strategy:  backoff.DefaultExponential,
+				xdsTarget: targets[0],
+				vsn:       "",
+				nonce:     "",
+			}
+
+			err := c.Start(ctx)
+			time.Sleep(1 * time.Millisecond)
+
+			if (tt.wantConnErr && err == nil) || (!tt.wantConnErr && err != nil) {
+				t.Errorf("Start() returned error: %v when error expected: %v", err, tt.wantConnErr)
+			}
+
+			cc.AssertExpectations(t)
+			if tt.mockEds != nil {
+				eds.AssertExpectations(t)
+			}
+		})
+	}
+}
+
+func TestClient_restart(t *testing.T) {
+	targets := []string{"cluster"}
+
+	tests := []struct {
+		name           string
+		mockEds        func() *mockEds
+		mockConnection func(*mockEds) *mockConnection
+		wantConnErr    bool
+	}{
+		{
+			name: "success",
+			mockEds: func() *mockEds {
+				eds := &mockEds{mock.Mock{}}
+				eds.On("SendMsg", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
+					expectedRequest := &v3discoverypb.DiscoveryRequest{
+						TypeUrl:       resource.EndpointType,
+						ResourceNames: targets,
+						VersionInfo:   "",
+						ResponseNonce: "",
+					}
+					return proto.Equal(expectedRequest, req)
+				})).Return(nil)
+
+				return eds
+			},
+			mockConnection: func(eds *mockEds) *mockConnection {
+				conn := &mockConnection{mock.Mock{}}
+				conn.On("NewStream", mock.Anything, mock.Anything,
+					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
+					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(eds, nil)
+
+				return conn
+			},
+		},
+		{
+			name: "error_initializing_client_stream",
+			mockConnection: func(_ *mockEds) *mockConnection {
+				conn := &mockConnection{mock.Mock{}}
+				conn.On("NewStream", mock.Anything, mock.Anything,
+					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
+					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(nil, errors.New("some error"))
+
+				return conn
+			},
+			wantConnErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			var eds *mockEds
+			if tt.mockEds != nil {
+				eds = tt.mockEds()
+			}
+
+			cc := tt.mockConnection(eds)
+
+			c := Client{
+				cc:        cc,
+				strategy:  backoff.DefaultExponential,
+				xdsTarget: targets[0],
+				vsn:       "",
+				nonce:     "",
+			}
+
+			err := c.restart(ctx)
+			time.Sleep(1 * time.Millisecond)
+
+			if (tt.wantConnErr && err == nil) || (!tt.wantConnErr && err != nil) {
+				t.Errorf("Start() returned error: %v when error expected: %v", err, tt.wantConnErr)
+			}
+
+			cc.AssertExpectations(t)
+			if tt.mockEds != nil {
+				eds.AssertExpectations(t)
+			}
+		})
+	}
+}
+
+func TestClient_ack(t *testing.T) {
+	targets := []string{"cluster"}
+
+	tests := []struct {
+		name    string
+		mockEds func() *mockEds
+	}{
+		{
+			name: "success",
+			mockEds: func() *mockEds {
+				eds := &mockEds{mock.Mock{}}
+				eds.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
+					expectedRequest := &v3discoverypb.DiscoveryRequest{
+						TypeUrl:       resource.EndpointType,
+						ResourceNames: targets,
+						VersionInfo:   "1",
+						ResponseNonce: "1",
+					}
+					return proto.Equal(expectedRequest, req)
+				})).Return(nil)
+
+				return eds
+			},
+		},
+		{
+			name: "failure",
+			mockEds: func() *mockEds {
+				eds := &mockEds{mock.Mock{}}
+				eds.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
+					expectedRequest := &v3discoverypb.DiscoveryRequest{
+						TypeUrl:       resource.EndpointType,
+						ResourceNames: targets,
+						VersionInfo:   "1",
+						ResponseNonce: "1",
+					}
+					return proto.Equal(expectedRequest, req)
+				})).Return(errors.New("some_error"))
+
+				return eds
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			eds := tt.mockEds()
+
+			c := Client{
+				stream:    eds,
+				xdsTarget: targets[0],
+				vsn:       "1",
+				nonce:     "1",
+			}
+
+			c.ack()
+
+			eds.AssertExpectations(t)
+		})
+	}
+}
+
+func TestClient_nack(t *testing.T) {
+	targets := []string{"cluster"}
+
+	tests := []struct {
+		name    string
+		mockEds func() *mockEds
+	}{
+		{
+			name: "success",
+			mockEds: func() *mockEds {
+				eds := &mockEds{mock.Mock{}}
+				eds.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
+					expectedRequest := &v3discoverypb.DiscoveryRequest{
+						TypeUrl:       resource.EndpointType,
+						ResourceNames: targets,
+						VersionInfo:   "1",
+						ResponseNonce: "1",
+						ErrorDetail: &statuspb.Status{
+							Code: int32(codes.InvalidArgument), Message: "nack_error",
+						},
+					}
+					return proto.Equal(expectedRequest, req)
+				})).Return(nil)
+
+				return eds
+			},
+		},
+		{
+			name: "failure",
+			mockEds: func() *mockEds {
+				eds := &mockEds{mock.Mock{}}
+				eds.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
+					expectedRequest := &v3discoverypb.DiscoveryRequest{
+						TypeUrl:       resource.EndpointType,
+						ResourceNames: targets,
+						VersionInfo:   "1",
+						ResponseNonce: "1",
+						ErrorDetail: &statuspb.Status{
+							Code: int32(codes.InvalidArgument), Message: "nack_error",
+						},
+					}
+					return proto.Equal(expectedRequest, req)
+				})).Return(errors.New("some_error"))
+
+				return eds
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			eds := tt.mockEds()
+			c := Client{
+				stream:    eds,
+				xdsTarget: targets[0],
+				vsn:       "1",
+				nonce:     "1",
+			}
+
+			c.nack(errors.New("nack_error"))
+
+			eds.AssertExpectations(t)
+		})
+	}
+}
+
+func TestClient_run(t *testing.T) {
+	targets := []string{"cluster"}
+
+	tests := []struct {
+		name           string
+		mockEds        func() *mockEds
+		mockConnection func(*mockEds) *mockConnection
+		wantConnErr    bool
+	}{
+		{
+			name: "success_stream_receives_cla",
+			mockEds: func() *mockEds {
+				eds := &mockEds{mock.Mock{}}
+				eds.On("Recv").Return(&v3discoverypb.DiscoveryResponse{
+					TypeUrl:     resource.EndpointType,
+					VersionInfo: "",
+				}, nil).Once()
+
+				eds.On("Recv").Return(nil, errors.New("some error")).Once()
+
+				eds.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
+					expectedRequest := &v3discoverypb.DiscoveryRequest{
+						TypeUrl:       resource.EndpointType,
+						ResourceNames: targets,
+						VersionInfo:   "",
+						ResponseNonce: "",
+					}
+					return proto.Equal(expectedRequest, req)
+				})).Return(nil)
+
+				return eds
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+
+			var eds *mockEds
+			if tt.mockEds != nil {
+				eds = tt.mockEds()
+			}
+
+			c := Client{
+				stream:    eds,
+				strategy:  backoff.DefaultExponential,
+				xdsTarget: targets[0],
+				vsn:       "",
+				nonce:     "",
+				done: make(chan struct{}),
+				receiveChan: make(chan []*v3endpointpb.ClusterLoadAssignment),
+			}
+
+			go func() {
+				time.Sleep(1*time.Millisecond)
+				cancel()
+				<- c.Receive()
+			}()
+
+			c.run(ctx)
+
+			if tt.mockEds != nil {
+				eds.AssertExpectations(t)
+			}
+		})
+	}
+}
+
+type mockConnection struct {
+	mock.Mock
+}
+
+func (c *mockConnection) Invoke(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error {
+	return c.Called(ctx, method, args, reply, opts).Error(0)
+}
+
+func (c *mockConnection) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+	args := c.Called(ctx, desc, method, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(grpc.ClientStream), args.Error(1)
+}
+
+type mockEds struct {
+	mock.Mock
+}
+
+func (m *mockEds) Recv() (*v3discoverypb.DiscoveryResponse, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*v3discoverypb.DiscoveryResponse), args.Error(1)
+}
+
+func (m *mockEds) Send(req *v3discoverypb.DiscoveryRequest) error {
+	return m.Called(req).Error(0)
+}
+
+func (m *mockEds) Header() (metadata.MD, error) {
+	return nil, nil
+}
+
+func (m *mockEds) Trailer() metadata.MD {
+	return nil
+}
+
+func (m *mockEds) CloseSend() error {
+	return nil
+}
+
+func (m *mockEds) Context() context.Context {
+	return nil
+}
+
+func (m *mockEds) SendMsg(msg interface{}) error {
+	return m.Called(msg).Error(0)
+}
+
+func (m *mockEds) RecvMsg(msg interface{}) error {
+	args := m.Called(msg)
+	if len(args) > 1 {
+		resp := args.Get(1).(*v3discoverypb.DiscoveryResponse)
+		v, _ := msg.(*v3discoverypb.DiscoveryResponse)
+		*v = v3discoverypb.DiscoveryResponse{
+			VersionInfo: resp.VersionInfo,
+			Resources:   resp.Resources,
+			TypeUrl:     resp.TypeUrl,
+			Nonce:       resp.Nonce,
+		}
+	}
+
+	return args.Error(0)
+}

@@ -140,3 +140,5 @@ func registerServer(grpcServer *grpc.Server, server serverv3.Server) {
 	// register services
 	endpointv3.RegisterEndpointDiscoveryServiceServer(grpcServer, server)
 }
+
+

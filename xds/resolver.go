@@ -21,10 +21,8 @@ type Resolver struct {
 	ch chan []courier.TCPAddress
 }
 
-var _ courier.Resolver = (*Resolver)(nil)
-
 func NewResolver(rc clusterUpdateReceiver) *Resolver {
-	r :=  &Resolver{
+	r := &Resolver{
 		rc: rc,
 		ch: make(chan []courier.TCPAddress),
 	}
@@ -32,7 +30,6 @@ func NewResolver(rc clusterUpdateReceiver) *Resolver {
 	go r.run()
 
 	return r
-
 }
 
 func (r *Resolver) UpdateChan() <-chan []courier.TCPAddress {

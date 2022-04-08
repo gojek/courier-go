@@ -2,9 +2,7 @@ package xds
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"github.com/gojekfarm/courier-go/xds/backoff"
 	"log"
 	"time"
 
@@ -18,8 +16,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/anypb"
+
+	"github.com/gojekfarm/courier-go/xds/backoff"
 )
 
+// Options specifies options to be provided for initialising the xds client
 type Options struct {
 	XDSTarget       string
 	NodeProto       *v3corepb.Node
@@ -56,39 +57,49 @@ type Client struct {
 	receiveChan chan []*v3endpointpb.ClusterLoadAssignment
 }
 
+// Start sends the first discoveryRequest to the management server and starts the receive loop
 func (c *Client) Start(ctx context.Context) error {
 	fmt.Println("starting stream")
+
 	stream, err := c.startEDSStream(ctx)
+
 	if err != nil {
 		return err
 	}
 
 	c.stream = stream
 	go c.run(ctx)
+
 	return c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, "")
 }
 
+// Receive returns a channel where ClusterLoadAssignment resource updates can be received
 func (c *Client) Receive() <-chan []*v3endpointpb.ClusterLoadAssignment {
 	return c.receiveChan
 }
 
+// Done returns a channel which is closed when the run loop stops due to context expiry
 func (c *Client) Done() <-chan struct{} {
 	return c.done
 }
 
 func (c *Client) restart(ctx context.Context) error {
 	fmt.Println("restarting stream")
+
 	stream, err := c.startEDSStream(ctx)
+
 	if err != nil {
 		return err
 	}
 
 	c.stream = stream
+
 	return c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, "")
 }
 
 func (c *Client) startEDSStream(ctx context.Context) (edsStream, error) {
 	c.vsn, c.nonce = "", ""
+
 	return v3edsgrpc.NewEndpointDiscoveryServiceClient(c.cc).StreamEndpoints(ctx, grpc.WaitForReady(true))
 }
 
@@ -105,9 +116,11 @@ func (c *Client) sendRequest(resourceNames []string, version, nonce, errMsg stri
 			Code: int32(codes.InvalidArgument), Message: errMsg,
 		}
 	}
+
 	if err := c.stream.Send(req); err != nil {
 		return fmt.Errorf("xds: stream.Send(%+v) failed: %v", req, err)
 	}
+
 	return nil
 }
 
@@ -119,6 +132,7 @@ func (c *Client) run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			close(c.done)
+
 			return
 		default:
 		}
@@ -131,6 +145,7 @@ func (c *Client) run(ctx context.Context) {
 				if !timer.Stop() {
 					<-timer.C
 				}
+
 				return
 			}
 		}
@@ -143,10 +158,9 @@ func (c *Client) run(ctx context.Context) {
 			if err := c.restart(ctx); err != nil {
 				//ToDo: Send metrics here and logger here
 				log.Printf("xds: Error recovering from broken stream: %v", err)
-				streamRunning = false
+
 				continue
 			}
-			streamRunning = true
 
 			retries = 0
 		}
@@ -156,6 +170,7 @@ func (c *Client) run(ctx context.Context) {
 		}
 
 		fmt.Println("Received from recv")
+
 		streamRunning = false
 	}
 }
@@ -171,10 +186,13 @@ func (c *Client) parseResponse(r proto.Message) ([]*anypb.Any, string, string, e
 	// of resource types using new versions of the transport protocol, or
 	// vice-versa. Hence we need to handle v3 type_urls as well here.
 	var err error
+
 	url := resp.GetTypeUrl()
+
 	if url != resource.EndpointType {
-		return nil, "", "", errors.New(fmt.Sprintf("Resource type %v is not EndpointResource in response from server", resp.GetTypeUrl()))
+		return nil, "", "", fmt.Errorf("resource type %v is not EndpointResource in response from server", resp.GetTypeUrl())
 	}
+
 	return resp.GetResources(), resp.GetVersionInfo(), resp.GetNonce(), err
 }
 
@@ -192,37 +210,47 @@ func (c *Client) ack() {
 
 func (c *Client) recv() bool {
 	success := false
+
 	for {
 		fmt.Println("Restarting recv loop ")
+
 		resp, err := c.stream.Recv()
+
 		if err != nil {
 			log.Printf("Recv err %v", err)
+
 			return success
 		}
+
 		log.Printf("ADS response received, type: %v\n", resp.GetTypeUrl())
 		log.Printf("ADS response received: %+v", resp)
 
 		resources, vsn, nonce, err := c.parseResponse(resp)
+
 		if err != nil {
 			c.nack(err)
+
 			success = true
+
 			continue
 		}
 
 		c.vsn, c.nonce = vsn, nonce
 
 		c.ack()
+
 		success = true
 
-		clas := make([]*v3endpointpb.ClusterLoadAssignment, 0, len(resources))
+		clusterLoadAssignments := make([]*v3endpointpb.ClusterLoadAssignment, 0, len(resources))
+
 		for _, any := range resources {
 			cla := new(v3endpointpb.ClusterLoadAssignment)
 			_ = proto.Unmarshal(any.GetValue(), cla)
-			clas = append(clas, cla)
+			clusterLoadAssignments = append(clusterLoadAssignments, cla)
 		}
 
-		fmt.Println("Pushing to receivechan, ", clas)
-		c.receiveChan <- clas
-		fmt.Println("Pushed to receivechan, ", clas)
+		fmt.Println("Pushing to receivechan, ", clusterLoadAssignments)
+		c.receiveChan <- clusterLoadAssignments
+		fmt.Println("Pushed to receivechan, ", clusterLoadAssignments)
 	}
 }

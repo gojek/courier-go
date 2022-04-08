@@ -1,13 +1,15 @@
 package xds
 
 import (
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	v3endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"github.com/gojekfarm/courier-go"
-	"github.com/golang/protobuf/ptypes/wrappers"
-	"github.com/stretchr/testify/mock"
 	"reflect"
 	"testing"
+
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	v3endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/stretchr/testify/mock"
+
+	"github.com/gojekfarm/courier-go"
 )
 
 func TestNewResolver(t *testing.T) {
@@ -34,7 +36,6 @@ func TestNewResolver(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			if got := NewResolver(rc); !reflect.DeepEqual(got.rc, tt.want.rc) {
 				t.Errorf("NewResolver() = %v, want %v", got, tt.want)
 			}
@@ -204,14 +205,13 @@ func TestResolver_Run(t *testing.T) {
 				Host: "localhost",
 				Port: 1883,
 			},
-			{
-				Host: "localhost",
-				Port: 8888,
-			}}) {
+				{
+					Host: "localhost",
+					Port: 8888,
+				}}) {
 				t.Errorf("UpdateChan() expected value not received from chan")
 			}
 		})
-
 	}
 }
 

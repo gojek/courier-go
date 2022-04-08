@@ -35,19 +35,23 @@ func (bc Exponential) Backoff(retries int) time.Duration {
 	if retries == 0 {
 		return bc.Config.BaseDelay
 	}
+
 	backoff, max := float64(bc.Config.BaseDelay), float64(bc.Config.MaxDelay)
+
 	for backoff < max && retries > 0 {
 		backoff *= bc.Config.Multiplier
 		retries--
 	}
+
 	if backoff > max {
 		backoff = max
 	}
-	// Randomize backoff delays so that if a cluster of requests start at
+	// Randomise backoff delays so that if a cluster of requests start at
 	// the same time, they won't operate in lockstep.
 	backoff *= 1 + bc.Config.Jitter*(s.Float64()*2-1)
 	if backoff < 0 {
 		return 0
 	}
+
 	return time.Duration(backoff)
 }

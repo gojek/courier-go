@@ -2,23 +2,29 @@ package courier
 
 import (
 	"fmt"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"math/rand"
 	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 var rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
 
+// TCPAddress specifies Host and Port for remote broker
 type TCPAddress struct {
 	Host string
 	Port uint16
 }
 
+// Resolver sends TCPAddress updates on the caller of the UpdateChan() channel.
 type Resolver interface {
+	// UpdateChan returns a channel where TCPAddress updates can be received.
 	UpdateChan() <-chan []TCPAddress
+	// Done returns a channel which receives a value when the Resolver is no longer running.
 	Done() <-chan struct{}
 }
 
+// WithResolver sets the specified Resolver.
 func WithResolver(resolver Resolver) ClientOption {
 	return func(c *clientOptions) {
 		c.resolver = resolver
@@ -31,10 +37,10 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 		case <-r.Done():
 			return
 		case addrs := <-r.UpdateChan():
-			fmt.Printf("New address received: %v \n", addrs)
 			if len(addrs) == 0 {
 				break
 			}
+
 			// try to start new client first, iff it starts, replace current client
 			cc := c.newClient(addrs)
 			c.reloadClient(cc)

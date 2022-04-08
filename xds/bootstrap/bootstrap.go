@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/gojekfarm/courier-go"
 	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -57,25 +56,19 @@ type Config struct {
 	XDSServer *ServerConfig `json:"xds_server"`
 }
 
-func (c *Config) updateNodeProto(node *corev3.Node) {
-	if c.XDSServer == nil {
-		return
-	}
-
-	node.UserAgentName = courierUserAgentName
-	node.UserAgentVersionType = &corev3.Node_UserAgentVersion{UserAgentVersion: courier.Version()}
-	node.ClientFeatures = append(node.ClientFeatures, clientFeatureNoOverprovisioning, clientFeatureResourceWrapper)
-	c.XDSServer.NodeProto = node
-}
-
+// NewConfig returns a bootstrap config after reading the BootstrapConfig from the
+// file specified by COURIER_XDS_BOOTSTRAP env var or the base64 encoded string in
+// COURIER_XDS_BOOTSTRAP_CONFIG_BASE64 var.
 func NewConfig() (*Config, error) {
 	data, err := readXDSBootstrapConfig()
 	if err != nil {
 		return nil, err
 	}
+
 	return NewConfigFromContents(data)
 }
 
+// NewConfigFromContents returns a bootstrap config after reading the BootstrapConfig from data.
 func NewConfigFromContents(data []byte) (*Config, error) {
 	cfg := new(Config)
 
@@ -133,6 +126,7 @@ func (sc ServerConfig) MarshalJSON() ([]byte, error) {
 		Node:      xdsNode{node: sc.NodeProto},
 	}
 	server.ServerFeatures = []string{serverFeaturesV3}
+
 	return json.Marshal(server)
 }
 
@@ -142,8 +136,10 @@ func (sc *ServerConfig) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &server); err != nil {
 		return fmt.Errorf("xds: json.Unmarshal(data) for field ServerConfig failed during bootstrap: %v", err)
 	}
+
 	sc.ServerURI = server.ServerURI
 	sc.NodeProto = server.Node.node
+
 	return nil
 }
 
@@ -164,5 +160,6 @@ func (n *xdsNode) UnmarshalJSON(data []byte) error {
 	in.ClientFeatures = append(in.ClientFeatures, clientFeatureNoOverprovisioning, clientFeatureResourceWrapper)
 
 	n.node = in
+
 	return nil
 }

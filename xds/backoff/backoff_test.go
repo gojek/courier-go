@@ -1,9 +1,10 @@
 package backoff
 
 import (
-	grpcbackoff "google.golang.org/grpc/backoff"
 	"testing"
 	"time"
+
+	grpcbackoff "google.golang.org/grpc/backoff"
 )
 
 func TestExponential_Backoff(t *testing.T) {

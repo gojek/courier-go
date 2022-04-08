@@ -1,10 +1,11 @@
 package courier
 
 import (
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"os"
 	"sync"
 	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 var newClientFunc = mqtt.NewClient
@@ -60,6 +61,7 @@ func (c *Client) IsConnected() (online bool) {
 	c.execute(func(cc mqtt.Client) {
 		online = cc != nil && cc.IsConnectionOpen()
 	})
+
 	return
 }
 
@@ -69,11 +71,13 @@ func (c *Client) Start() (err error) {
 		t := cc.Connect()
 		if !t.WaitTimeout(c.options.connectTimeout) {
 			err = ErrConnectTimeout
+
 			return
 		}
 
 		err = t.Error()
 	})
+
 	return
 }
 

@@ -3,20 +3,22 @@ package xds
 import (
 	"context"
 	"errors"
+	"reflect"
+	"testing"
+	"time"
+
 	v3corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	v3endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	v3discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-	"github.com/gojekfarm/courier-go/xds/backoff"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/mock"
 	statuspb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"reflect"
-	"testing"
-	"time"
+
+	"github.com/gojekfarm/courier-go/xds/backoff"
 )
 
 func TestNewClient(t *testing.T) {
@@ -115,7 +117,7 @@ func TestClient_Start(t *testing.T) {
 			},
 		},
 		{
-			name: "error_initializing_client_stream",
+			name: "error_initialising_client_stream",
 			mockConnection: func(_ *mockEds) *mockConnection {
 				conn := &mockConnection{mock.Mock{}}
 				conn.On("NewStream", mock.Anything, mock.Anything,
@@ -198,7 +200,7 @@ func TestClient_restart(t *testing.T) {
 			},
 		},
 		{
-			name: "error_initializing_client_stream",
+			name: "error_initialising_client_stream",
 			mockConnection: func(_ *mockEds) *mockConnection {
 				conn := &mockConnection{mock.Mock{}}
 				conn.On("NewStream", mock.Anything, mock.Anything,
@@ -291,7 +293,6 @@ func TestClient_ack(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			eds := tt.mockEds()
 
 			c := Client{
@@ -359,7 +360,6 @@ func TestClient_nack(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			eds := tt.mockEds()
 			c := Client{
 				stream:    eds,
@@ -420,19 +420,19 @@ func TestClient_run(t *testing.T) {
 			}
 
 			c := Client{
-				stream:    eds,
-				strategy:  backoff.DefaultExponential,
-				xdsTarget: targets[0],
-				vsn:       "",
-				nonce:     "",
-				done: make(chan struct{}),
+				stream:      eds,
+				strategy:    backoff.DefaultExponential,
+				xdsTarget:   targets[0],
+				vsn:         "",
+				nonce:       "",
+				done:        make(chan struct{}),
 				receiveChan: make(chan []*v3endpointpb.ClusterLoadAssignment),
 			}
 
 			go func() {
-				time.Sleep(1*time.Millisecond)
+				time.Sleep(1 * time.Millisecond)
 				cancel()
-				<- c.Receive()
+				<-c.Receive()
 			}()
 
 			c.run(ctx)

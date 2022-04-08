@@ -3,6 +3,7 @@ package courier
 import (
 	"bytes"
 	"context"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 

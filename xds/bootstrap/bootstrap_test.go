@@ -3,11 +3,12 @@ package bootstrap
 import (
 	"bytes"
 	"encoding/base64"
+	"testing"
+
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
-	"testing"
 )
 
 const fileContent = `
@@ -85,7 +86,6 @@ func TestNewConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			filecontentBytes := &bytes.Buffer{}
 			_, err := base64.NewEncoder(base64.StdEncoding, filecontentBytes).Write([]byte(tt.fileContent))
 			if err != nil {

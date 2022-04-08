@@ -2,15 +2,17 @@ package xds_test
 
 import (
 	"context"
+	"os"
+	"os/signal"
+
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	"github.com/gojekfarm/courier-go"
 	"github.com/gojekfarm/courier-go/xds"
 	"github.com/gojekfarm/courier-go/xds/backoff"
 	"github.com/gojekfarm/courier-go/xds/bootstrap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"os"
-	"os/signal"
 )
 
 func ExampleNewResolver() {

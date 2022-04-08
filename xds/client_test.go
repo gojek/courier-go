@@ -27,7 +27,7 @@ func TestNewClient(t *testing.T) {
 		NodeProto: &v3corepb.Node{
 			Id: "id",
 		},
-		ClientConn:      &mockConnection{mock.Mock{}},
+		ClientConn:      &mockConnection{},
 		BackoffStrategy: backoff.DefaultExponential,
 	}
 
@@ -92,7 +92,7 @@ func TestClient_Start(t *testing.T) {
 		{
 			name: "success",
 			mockEds: func() *mockEds {
-				eds := &mockEds{mock.Mock{}}
+				eds := &mockEds{}
 				eds.On("RecvMsg", mock.AnythingOfType("*envoy_service_discovery_v3.DiscoveryResponse")).Return(errors.New("some error"))
 
 				eds.On("SendMsg", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
@@ -108,7 +108,7 @@ func TestClient_Start(t *testing.T) {
 				return eds
 			},
 			mockConnection: func(eds *mockEds) *mockConnection {
-				conn := &mockConnection{mock.Mock{}}
+				conn := &mockConnection{}
 				conn.On("NewStream", mock.Anything, mock.Anything,
 					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
 					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(eds, nil)
@@ -119,7 +119,7 @@ func TestClient_Start(t *testing.T) {
 		{
 			name: "error_initialising_client_stream",
 			mockConnection: func(_ *mockEds) *mockConnection {
-				conn := &mockConnection{mock.Mock{}}
+				conn := &mockConnection{}
 				conn.On("NewStream", mock.Anything, mock.Anything,
 					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
 					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(nil, errors.New("some error"))
@@ -177,7 +177,7 @@ func TestClient_restart(t *testing.T) {
 		{
 			name: "success",
 			mockEds: func() *mockEds {
-				eds := &mockEds{mock.Mock{}}
+				eds := &mockEds{}
 				eds.On("SendMsg", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
 						TypeUrl:       resource.EndpointType,
@@ -191,7 +191,7 @@ func TestClient_restart(t *testing.T) {
 				return eds
 			},
 			mockConnection: func(eds *mockEds) *mockConnection {
-				conn := &mockConnection{mock.Mock{}}
+				conn := &mockConnection{}
 				conn.On("NewStream", mock.Anything, mock.Anything,
 					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
 					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(eds, nil)
@@ -202,7 +202,7 @@ func TestClient_restart(t *testing.T) {
 		{
 			name: "error_initialising_client_stream",
 			mockConnection: func(_ *mockEds) *mockConnection {
-				conn := &mockConnection{mock.Mock{}}
+				conn := &mockConnection{}
 				conn.On("NewStream", mock.Anything, mock.Anything,
 					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
 					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(nil, errors.New("some error"))
@@ -258,7 +258,7 @@ func TestClient_ack(t *testing.T) {
 		{
 			name: "success",
 			mockEds: func() *mockEds {
-				eds := &mockEds{mock.Mock{}}
+				eds := &mockEds{}
 				eds.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
 						TypeUrl:       resource.EndpointType,
@@ -275,7 +275,7 @@ func TestClient_ack(t *testing.T) {
 		{
 			name: "failure",
 			mockEds: func() *mockEds {
-				eds := &mockEds{mock.Mock{}}
+				eds := &mockEds{}
 				eds.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
 						TypeUrl:       resource.EndpointType,
@@ -319,7 +319,7 @@ func TestClient_nack(t *testing.T) {
 		{
 			name: "success",
 			mockEds: func() *mockEds {
-				eds := &mockEds{mock.Mock{}}
+				eds := &mockEds{}
 				eds.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
 						TypeUrl:       resource.EndpointType,
@@ -339,7 +339,7 @@ func TestClient_nack(t *testing.T) {
 		{
 			name: "failure",
 			mockEds: func() *mockEds {
-				eds := &mockEds{mock.Mock{}}
+				eds := &mockEds{}
 				eds.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
 						TypeUrl:       resource.EndpointType,
@@ -387,7 +387,7 @@ func TestClient_run(t *testing.T) {
 		{
 			name: "success_stream_receives_cla",
 			mockEds: func() *mockEds {
-				eds := &mockEds{mock.Mock{}}
+				eds := &mockEds{}
 				eds.On("Recv").Return(&v3discoverypb.DiscoveryResponse{
 					TypeUrl:     resource.EndpointType,
 					VersionInfo: "",

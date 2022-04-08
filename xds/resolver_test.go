@@ -13,7 +13,7 @@ import (
 )
 
 func TestNewResolver(t *testing.T) {
-	rc := &mockReceiver{mock.Mock{}}
+	rc := &mockReceiver{}
 	done := make(chan struct{})
 	close(done)
 
@@ -44,7 +44,7 @@ func TestNewResolver(t *testing.T) {
 }
 
 func TestResolver_Done(t *testing.T) {
-	rc := &mockReceiver{mock.Mock{}}
+	rc := &mockReceiver{}
 	done := make(chan struct{})
 	rc.On("Done").Return(done)
 	r := &Resolver{
@@ -66,7 +66,7 @@ func TestResolver_Done(t *testing.T) {
 
 func TestResolver_UpdateChan(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		rc := &mockReceiver{mock.Mock{}}
+		rc := &mockReceiver{}
 		r := &Resolver{
 			rc: rc,
 			ch: make(chan []courier.TCPAddress),
@@ -109,7 +109,7 @@ func TestResolver_Run(t *testing.T) {
 		{
 			name: "received_on_done_chan",
 			mockReceiverFunc: func(updates chan []*v3endpointpb.ClusterLoadAssignment, done chan struct{}) *mockReceiver {
-				m := &mockReceiver{mock.Mock{}}
+				m := &mockReceiver{}
 				close(done)
 
 				m.On("Done").Return(done)
@@ -121,7 +121,7 @@ func TestResolver_Run(t *testing.T) {
 		{
 			name: "received_on_update_chan",
 			mockReceiverFunc: func(updates chan []*v3endpointpb.ClusterLoadAssignment, done chan struct{}) *mockReceiver {
-				m := &mockReceiver{mock.Mock{}}
+				m := &mockReceiver{}
 				m.On("Receive").Return(updates)
 				m.On("Done").Return(done)
 

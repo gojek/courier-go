@@ -2,13 +2,10 @@ package courier
 
 import (
 	"fmt"
-	"math/rand"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
-
-var rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 // TCPAddress specifies Host and Port for remote broker
 type TCPAddress struct {
@@ -16,11 +13,11 @@ type TCPAddress struct {
 	Port uint16
 }
 
-// Resolver sends TCPAddress updates on the caller of the UpdateChan() channel.
+// Resolver sends TCPAddress updates on channel returned by UpdateChan() channel.
 type Resolver interface {
 	// UpdateChan returns a channel where TCPAddress updates can be received.
 	UpdateChan() <-chan []TCPAddress
-	// Done returns a channel which receives a value when the Resolver is no longer running.
+	// Done returns a channel which is closed when the Resolver is no longer running.
 	Done() <-chan struct{}
 }
 
@@ -42,26 +39,26 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 			}
 
 			// try to start new client first, iff it starts, replace current client
-			cc := c.newClient(addrs)
+			cc := c.newClient(addrs, 0)
 			c.reloadClient(cc)
 		}
 	}
 }
 
-func (c *Client) newClient(addrs []TCPAddress) mqtt.Client {
-	addr := addrs[rnd.Intn(len(addrs))]
+func (c *Client) newClient(addrs []TCPAddress, attempt int) mqtt.Client {
+	addr := addrs[attempt%len(addrs)]
 
 	c.options.brokerAddress = fmt.Sprintf("tcp://%s:%d", addr.Host, addr.Port)
 	cc := newClientFunc(toClientOptions(c, c.options))
 
 	t := cc.Connect()
 	if !t.WaitTimeout(c.options.connectTimeout) {
-		return c.newClient(addrs)
+		return c.newClient(addrs, attempt+1)
 	}
 
 	if err := t.Error(); err != nil {
 		// TODO: add retry backoff or use ExponentialStartStrategy utility
-		return c.newClient(addrs)
+		return c.newClient(addrs, attempt+1)
 	}
 
 	return cc

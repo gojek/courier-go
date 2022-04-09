@@ -110,10 +110,9 @@ func TestResolver_Run(t *testing.T) {
 			name: "received_on_done_chan",
 			mockReceiverFunc: func(updates chan []*v3endpointpb.ClusterLoadAssignment, done chan struct{}) *mockReceiver {
 				m := &mockReceiver{}
-				close(done)
-
 				m.On("Done").Return(done)
 				m.On("Receive").Return(updates)
+
 				return m
 			},
 			done: true,
@@ -184,32 +183,28 @@ func TestResolver_Run(t *testing.T) {
 			go func() {
 				if tt.update != nil {
 					ch <- tt.update
-					close(doneChan)
+					return
 				}
-			}()
 
-			var done bool
-			var update []courier.TCPAddress
+				close(doneChan)
+			}()
 
 			select {
 			case <-r.Done():
-				done = true
-			case update = <-r.UpdateChan():
-			}
-
-			if done != tt.done {
-				t.Errorf("run() returned on done channel")
-			}
-
-			if !done && !reflect.DeepEqual(update, []courier.TCPAddress{{
-				Host: "localhost",
-				Port: 1883,
-			},
-				{
+				if !tt.done {
+					t.Errorf("run() returned on done channel")
+				}
+			case update := <-r.UpdateChan():
+				if !reflect.DeepEqual(update, []courier.TCPAddress{{
 					Host: "localhost",
-					Port: 8888,
-				}}) {
-				t.Errorf("UpdateChan() expected value not received from chan")
+					Port: 1883,
+				},
+					{
+						Host: "localhost",
+						Port: 8888,
+					}}) {
+					t.Errorf("UpdateChan() expected value not received from chan")
+				}
 			}
 		})
 	}

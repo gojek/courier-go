@@ -3,7 +3,7 @@ package xds
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/gojekfarm/courier-go/xds/log"
 	"time"
 
 	v3corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -26,10 +26,12 @@ type Options struct {
 	NodeProto       *v3corepb.Node
 	ClientConn      grpc.ClientConnInterface
 	BackoffStrategy backoff.Strategy
+	Logger          log.Logger
 }
 
 // NewClient returns a new eDS client stream using the *grpc.ClientConn provided.
 func NewClient(opts Options) *Client {
+	opts = alterOpts(opts)
 	return &Client{
 		xdsTarget:   opts.XDSTarget,
 		cc:          opts.ClientConn,
@@ -37,6 +39,7 @@ func NewClient(opts Options) *Client {
 		strategy:    opts.BackoffStrategy,
 		done:        make(chan struct{}),
 		receiveChan: make(chan []*v3endpointpb.ClusterLoadAssignment),
+		logger:      opts.Logger,
 	}
 }
 
@@ -49,6 +52,7 @@ type Client struct {
 	cc        grpc.ClientConnInterface
 	strategy  backoff.Strategy
 	stream    edsStream
+	logger    log.Logger
 
 	xdsTarget  string
 	vsn, nonce string
@@ -59,7 +63,7 @@ type Client struct {
 
 // Start sends the first discoveryRequest to the management server and starts the receive loop
 func (c *Client) Start(ctx context.Context) error {
-	fmt.Println("starting stream")
+	c.logger.Info("xds: Starting eds stream for:", "node", c.nodeProto, "target", c.xdsTarget)
 
 	stream, err := c.startEDSStream(ctx)
 
@@ -70,7 +74,11 @@ func (c *Client) Start(ctx context.Context) error {
 	c.stream = stream
 	go c.run(ctx)
 
-	return c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, "")
+	if err = c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, ""); err != nil {
+		return fmt.Errorf("xds: client.Start: failed to sendRequest: %v", err)
+	}
+
+	return nil
 }
 
 // Receive returns a channel where ClusterLoadAssignment resource updates can be received
@@ -83,8 +91,9 @@ func (c *Client) Done() <-chan struct{} {
 	return c.done
 }
 
+// restart invokes the StreamEndpoints method on the EDS client and sends subscription request
 func (c *Client) restart(ctx context.Context) error {
-	fmt.Println("restarting stream")
+	c.logger.Info("xds: Restarting eds stream for:", "node", c.nodeProto, "target", c.xdsTarget)
 
 	stream, err := c.startEDSStream(ctx)
 
@@ -94,9 +103,14 @@ func (c *Client) restart(ctx context.Context) error {
 
 	c.stream = stream
 
-	return c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, "")
+	if err = c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, ""); err != nil {
+		return fmt.Errorf("xds: client.restart: failed to sendRequest: %v", err)
+	}
+
+	return nil
 }
 
+// restart invokes the StreamEndpoints method on the EDS client
 func (c *Client) startEDSStream(ctx context.Context) (edsStream, error) {
 	c.vsn, c.nonce = "", ""
 
@@ -156,8 +170,8 @@ func (c *Client) run(ctx context.Context) {
 		if !streamRunning {
 			//Do not use c.Start here as it calls run() again
 			if err := c.restart(ctx); err != nil {
-				//ToDo: Send metrics here and logger here
-				log.Printf("xds: Error recovering from broken stream: %v", err)
+				//ToDo: Consider exposing metrics to track this
+				c.logger.Error(err, "xds: Failure to recover from broken stream:", "retries", retries)
 
 				continue
 			}
@@ -168,8 +182,6 @@ func (c *Client) run(ctx context.Context) {
 		if c.recv() {
 			retries = 0
 		}
-
-		fmt.Println("Received from recv")
 
 		streamRunning = false
 	}
@@ -190,21 +202,21 @@ func (c *Client) parseResponse(r proto.Message) ([]*anypb.Any, string, string, e
 	url := resp.GetTypeUrl()
 
 	if url != resource.EndpointType {
-		return nil, "", "", fmt.Errorf("resource type %v is not EndpointResource in response from server", resp.GetTypeUrl())
+		return nil, "", "", fmt.Errorf("xds: resource type (%v) is not EndpointResource in response from server", resp.GetTypeUrl())
 	}
 
 	return resp.GetResources(), resp.GetVersionInfo(), resp.GetNonce(), err
 }
 
 func (c *Client) nack(err error) {
-	if err := c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, err.Error()); err != nil {
-		log.Printf("SendRequest: Nack err %v", err)
+	if e := c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, err.Error()); e != nil {
+		c.logger.Error(e, "xds: Nack: SendRequest error", "version", c.vsn, "nonce", c.nonce)
 	}
 }
 
 func (c *Client) ack() {
 	if err := c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, ""); err != nil {
-		log.Printf("SendRequest: Ack err %v", err)
+		c.logger.Error(err, "xds: Ack: SendRequest error", "version", c.vsn, "nonce", c.nonce)
 	}
 }
 
@@ -212,18 +224,15 @@ func (c *Client) recv() bool {
 	success := false
 
 	for {
-		fmt.Println("Restarting recv loop ")
+		c.logger.Debug("xds: Restarting recv loop ")
 
 		resp, err := c.stream.Recv()
 
 		if err != nil {
-			log.Printf("Recv err %v", err)
+			c.logger.Error(err, "xds: error while recv()")
 
 			return success
 		}
-
-		log.Printf("ADS response received, type: %v\n", resp.GetTypeUrl())
-		log.Printf("ADS response received: %+v", resp)
 
 		resources, vsn, nonce, err := c.parseResponse(resp)
 
@@ -249,8 +258,17 @@ func (c *Client) recv() bool {
 			clusterLoadAssignments = append(clusterLoadAssignments, cla)
 		}
 
-		fmt.Println("Pushing to receivechan, ", clusterLoadAssignments)
 		c.receiveChan <- clusterLoadAssignments
-		fmt.Println("Pushed to receivechan, ", clusterLoadAssignments)
 	}
+}
+
+func alterOpts(opts Options) Options {
+	if opts.Logger == nil {
+		opts.Logger = &log.NoOpLogger{}
+	}
+	if opts.BackoffStrategy == nil {
+		opts.BackoffStrategy = &backoff.DefaultExponential
+	}
+
+	return opts
 }

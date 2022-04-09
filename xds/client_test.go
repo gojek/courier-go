@@ -3,6 +3,8 @@ package xds
 import (
 	"context"
 	"errors"
+	"fmt"
+	"google.golang.org/protobuf/types/known/anypb"
 	"reflect"
 	"testing"
 	"time"
@@ -377,6 +379,11 @@ func TestClient_nack(t *testing.T) {
 
 func TestClient_run(t *testing.T) {
 	targets := []string{"cluster"}
+	resources := v3endpointpb.ClusterLoadAssignment{
+		ClusterName: "cluster",
+	}
+
+	resourceBytes, _ := proto.Marshal(&resources)
 
 	tests := []struct {
 		name           string
@@ -392,7 +399,6 @@ func TestClient_run(t *testing.T) {
 					TypeUrl:     resource.EndpointType,
 					VersionInfo: "",
 				}, nil).Once()
-
 				eds.On("Recv").Return(nil, errors.New("some error")).Once()
 
 				eds.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
@@ -403,10 +409,81 @@ func TestClient_run(t *testing.T) {
 						ResponseNonce: "",
 					}
 					return proto.Equal(expectedRequest, req)
-				})).Return(nil)
+				})).Return(nil).Once()
+
+				eds.On("SendMsg", mock.Anything).Return(nil).Maybe()
+				eds.On("RecvMsg", mock.AnythingOfType("*envoy_service_discovery_v3.DiscoveryResponse")).Return(errors.New("some error")).Maybe()
 
 				return eds
 			},
+			mockConnection: func(eds *mockEds) *mockConnection {
+				conn := &mockConnection{}
+				conn.On("NewStream", mock.Anything, mock.Anything,
+					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
+					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(eds, nil).Maybe()
+
+				return conn
+			},
+		},
+		{
+			name: "when_stream_stopped",
+			mockEds: func() *mockEds {
+				eds := &mockEds{}
+				eds.On("Recv").Return(&v3discoverypb.DiscoveryResponse{
+					TypeUrl:     resource.EndpointType,
+					VersionInfo: "",
+					Resources:   []*anypb.Any{{Value: resourceBytes}},
+				}, nil).Once()
+				eds.On("Recv").Return(nil, errors.New("some error")).Once()
+
+				eds.On("Send", mock.Anything).Return(nil)
+
+				eds.On("RecvMsg", mock.AnythingOfType("*envoy_service_discovery_v3.DiscoveryResponse")).Return(errors.New("some error")).Maybe()
+				eds.On("SendMsg", mock.Anything).Return(nil).Maybe()
+
+				return eds
+			},
+			mockConnection: func(eds *mockEds) *mockConnection {
+				conn := &mockConnection{}
+				conn.On("NewStream", mock.Anything, mock.Anything,
+					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
+					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(eds, nil).Maybe()
+
+				return conn
+			},
+		},
+		{
+			name: "parse_response_error",
+			mockEds: func() *mockEds {
+				eds := &mockEds{}
+				eds.On("Recv").Return(&v3discoverypb.DiscoveryResponse{
+					TypeUrl:     resource.ClusterType,
+					VersionInfo: "",
+				}, nil).Once()
+				eds.On("Recv").Return(&v3discoverypb.DiscoveryResponse{
+					TypeUrl:     resource.EndpointType,
+					VersionInfo: "",
+				}, nil).Once()
+				eds.On("Recv").Return(nil, errors.New("somer error")).Once()
+
+				eds.On("Send", mock.Anything).Return(nil)
+
+				eds.On("RecvMsg", mock.AnythingOfType("*envoy_service_discovery_v3.DiscoveryResponse")).Return(errors.New("some error")).Maybe()
+
+
+				eds.On("SendMsg", mock.Anything).Return(nil).Maybe()
+
+				return eds
+			},
+			mockConnection: func(eds *mockEds) *mockConnection {
+				conn := &mockConnection{}
+				conn.On("NewStream", mock.Anything, mock.Anything,
+					"/envoy.service.endpoint.v3.EndpointDiscoveryService/StreamEndpoints",
+					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(eds, nil).Maybe()
+
+				return conn
+			},
+
 		},
 	}
 
@@ -419,6 +496,11 @@ func TestClient_run(t *testing.T) {
 				eds = tt.mockEds()
 			}
 
+			var mc *mockConnection
+			if eds != nil && tt.mockConnection != nil {
+				mc = tt.mockConnection(eds)
+			}
+
 			c := Client{
 				stream:      eds,
 				strategy:    backoff.DefaultExponential,
@@ -427,18 +509,23 @@ func TestClient_run(t *testing.T) {
 				nonce:       "",
 				done:        make(chan struct{}),
 				receiveChan: make(chan []*v3endpointpb.ClusterLoadAssignment),
+				cc:          mc,
 			}
 
 			go func() {
-				time.Sleep(1 * time.Millisecond)
-				cancel()
 				<-c.Receive()
+				fmt.Println("channel closed")
+				cancel()
 			}()
 
 			c.run(ctx)
 
-			if tt.mockEds != nil {
+			if eds != nil {
 				eds.AssertExpectations(t)
+			}
+
+			if mc != nil {
+				mc.AssertExpectations(t)
 			}
 		})
 	}

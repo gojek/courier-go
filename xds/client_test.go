@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/gojekfarm/courier-go/xds/backoff"
+	"github.com/gojekfarm/courier-go/xds/log"
 )
 
 func TestNewClient(t *testing.T) {
@@ -31,6 +32,7 @@ func TestNewClient(t *testing.T) {
 		},
 		ClientConn:      &mockConnection{},
 		BackoffStrategy: backoff.DefaultExponential,
+		Logger:          &log.NoOpLogger{},
 	}
 
 	client := NewClient(opts)
@@ -68,6 +70,7 @@ func TestClient_Receive(t *testing.T) {
 
 	c := &Client{
 		receiveChan: receiveChan,
+		logger: &log.NoOpLogger{},
 	}
 
 	got := c.Receive()
@@ -150,6 +153,7 @@ func TestClient_Start(t *testing.T) {
 				xdsTarget: targets[0],
 				vsn:       "",
 				nonce:     "",
+				logger: &log.NoOpLogger{},
 			}
 
 			err := c.Start(ctx)
@@ -233,6 +237,7 @@ func TestClient_restart(t *testing.T) {
 				xdsTarget: targets[0],
 				vsn:       "",
 				nonce:     "",
+				logger: &log.NoOpLogger{},
 			}
 
 			err := c.restart(ctx)
@@ -302,6 +307,7 @@ func TestClient_ack(t *testing.T) {
 				xdsTarget: targets[0],
 				vsn:       "1",
 				nonce:     "1",
+				logger: &log.NoOpLogger{},
 			}
 
 			c.ack()
@@ -368,6 +374,7 @@ func TestClient_nack(t *testing.T) {
 				xdsTarget: targets[0],
 				vsn:       "1",
 				nonce:     "1",
+				logger: &log.NoOpLogger{},
 			}
 
 			c.nack(errors.New("nack_error"))
@@ -508,6 +515,7 @@ func TestClient_run(t *testing.T) {
 				done:        make(chan struct{}),
 				receiveChan: make(chan []*v3endpointpb.ClusterLoadAssignment),
 				cc:          mc,
+				logger: &log.NoOpLogger{},
 			}
 
 			go func() {

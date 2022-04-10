@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"google.golang.org/protobuf/types/known/anypb"
 	"reflect"
 	"testing"
 	"time"
@@ -19,6 +18,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/gojekfarm/courier-go/xds/backoff"
 )
@@ -470,7 +470,6 @@ func TestClient_run(t *testing.T) {
 
 				eds.On("RecvMsg", mock.AnythingOfType("*envoy_service_discovery_v3.DiscoveryResponse")).Return(errors.New("some error")).Maybe()
 
-
 				eds.On("SendMsg", mock.Anything).Return(nil).Maybe()
 
 				return eds
@@ -483,7 +482,6 @@ func TestClient_run(t *testing.T) {
 
 				return conn
 			},
-
 		},
 	}
 

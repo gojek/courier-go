@@ -3,7 +3,6 @@ package xds
 import (
 	"context"
 	"fmt"
-	"github.com/gojekfarm/courier-go/xds/log"
 	"time"
 
 	v3corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -18,6 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/gojekfarm/courier-go/xds/backoff"
+	"github.com/gojekfarm/courier-go/xds/log"
 )
 
 // Options specifies options to be provided for initialising the xds client
@@ -32,6 +32,7 @@ type Options struct {
 // NewClient returns a new eDS client stream using the *grpc.ClientConn provided.
 func NewClient(opts Options) *Client {
 	opts = alterOpts(opts)
+
 	return &Client{
 		xdsTarget:   opts.XDSTarget,
 		cc:          opts.ClientConn,
@@ -202,7 +203,8 @@ func (c *Client) parseResponse(r proto.Message) ([]*anypb.Any, string, string, e
 	url := resp.GetTypeUrl()
 
 	if url != resource.EndpointType {
-		return nil, "", "", fmt.Errorf("xds: resource type (%v) is not EndpointResource in response from server", resp.GetTypeUrl())
+		return nil, "", "", fmt.Errorf("xds: resource type (%v) is not EndpointResource in server response",
+			resp.GetTypeUrl())
 	}
 
 	return resp.GetResources(), resp.GetVersionInfo(), resp.GetNonce(), err
@@ -266,6 +268,7 @@ func alterOpts(opts Options) Options {
 	if opts.Logger == nil {
 		opts.Logger = &log.NoOpLogger{}
 	}
+
 	if opts.BackoffStrategy == nil {
 		opts.BackoffStrategy = &backoff.DefaultExponential
 	}

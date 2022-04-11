@@ -30,7 +30,7 @@ func TestNewClient(t *testing.T) {
 		NodeProto: &v3corepb.Node{
 			Id: "id",
 		},
-		ClientConn:      &mockConnection{},
+		ClientConn: &mockConnection{},
 	}
 
 	client := NewClient(opts)
@@ -46,8 +46,6 @@ func TestNewClient(t *testing.T) {
 	default:
 		t.Errorf("NewClient() init error")
 	}
-
-
 }
 
 func TestClient_Done(t *testing.T) {

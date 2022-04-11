@@ -43,10 +43,11 @@ func TestClient_newClient(t *testing.T) {
 		},
 		{
 			name: "success_attempt_2",
-			addrs: []TCPAddress{{
-				Host: "localhost",
-				Port: 1883,
-			},
+			addrs: []TCPAddress{
+				{
+					Host: "localhost",
+					Port: 1883,
+				},
 				{
 					Host: "localhost",
 					Port: 8888,
@@ -80,10 +81,11 @@ func TestClient_newClient(t *testing.T) {
 		},
 		{
 			name: "token_error",
-			addrs: []TCPAddress{{
-				Host: "localhost",
-				Port: 1883,
-			},
+			addrs: []TCPAddress{
+				{
+					Host: "localhost",
+					Port: 1883,
+				},
 				{
 					Host: "localhost",
 					Port: 8888,
@@ -163,6 +165,7 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			newClient := &mockClient{}

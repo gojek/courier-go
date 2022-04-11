@@ -2,9 +2,8 @@ package courier
 
 import (
 	"fmt"
-	"time"
-
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"time"
 )
 
 // TCPAddress specifies Host and Port for remote broker
@@ -34,15 +33,19 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 		case <-r.Done():
 			return
 		case addrs := <-r.UpdateChan():
-			if len(addrs) == 0 {
-				break
-			}
-
-			// try to start new client first, iff it starts, replace current client
-			cc := c.newClient(addrs, 0)
-			c.reloadClient(cc)
+			c.attemptConnection(addrs)
 		}
 	}
+}
+
+func (c *Client) attemptConnection(addrs []TCPAddress) {
+	if len(addrs) == 0 {
+		return
+	}
+
+	// try to start new client first, iff it starts, replace current client
+	cc := c.newClient(addrs, 0)
+	c.reloadClient(cc)
 }
 
 func (c *Client) newClient(addrs []TCPAddress, attempt int) mqtt.Client {
@@ -72,6 +75,8 @@ func (c *Client) reloadClient(cc mqtt.Client) {
 	c.mqttClient = cc
 
 	go func() {
-		oldClient.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+		if oldClient != nil {
+			oldClient.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+		}
 	}()
 }

@@ -34,7 +34,7 @@ func (s *ExponentialStartStrategySuite) TearDownSuite() {
 }
 
 func (s *ExponentialStartStrategySuite) TestSuccessfulStartOnFirstTry() {
-	c, err := NewClient()
+	c, err := NewClient(defOpts...)
 	s.NoError(err)
 
 	tk := &mockToken{}
@@ -57,7 +57,7 @@ func (s *ExponentialStartStrategySuite) TestSuccessfulStartOnFirstTry() {
 }
 
 func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailure() {
-	c, err := NewClient()
+	c, err := NewClient(defOpts...)
 	s.NoError(err)
 
 	tk := &mockToken{}
@@ -90,7 +90,7 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailure() {
 }
 
 func (s *ExponentialStartStrategySuite) TestReconnectAttemptStopOnCancel() {
-	c, err := NewClient()
+	c, err := NewClient(defOpts...)
 	s.NoError(err)
 
 	tk := &mockToken{}
@@ -122,7 +122,7 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptStopOnCancel() {
 }
 
 func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailureBeyondMaxTimeout() {
-	c, err := NewClient()
+	c, err := NewClient(defOpts...)
 	s.NoError(err)
 
 	tk := &mockToken{}

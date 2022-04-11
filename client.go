@@ -1,6 +1,7 @@
 package courier
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -35,16 +36,19 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		f(o)
 	}
 
+	if len(o.brokerAddress) == 0 && o.resolver == nil {
+		return nil, fmt.Errorf("at least WithTCPAddress or WithResolver ClientOption should be used")
+	}
+
 	c := &Client{options: o}
 
-	c.mqttClient = newClientFunc(toClientOptions(c, c.options))
+	if len(o.brokerAddress) != 0 {
+		c.mqttClient = newClientFunc(toClientOptions(c, c.options))
+	}
+
 	c.publisher = publishHandler(c)
 	c.subscriber = subscriberFuncs(c)
 	c.unsubscriber = unsubscriberHandler(c)
-
-	if o.resolver != nil {
-		go c.watchAddressUpdates(o.resolver)
-	}
 
 	return c, nil
 }
@@ -67,16 +71,31 @@ func (c *Client) IsConnected() (online bool) {
 
 // Start will attempt to connect to the broker.
 func (c *Client) Start() (err error) {
-	c.execute(func(cc mqtt.Client) {
-		t := cc.Connect()
-		if !t.WaitTimeout(c.options.connectTimeout) {
-			err = ErrConnectTimeout
+	if len(c.options.brokerAddress) != 0 {
+		c.execute(func(cc mqtt.Client) {
+			t := cc.Connect()
+			if !t.WaitTimeout(c.options.connectTimeout) {
+				err = ErrConnectTimeout
 
+				return
+			}
+
+			err = t.Error()
+		})
+	}
+
+	if c.options.resolver != nil {
+		// try first connect attempt on start, then start a watcher on channel
+		select {
+		case <-time.After(c.options.connectTimeout):
+			err = ErrConnectTimeout
 			return
+		case addrs := <-c.options.resolver.UpdateChan():
+			c.attemptConnection(addrs)
 		}
 
-		err = t.Error()
-	})
+		go c.watchAddressUpdates(c.options.resolver)
+	}
 
 	return
 }

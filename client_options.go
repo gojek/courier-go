@@ -190,7 +190,6 @@ type clientOptions struct {
 
 func defaultOptions() *clientOptions {
 	return &clientOptions{
-		brokerAddress:          fmt.Sprintf("tcp://%s:%d", "127.0.0.1", 1883),
 		autoReconnect:          true,
 		maintainOrder:          true,
 		connectTimeout:         15 * time.Second,

@@ -89,7 +89,7 @@ func (s *ClientUnsubscribeSuite) TestUnsubscribe() {
 	}
 	for _, t := range testcases {
 		s.Run(t.name, func() {
-			c, err := NewClient()
+			c, err := NewClient(defOpts...)
 			s.NoError(err)
 
 			if t.useMiddlewares != nil {
@@ -115,7 +115,7 @@ func (s *ClientUnsubscribeSuite) TestUnsubscribe() {
 
 func (s *ClientUnsubscribeSuite) TestUnsubscribeMiddleware() {
 	topics := []string{"topic1", "topic2"}
-	c, err := NewClient()
+	c, err := NewClient(defOpts...)
 	s.NoError(err)
 
 	mc := &mockClient{}

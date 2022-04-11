@@ -31,7 +31,7 @@ type Options struct {
 
 // NewClient returns a new eDS client stream using the *grpc.ClientConn provided.
 func NewClient(opts Options) *Client {
-	opts = setOpts(opts)
+	opts = setDefaultOpts(opts)
 
 	return &Client{
 		xdsTarget:   opts.XDSTarget,
@@ -264,7 +264,7 @@ func (c *Client) recv() bool {
 	}
 }
 
-func setOpts(opts Options) Options {
+func setDefaultOpts(opts Options) Options {
 	if opts.Logger == nil {
 		opts.Logger = &log.NoOpLogger{}
 	}

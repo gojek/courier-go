@@ -31,18 +31,23 @@ func TestNewClient(t *testing.T) {
 			Id: "id",
 		},
 		ClientConn:      &mockConnection{},
-		BackoffStrategy: backoff.DefaultExponential,
-		Logger:          &log.NoOpLogger{},
 	}
 
 	client := NewClient(opts)
 
-	if !proto.Equal(client.nodeProto, opts.NodeProto) ||
-		opts.XDSTarget != client.xdsTarget ||
-		opts.ClientConn != client.cc ||
-		opts.BackoffStrategy != client.strategy {
+	switch client.logger.(type) {
+	case *log.NoOpLogger:
+		if !proto.Equal(client.nodeProto, opts.NodeProto) ||
+			opts.XDSTarget != client.xdsTarget ||
+			opts.ClientConn != client.cc ||
+			reflect.DeepEqual(opts.BackoffStrategy, backoff.DefaultExponential) {
+			t.Errorf("NewClient() init error")
+		}
+	default:
 		t.Errorf("NewClient() init error")
 	}
+
+
 }
 
 func TestClient_Done(t *testing.T) {

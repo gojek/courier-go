@@ -1,7 +1,5 @@
 package log
 
-import "log"
-
 // Logger is used to log messages of info, error and debug levels
 type Logger interface {
 	// Info is used to log info level log messages
@@ -16,9 +14,7 @@ type Logger interface {
 type NoOpLogger struct{}
 
 // Info logs info level log messages
-func (l *NoOpLogger) Info(_ string, _ ...interface{}) {
-	log.Println()
-}
+func (l *NoOpLogger) Info(_ string, _ ...interface{}) {}
 
 // Error logs error level log messages
 func (l *NoOpLogger) Error(_ error, _ string, _ ...interface{}) {}

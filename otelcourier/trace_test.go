@@ -56,7 +56,7 @@ func TestInstrumentClient(t *testing.T) {
 	tp.RegisterSpanProcessor(sr)
 
 	tr := NewTracer("test-service", WithTracerProvider(tp))
-	c, err := courier.NewClient()
+	c, err := courier.NewClient(courier.WithTCPAddress("localhost", 1883))
 	assert.NoError(t, err)
 	tr.ApplyTraceMiddlewares(c)
 }

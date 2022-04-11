@@ -89,6 +89,7 @@ func (c *Client) Start() (err error) {
 		select {
 		case <-time.After(c.options.connectTimeout):
 			err = ErrConnectTimeout
+
 			return
 		case addrs := <-c.options.resolver.UpdateChan():
 			c.attemptConnection(addrs)

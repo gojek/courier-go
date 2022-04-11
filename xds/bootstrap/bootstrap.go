@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/gojekfarm/courier-go"
 	"github.com/golang/protobuf/jsonpb"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -156,7 +156,7 @@ func (n *xdsNode) UnmarshalJSON(data []byte) error {
 	}
 
 	in.UserAgentName = courierUserAgentName
-	in.UserAgentVersionType = &corev3.Node_UserAgentVersion{UserAgentVersion: grpc.Version}
+	in.UserAgentVersionType = &corev3.Node_UserAgentVersion{UserAgentVersion: courier.Version()}
 	in.ClientFeatures = append(in.ClientFeatures, clientFeatureNoOverprovisioning, clientFeatureResourceWrapper)
 
 	n.node = in

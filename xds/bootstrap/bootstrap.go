@@ -9,9 +9,10 @@ import (
 	"strings"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/gojekfarm/courier-go"
 	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/gojekfarm/courier-go"
 )
 
 const (

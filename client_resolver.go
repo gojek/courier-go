@@ -2,8 +2,9 @@ package courier
 
 import (
 	"fmt"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 // TCPAddress specifies Host and Port for remote broker

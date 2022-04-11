@@ -7,8 +7,9 @@ import (
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	structpb "github.com/golang/protobuf/ptypes/struct"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/gojekfarm/courier-go"
 )
 
 const fileContent = `
@@ -53,7 +54,7 @@ func TestNewConfig(t *testing.T) {
 					},
 					Locality:             &envoy_config_core_v3.Locality{Zone: "uscentral-5"},
 					UserAgentName:        courierUserAgentName,
-					UserAgentVersionType: &envoy_config_core_v3.Node_UserAgentVersion{UserAgentVersion: grpc.Version},
+					UserAgentVersionType: &envoy_config_core_v3.Node_UserAgentVersion{UserAgentVersion: courier.Version()},
 					ClientFeatures:       []string{"envoy.lb.does_not_support_overprovisioning", "xds.config.resource-in-sotw"},
 				},
 			}},
@@ -73,7 +74,7 @@ func TestNewConfig(t *testing.T) {
 					},
 					Locality:             &envoy_config_core_v3.Locality{Zone: "uscentral-5"},
 					UserAgentName:        courierUserAgentName,
-					UserAgentVersionType: &envoy_config_core_v3.Node_UserAgentVersion{UserAgentVersion: grpc.Version},
+					UserAgentVersionType: &envoy_config_core_v3.Node_UserAgentVersion{UserAgentVersion: courier.Version()},
 					ClientFeatures:       []string{"envoy.lb.does_not_support_overprovisioning", "xds.config.resource-in-sotw"},
 				},
 			}},

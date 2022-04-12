@@ -1,4 +1,4 @@
-module github.com/gojekfarm/courier-go
+module github.com/gojek/courier-go
 
 go 1.16
 

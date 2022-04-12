@@ -1,6 +1,6 @@
 # Courier Go Client - Contributing
 
-Courier Go Client `github.com/gojekfarm/courier-go` is an open-source project.
+Courier Go Client `github.com/gojek/courier-go` is an open-source project.
 It is licensed using the [MIT License][1].
 We appreciate pull requests; here are our guidelines:
 
@@ -36,7 +36,7 @@ Much Thanks! ❤❤❤
 GO-JEK Tech
 
 [1]: https://opensource.org/licenses/MIT
-[2]: https://github.com/gojekfarm/courier-go/issues
+[2]: https://github.com/gojek/courier-go/issues
 [3]: https://golang.org/doc/effective_go.html
 [4]: http://gun.io/blog/how-to-github-fork-branch-and-pull-request
 [5]: http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html

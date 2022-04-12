@@ -13,7 +13,7 @@ Update go.mod for submodules to depend on the new release which will happen in t
 2. Verify the changes.
 
     ```shell
-    git diff master
+    git diff main
     ```
 
    This should have changed the version for all modules to be `<new tag>`.

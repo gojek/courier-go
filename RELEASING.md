@@ -48,7 +48,7 @@ It is critical you make sure the version you push upstream is correct.
     ./tag.sh <new tag> <commit-hash>
     ```
 
-2. Push tags to the origin remote (`github.com/gojekfarm/courier-go.git`).
+2. Push tags to the origin remote (`github.com/gojek/courier-go.git`).
    Make sure you push all sub-modules as well.
 
     ```

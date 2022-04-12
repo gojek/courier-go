@@ -20,7 +20,7 @@ Courier Golang client library provides an opinionated wrapper over paho MQTT lib
 ## Usage
 
 ```bash
-go get -u github.com/gojekfarm/courier-go
+go get -u github.com/gojek/courier-go
 ```
 
 ### Contributing Guide
@@ -35,13 +35,13 @@ This repo uses Golang [`submodules`](https://github.com/golang/go/wiki/Modules#f
 
 Courier Go Client is [MIT licensed](./LICENSE).
 
-[build-workflow-badge]: https://github.com/gojekfarm/courier-go/workflows/build/badge.svg
-[build-workflow]: https://github.com/gojekfarm/courier-go/actions?query=workflow%3Abuild
-[lint-workflow-badge]: https://github.com/gojekfarm/courier-go/workflows/lint/badge.svg
-[lint-workflow]: https://github.com/gojekfarm/courier-go/actions?query=workflow%3Alint
+[build-workflow-badge]: https://github.com/gojek/courier-go/workflows/build/badge.svg
+[build-workflow]: https://github.com/gojek/courier-go/actions?query=workflow%3Abuild
+[lint-workflow-badge]: https://github.com/gojek/courier-go/workflows/lint/badge.svg
+[lint-workflow]: https://github.com/gojek/courier-go/actions?query=workflow%3Alint
 [coverage-badge]: https://codecov.io/gh/gojekfarm/courier-go/branch/main/graph/badge.svg?token=QPLV2ZDE84
 [codecov]: https://codecov.io/gh/gojekfarm/courier-go
-[docs-badge]: https://pkg.go.dev/badge/github.com/gojekfarm/courier-go
-[pkg-dev]: https://pkg.go.dev/github.com/gojekfarm/courier-go
-[report-badge]: https://goreportcard.com/badge/github.com/gojekfarm/courier-go
-[report-card]: https://goreportcard.com/report/github.com/gojekfarm/courier-go
+[docs-badge]: https://pkg.go.dev/badge/github.com/gojek/courier-go
+[pkg-dev]: https://pkg.go.dev/github.com/gojek/courier-go
+[report-badge]: https://goreportcard.com/badge/github.com/gojek/courier-go
+[report-card]: https://goreportcard.com/report/github.com/gojek/courier-go

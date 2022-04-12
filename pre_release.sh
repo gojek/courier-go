@@ -82,8 +82,8 @@ patch_gomods() {
     done
 }
 
-# branch off from existing master
-git checkout -b "${BRANCH_NAME}" master
+# branch off from existing branch main
+git checkout -b "${BRANCH_NAME}" main
 
 if [ -n "${COURIER_TAG}" ]; then
     patch_gomods github.com/gojek/courier-go "${COURIER_TAG}"
@@ -100,5 +100,5 @@ declare COMMIT_MSG=""
 COMMIT_MSG+="Releasing ${COURIER_TAG}"
 git commit -m "${COMMIT_MSG}"
 
-printf "Now run following to verify the changes.\ngit diff master\n"
+printf "Now run following to verify the changes.\ngit diff main\n"
 printf "\nThen push the changes to upstream\n"

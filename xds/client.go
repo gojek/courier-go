@@ -223,7 +223,7 @@ func (c *Client) ack() {
 }
 
 func (c *Client) recv() bool {
-	success := false
+	isReceived := false
 
 	for {
 		c.logger.Debug("xds: Restarting recv loop ")
@@ -233,7 +233,7 @@ func (c *Client) recv() bool {
 		if err != nil {
 			c.logger.Error(err, "xds: error while recv()")
 
-			return success
+			return isReceived
 		}
 
 		resources, vsn, nonce, err := c.parseResponse(resp)
@@ -241,7 +241,7 @@ func (c *Client) recv() bool {
 		if err != nil {
 			c.nack(err)
 
-			success = true
+			isReceived = true
 
 			continue
 		}
@@ -250,7 +250,7 @@ func (c *Client) recv() bool {
 
 		c.ack()
 
-		success = true
+		isReceived = true
 
 		clusterLoadAssignments := make([]*v3endpointpb.ClusterLoadAssignment, 0, len(resources))
 

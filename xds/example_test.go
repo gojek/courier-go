@@ -9,10 +9,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/gojekfarm/courier-go"
-	"github.com/gojekfarm/courier-go/xds"
-	"github.com/gojekfarm/courier-go/xds/backoff"
-	"github.com/gojekfarm/courier-go/xds/bootstrap"
+	"github.com/gojek/courier-go"
+	"github.com/gojek/courier-go/xds"
+	"github.com/gojek/courier-go/xds/backoff"
+	"github.com/gojek/courier-go/xds/bootstrap"
 )
 
 func ExampleNewResolver() {

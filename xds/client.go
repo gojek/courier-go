@@ -16,8 +16,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/anypb"
 
-	"github.com/gojekfarm/courier-go/xds/backoff"
-	"github.com/gojekfarm/courier-go/xds/log"
+	"github.com/gojek/courier-go/xds/backoff"
+	"github.com/gojek/courier-go/xds/log"
 )
 
 // Options specifies options to be provided for initialising the xds client

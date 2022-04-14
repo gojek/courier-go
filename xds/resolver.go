@@ -5,7 +5,7 @@ import (
 
 	v3endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
-	"github.com/gojekfarm/courier-go"
+	"github.com/gojek/courier-go"
 )
 
 type clusterUpdateReceiver interface {

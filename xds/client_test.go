@@ -20,8 +20,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/anypb"
 
-	"github.com/gojekfarm/courier-go/xds/backoff"
-	"github.com/gojekfarm/courier-go/xds/log"
+	"github.com/gojek/courier-go/xds/backoff"
+	"github.com/gojek/courier-go/xds/log"
 )
 
 func TestNewClient(t *testing.T) {

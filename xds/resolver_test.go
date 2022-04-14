@@ -9,7 +9,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/gojekfarm/courier-go"
+	"github.com/gojek/courier-go"
 )
 
 func TestNewResolver(t *testing.T) {

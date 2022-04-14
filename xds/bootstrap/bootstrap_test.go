@@ -9,7 +9,7 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/gojekfarm/courier-go"
+	"github.com/gojek/courier-go"
 )
 
 const fileContent = `

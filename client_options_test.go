@@ -18,6 +18,7 @@ func TestClientOptionSuite(t *testing.T) {
 
 func (s *ClientOptionSuite) Test_apply() {
 	store := NewMemoryStore()
+	r := resolver{}
 
 	tests := []struct {
 		name   string
@@ -88,6 +89,11 @@ func (s *ClientOptionSuite) Test_apply() {
 			name:   "WithPersistence",
 			option: WithPersistence(store),
 			want:   &clientOptions{store: store},
+		},
+		{
+			name:   "WithResolver",
+			option: WithResolver(r),
+			want:   &clientOptions{resolver: r},
 		},
 	}
 

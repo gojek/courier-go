@@ -15,14 +15,15 @@ func TestClient_newClient(t *testing.T) {
 	tests := []struct {
 		name          string
 		addrs         []TCPAddress
-		newClientFunc func(options2 *mqtt.ClientOptions) mqtt.Client
+		newClientFunc func(*mqtt.ClientOptions) mqtt.Client
 	}{
 		{
 			name: "success_attempt_1",
-			addrs: []TCPAddress{{
-				Host: "localhost",
-				Port: 1883,
-			},
+			addrs: []TCPAddress{
+				{
+					Host: "localhost",
+					Port: 1883,
+				},
 				{
 					Host: "localhost",
 					Port: 8888,
@@ -206,18 +207,6 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 
 			newClient.AssertExpectations(t)
 		})
-	}
-}
-
-func TestWithResolver(t *testing.T) {
-	r := resolver{}
-	fn := WithResolver(r)
-
-	opts := &clientOptions{}
-	fn(opts)
-
-	if !reflect.DeepEqual(r, opts.resolver) {
-		t.Errorf("WithResolver() does not add expected resolver to options")
 	}
 }
 

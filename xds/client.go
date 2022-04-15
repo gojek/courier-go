@@ -65,20 +65,13 @@ type Client struct {
 func (c *Client) Start(ctx context.Context) error {
 	c.logger.Info("xds: Starting ads stream for:", "node", c.nodeProto, "target", c.xdsTarget)
 
-	stream, err := c.startADSStream(ctx)
-
-	if err != nil {
+	if err := c.startADSStream(ctx); err != nil {
 		return err
 	}
 
-	c.stream = stream
 	go c.run(ctx)
 
-	if err = c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, ""); err != nil {
-		return fmt.Errorf("xds: client.Start: failed to sendRequest: %v", err)
-	}
-
-	return nil
+	return c.sendInitRequest()
 }
 
 // Receive returns a channel where ClusterLoadAssignment resource updates can be received
@@ -95,26 +88,33 @@ func (c *Client) Done() <-chan struct{} {
 func (c *Client) restart(ctx context.Context) error {
 	c.logger.Info("xds: Restarting ads stream for:", "node", c.nodeProto, "target", c.xdsTarget)
 
-	stream, err := c.startADSStream(ctx)
+	if err := c.startADSStream(ctx); err != nil {
+		return err
+	}
 
+	return c.sendInitRequest()
+}
+
+// restart invokes the StreamEndpoints method on the ADS client
+func (c *Client) startADSStream(ctx context.Context) error {
+	c.vsn, c.nonce = "", ""
+
+	stream, err := v3discoverypb.NewAggregatedDiscoveryServiceClient(c.cc).StreamAggregatedResources(ctx, grpc.WaitForReady(true))
 	if err != nil {
 		return err
 	}
 
 	c.stream = stream
 
-	if err = c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, ""); err != nil {
-		return fmt.Errorf("xds: client.restart: failed to sendRequest: %v", err)
-	}
-
 	return nil
 }
 
-// restart invokes the StreamEndpoints method on the ADS client
-func (c *Client) startADSStream(ctx context.Context) (adsStream, error) {
-	c.vsn, c.nonce = "", ""
+func (c *Client) sendInitRequest() error {
+	if err := c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, ""); err != nil {
+		return fmt.Errorf("xds: failed to sendRequest: %v", err)
+	}
 
-	return v3discoverypb.NewAggregatedDiscoveryServiceClient(c.cc).StreamAggregatedResources(ctx, grpc.WaitForReady(true))
+	return nil
 }
 
 func (c *Client) sendRequest(resourceNames []string, version, nonce, errMsg string) error {

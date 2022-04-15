@@ -3,6 +3,8 @@ package xds
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,33 +18,40 @@ import (
 	statuspb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/gojek/courier-go/xds/backoff"
 	"github.com/gojek/courier-go/xds/log"
 )
 
+const adsRPCFullMethod = "/envoy.service.discovery.v3.AggregatedDiscoveryService/StreamAggregatedResources"
+
 func TestNewClient(t *testing.T) {
+	mc := newMockConnection(t)
+	mc.On("NewStream", mock.Anything, mock.Anything, adsRPCFullMethod, []grpc.CallOption{
+		grpc.WaitForReady(true),
+	}).Return(nil, nil)
+
 	opts := Options{
-		XDSTarget: "cluster",
-		NodeProto: &v3corepb.Node{
-			Id: "id",
-		},
-		ClientConn: &mockConnection{},
+		XDSTarget:  "cluster",
+		NodeProto:  &v3corepb.Node{Id: "id"},
+		ClientConn: mc,
 	}
 
-	client := NewClient(opts)
+	client, err := NewClient(opts)
+	assert.NoError(t, err)
 
-	switch client.logger.(type) {
+	switch client.log.(type) {
 	case *log.NoOpLogger:
 		assert.True(t, proto.Equal(opts.NodeProto, client.nodeProto))
 		assert.Equal(t, opts.XDSTarget, client.xdsTarget)
 		assert.Equal(t, opts.ClientConn, client.cc)
-		assert.Equal(t, &backoff.DefaultExponential, client.strategy)
+		assert.Equal(t, &backoff.DefaultExponential, client.stream.(*reloadingStream).strategy)
 	default:
 		assert.Fail(t, "NewClient() init error")
 	}
+
+	mc.AssertExpectations(t)
 }
 
 func TestClient_Done(t *testing.T) {
@@ -71,7 +80,7 @@ func TestClient_Receive(t *testing.T) {
 
 	c := &Client{
 		receiveChan: receiveChan,
-		logger:      &log.NoOpLogger{},
+		log:         &log.NoOpLogger{},
 	}
 
 	got := c.Receive()
@@ -91,148 +100,72 @@ func TestClient_Start(t *testing.T) {
 	targets := []string{"cluster"}
 
 	tests := []struct {
-		name           string
-		mockAds        func(*mock.Mock)
-		mockConnection func(*mock.Mock, *mockAds)
-		wantConnErr    bool
+		name                string
+		mockReloadingStream func(*mock.Mock, *sync.WaitGroup)
+		want                assert.ErrorAssertionFunc
 	}{
 		{
-			name: "success",
-			mockAds: func(m *mock.Mock) {
-				m.On("RecvMsg", mock.AnythingOfType("*envoy_service_discovery_v3.DiscoveryResponse")).Return(errors.New("some error"))
-
-				m.On("SendMsg", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
+			name: "Success",
+			mockReloadingStream: func(m *mock.Mock, wg *sync.WaitGroup) {
+				m.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
 						TypeUrl:       resource.EndpointType,
 						ResourceNames: targets,
-						VersionInfo:   "",
-						ResponseNonce: "",
 					}
 					return proto.Equal(expectedRequest, req)
 				})).Return(nil)
+
+				wg.Add(1)
+				m.On("startReloader", mock.Anything).After(time.Second).Run(func(_ mock.Arguments) {
+					wg.Done()
+				})
 			},
-			mockConnection: func(m *mock.Mock, ads *mockAds) {
-				m.On("NewStream", mock.Anything, mock.Anything,
-					"/envoy.service.discovery.v3.AggregatedDiscoveryService/StreamAggregatedResources",
-					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(ads, nil)
-			},
+			want: assert.NoError,
 		},
 		{
-			name: "error_initialising_client_stream",
-			mockConnection: func(m *mock.Mock, _ *mockAds) {
-				m.On("NewStream", mock.Anything, mock.Anything,
-					"/envoy.service.discovery.v3.AggregatedDiscoveryService/StreamAggregatedResources",
-					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(nil, errors.New("some error"))
+			name: "Error",
+			mockReloadingStream: func(m *mock.Mock, wg *sync.WaitGroup) {
+				m.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
+					expectedRequest := &v3discoverypb.DiscoveryRequest{
+						TypeUrl:       resource.EndpointType,
+						ResourceNames: targets,
+					}
+					return proto.Equal(expectedRequest, req)
+				})).Return(errors.New("send error"))
+
+				wg.Add(1)
+				m.On("startReloader", mock.Anything).After(time.Second).Run(func(_ mock.Arguments) {
+					wg.Done()
+				})
 			},
-			wantConnErr: true,
+			want: assert.Error,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			cancel()
 
-			ads := newMockAds(t)
-			if tt.mockAds != nil {
-				tt.mockAds(&ads.Mock)
+			mrs := newMockReloadingStream(t)
+			wg := &sync.WaitGroup{}
+
+			if tt.mockReloadingStream != nil {
+				tt.mockReloadingStream(&mrs.Mock, wg)
 			}
-
-			cc := newMockConnection(t)
-			tt.mockConnection(&cc.Mock, ads)
 
 			c := Client{
-				cc:        cc,
-				strategy:  backoff.DefaultExponential,
-				xdsTarget: targets[0],
-				vsn:       "",
-				nonce:     "",
-				logger:    &log.NoOpLogger{},
+				stream:      mrs,
+				xdsTarget:   targets[0],
+				log:         &log.NoOpLogger{},
+				done:        make(chan struct{}, 1),
+				receiveChan: make(chan []*v3endpointpb.ClusterLoadAssignment, 1),
 			}
 
-			err := c.Start(ctx)
-			time.Sleep(1 * time.Millisecond)
+			tt.want(t, c.Start(ctx))
 
-			if (tt.wantConnErr && err == nil) || (!tt.wantConnErr && err != nil) {
-				t.Errorf("Start() returned error: %v when error expected: %v", err, tt.wantConnErr)
-			}
-
-			cc.AssertExpectations(t)
-			ads.AssertExpectations(t)
-		})
-	}
-}
-
-func TestClient_restart(t *testing.T) {
-	targets := []string{"cluster"}
-
-	tests := []struct {
-		name           string
-		mockAds        func(*mock.Mock)
-		mockConnection func(*mock.Mock, *mockAds)
-		wantConnErr    bool
-	}{
-		{
-			name: "success",
-			mockAds: func(m *mock.Mock) {
-				m.On("SendMsg", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
-					expectedRequest := &v3discoverypb.DiscoveryRequest{
-						TypeUrl:       resource.EndpointType,
-						ResourceNames: targets,
-						VersionInfo:   "",
-						ResponseNonce: "",
-					}
-					return proto.Equal(expectedRequest, req)
-				})).Return(nil)
-			},
-			mockConnection: func(m *mock.Mock, ads *mockAds) {
-				m.On("NewStream", mock.Anything, mock.Anything,
-					"/envoy.service.discovery.v3.AggregatedDiscoveryService/StreamAggregatedResources",
-					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(ads, nil)
-			},
-		},
-		{
-			name: "error_initialising_client_stream",
-			mockConnection: func(m *mock.Mock, _ *mockAds) {
-				m.On("NewStream", mock.Anything, mock.Anything,
-					"/envoy.service.discovery.v3.AggregatedDiscoveryService/StreamAggregatedResources",
-					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(nil, errors.New("some error"))
-			},
-			wantConnErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			ads := newMockAds(t)
-			if tt.mockAds != nil {
-				tt.mockAds(&ads.Mock)
-			}
-
-			cc := newMockConnection(t)
-			tt.mockConnection(&cc.Mock, ads)
-
-			c := Client{
-				cc:        cc,
-				strategy:  backoff.DefaultExponential,
-				xdsTarget: targets[0],
-				vsn:       "",
-				nonce:     "",
-				logger:    &log.NoOpLogger{},
-			}
-
-			err := c.restart(ctx)
-			time.Sleep(1 * time.Millisecond)
-
-			if (tt.wantConnErr && err == nil) || (!tt.wantConnErr && err != nil) {
-				t.Errorf("Start() returned error: %v when error expected: %v", err, tt.wantConnErr)
-			}
-
-			cc.AssertExpectations(t)
-			ads.AssertExpectations(t)
+			wg.Wait()
+			mrs.AssertExpectations(t)
 		})
 	}
 }
@@ -241,12 +174,12 @@ func TestClient_ack(t *testing.T) {
 	targets := []string{"cluster"}
 
 	tests := []struct {
-		name    string
-		mockAds func(*mock.Mock)
+		name                string
+		mockReloadingStream func(*mock.Mock)
 	}{
 		{
-			name: "success",
-			mockAds: func(m *mock.Mock) {
+			name: "Success",
+			mockReloadingStream: func(m *mock.Mock) {
 				m.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
 						TypeUrl:       resource.EndpointType,
@@ -259,8 +192,8 @@ func TestClient_ack(t *testing.T) {
 			},
 		},
 		{
-			name: "failure",
-			mockAds: func(m *mock.Mock) {
+			name: "Failure",
+			mockReloadingStream: func(m *mock.Mock) {
 				m.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
 						TypeUrl:       resource.EndpointType,
@@ -276,20 +209,20 @@ func TestClient_ack(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ads := newMockAds(t)
-			tt.mockAds(&ads.Mock)
+			mrs := newMockReloadingStream(t)
+			tt.mockReloadingStream(&mrs.Mock)
 
 			c := Client{
-				stream:    ads,
+				stream:    mrs,
 				xdsTarget: targets[0],
 				vsn:       "1",
 				nonce:     "1",
-				logger:    &log.NoOpLogger{},
+				log:       &log.NoOpLogger{},
 			}
 
 			c.ack()
 
-			ads.AssertExpectations(t)
+			mrs.AssertExpectations(t)
 		})
 	}
 }
@@ -298,12 +231,12 @@ func TestClient_nack(t *testing.T) {
 	targets := []string{"cluster"}
 
 	tests := []struct {
-		name    string
-		mockAds func(*mock.Mock)
+		name                string
+		mockReloadingStream func(*mock.Mock)
 	}{
 		{
-			name: "success",
-			mockAds: func(m *mock.Mock) {
+			name: "Success",
+			mockReloadingStream: func(m *mock.Mock) {
 				m.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
 						TypeUrl:       resource.EndpointType,
@@ -319,8 +252,8 @@ func TestClient_nack(t *testing.T) {
 			},
 		},
 		{
-			name: "failure",
-			mockAds: func(m *mock.Mock) {
+			name: "Failure",
+			mockReloadingStream: func(m *mock.Mock) {
 				m.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
 						TypeUrl:       resource.EndpointType,
@@ -339,137 +272,117 @@ func TestClient_nack(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ads := newMockAds(t)
-			tt.mockAds(&ads.Mock)
+			mrs := newMockReloadingStream(t)
+			tt.mockReloadingStream(&mrs.Mock)
 			c := Client{
-				stream:    ads,
+				stream:    mrs,
 				xdsTarget: targets[0],
 				vsn:       "1",
 				nonce:     "1",
-				logger:    &log.NoOpLogger{},
+				log:       &log.NoOpLogger{},
 			}
 
 			c.nack(errors.New("nack_error"))
 
-			ads.AssertExpectations(t)
+			mrs.AssertExpectations(t)
 		})
 	}
 }
 
 func TestClient_run(t *testing.T) {
 	targets := []string{"cluster"}
-	resources := v3endpointpb.ClusterLoadAssignment{
-		ClusterName: "cluster",
-	}
-
-	resourceBytes, _ := proto.Marshal(&resources)
 
 	tests := []struct {
-		name           string
-		mockAds        func(*mock.Mock)
-		mockConnection func(*mock.Mock, *mockAds)
-		wantConnErr    bool
+		name                string
+		ctx                 func() (context.Context, context.CancelFunc)
+		mockReloadingStream func(*mock.Mock)
 	}{
 		{
-			name: "success_stream_receives_cla",
-			mockAds: func(m *mock.Mock) {
-				m.On("Recv").Return(&v3discoverypb.DiscoveryResponse{
-					TypeUrl:     resource.EndpointType,
-					VersionInfo: "",
-				}, nil).Once()
-				m.On("Recv").Return(nil, errors.New("some error")).Once()
+			name: "CancelledContext",
+			ctx: func() (context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				return ctx, cancel
+			},
+		},
+		{
+			name: "StreamRecvError",
+			ctx: func() (context.Context, context.CancelFunc) {
+				return context.WithTimeout(context.Background(), 15*time.Millisecond)
+			},
+			mockReloadingStream: func(m *mock.Mock) {
+				m.On("Recv").Return(nil, errors.New("recv error")).
+					After(10 * time.Millisecond).
+					Twice()
+			},
+		},
+		{
+			name: "IncorrectURLType",
+			ctx: func() (context.Context, context.CancelFunc) {
+				return context.WithTimeout(context.Background(), 15*time.Millisecond)
+			},
+			mockReloadingStream: func(m *mock.Mock) {
+				m.On("Recv").Return(&v3discoverypb.DiscoveryResponse{TypeUrl: resource.RouteType}, nil).
+					After(10 * time.Millisecond).
+					Once()
 
 				m.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
 						TypeUrl:       resource.EndpointType,
 						ResourceNames: targets,
-						VersionInfo:   "",
-						ResponseNonce: "",
+						ErrorDetail: &statuspb.Status{
+							Code: int32(codes.InvalidArgument),
+							Message: fmt.Sprintf(
+								"xds: resource type (%s) is not EndpointResource in server response",
+								resource.RouteType,
+							),
+						},
 					}
 					return proto.Equal(expectedRequest, req)
-				})).Return(nil).Once()
-
-				m.On("SendMsg", mock.Anything).Return(nil).Maybe()
-				m.On("RecvMsg", mock.AnythingOfType("*envoy_service_discovery_v3.DiscoveryResponse")).Return(errors.New("some error")).Maybe()
-			},
-			mockConnection: func(m *mock.Mock, ads *mockAds) {
-				m.On("NewStream", mock.Anything, mock.Anything,
-					"/envoy.service.discovery.v3.AggregatedDiscoveryService/StreamAggregatedResources",
-					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(ads, nil).Maybe()
+				})).Return(nil).
+					After(10 * time.Millisecond).
+					Once()
 			},
 		},
 		{
-			name: "when_stream_stopped",
-			mockAds: func(m *mock.Mock) {
-				m.On("Recv").Return(&v3discoverypb.DiscoveryResponse{
-					TypeUrl:     resource.EndpointType,
-					VersionInfo: "",
-					Resources:   []*anypb.Any{{Value: resourceBytes}},
-				}, nil).Once()
-				m.On("Recv").Return(nil, errors.New("some error")).Once()
-
-				m.On("Send", mock.Anything).Return(nil)
-
-				m.On("RecvMsg", mock.AnythingOfType("*envoy_service_discovery_v3.DiscoveryResponse")).Return(errors.New("some error")).Maybe()
-				m.On("SendMsg", mock.Anything).Return(nil).Maybe()
+			name: "SuccessStreamReceivesClusterLoadAssignment",
+			ctx: func() (context.Context, context.CancelFunc) {
+				return context.WithTimeout(context.Background(), 15*time.Millisecond)
 			},
-			mockConnection: func(m *mock.Mock, ads *mockAds) {
-				m.On("NewStream", mock.Anything, mock.Anything,
-					"/envoy.service.discovery.v3.AggregatedDiscoveryService/StreamAggregatedResources",
-					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(ads, nil).Maybe()
-			},
-		},
-		{
-			name: "parse_response_error",
-			mockAds: func(m *mock.Mock) {
-				m.On("Recv").Return(&v3discoverypb.DiscoveryResponse{
-					TypeUrl:     resource.ClusterType,
-					VersionInfo: "",
-				}, nil).Once()
-				m.On("Recv").Return(&v3discoverypb.DiscoveryResponse{
-					TypeUrl:     resource.EndpointType,
-					VersionInfo: "",
-				}, nil).Once()
-				m.On("Recv").Return(nil, errors.New("somer error")).Once()
+			mockReloadingStream: func(m *mock.Mock) {
+				m.On("Recv").Return(&v3discoverypb.DiscoveryResponse{TypeUrl: resource.EndpointType}, nil).
+					After(10 * time.Millisecond).
+					Once()
 
-				m.On("Send", mock.Anything).Return(nil)
-
-				m.On("RecvMsg", mock.AnythingOfType("*envoy_service_discovery_v3.DiscoveryResponse")).Return(errors.New("some error")).Maybe()
-
-				m.On("SendMsg", mock.Anything).Return(nil).Maybe()
-			},
-			mockConnection: func(m *mock.Mock, ads *mockAds) {
-				m.On("NewStream", mock.Anything, mock.Anything,
-					"/envoy.service.discovery.v3.AggregatedDiscoveryService/StreamAggregatedResources",
-					[]grpc.CallOption{grpc.FailFastCallOption{FailFast: false}}).Return(ads, nil).Maybe()
+				m.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
+					expectedRequest := &v3discoverypb.DiscoveryRequest{
+						TypeUrl:       resource.EndpointType,
+						ResourceNames: targets,
+					}
+					return proto.Equal(expectedRequest, req)
+				})).Return(nil).
+					After(10 * time.Millisecond).
+					Once()
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := tt.ctx()
+			defer cancel()
 
-			ads := newMockAds(t)
-			if tt.mockAds != nil {
-				tt.mockAds(&ads.Mock)
-			}
-
-			mc := newMockConnection(t)
-			if tt.mockConnection != nil {
-				tt.mockConnection(&mc.Mock, ads)
+			mrs := newMockReloadingStream(t)
+			if tt.mockReloadingStream != nil {
+				tt.mockReloadingStream(&mrs.Mock)
 			}
 
 			c := Client{
-				stream:      ads,
-				strategy:    backoff.DefaultExponential,
+				stream:      mrs,
 				xdsTarget:   targets[0],
-				vsn:         "",
-				nonce:       "",
 				done:        make(chan struct{}),
 				receiveChan: make(chan []*v3endpointpb.ClusterLoadAssignment),
-				cc:          mc,
-				logger:      &log.NoOpLogger{},
+				log:         &log.NoOpLogger{},
 			}
 
 			go func() {
@@ -479,10 +392,139 @@ func TestClient_run(t *testing.T) {
 
 			c.run(ctx)
 
-			ads.AssertExpectations(t)
-			mc.AssertExpectations(t)
+			mrs.AssertExpectations(t)
 		})
 	}
+}
+
+func TestClient_processResources(t *testing.T) {
+	in1 := &v3endpointpb.ClusterLoadAssignment{
+		ClusterName: "cluster-1",
+		Endpoints: []*v3endpointpb.LocalityLbEndpoints{
+			{Locality: &v3corepb.Locality{Region: "asia-east1"}},
+		},
+	}
+	in2 := &v3endpointpb.ClusterLoadAssignment{
+		ClusterName: "cluster-1",
+		Endpoints: []*v3endpointpb.LocalityLbEndpoints{
+			{Locality: &v3corepb.Locality{Region: "asia-east1"}},
+		},
+	}
+
+	a1, _ := anypb.New(in1)
+	a2, _ := anypb.New(in2)
+
+	tests := []struct {
+		name      string
+		resources []*anypb.Any
+		want      []*v3endpointpb.ClusterLoadAssignment
+	}{
+		{
+			name: "Single",
+			resources: []*anypb.Any{
+				a1,
+			},
+			want: []*v3endpointpb.ClusterLoadAssignment{in1},
+		},
+		{
+			name: "Double",
+			resources: []*anypb.Any{
+				a1, a2,
+			},
+			want: []*v3endpointpb.ClusterLoadAssignment{in1, in2},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Client{receiveChan: make(chan []*v3endpointpb.ClusterLoadAssignment, 1)}
+
+			go c.processResources(tt.resources)
+
+			for i, cla := range <-c.receiveChan {
+				assert.True(t, proto.Equal(tt.want[i], cla))
+			}
+		})
+	}
+}
+
+func TestClient_onStreamReConnect(t *testing.T) {
+	targets := []string{"cluster"}
+
+	tests := []struct {
+		name                string
+		mockReloadingStream func(m *mock.Mock)
+	}{
+		{
+			name: "SuccessInitialSend",
+			mockReloadingStream: func(m *mock.Mock) {
+				m.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
+					expectedRequest := &v3discoverypb.DiscoveryRequest{
+						TypeUrl:       resource.EndpointType,
+						ResourceNames: targets,
+					}
+					return proto.Equal(expectedRequest, req)
+				})).Return(nil).
+					After(10 * time.Millisecond).
+					Once()
+			},
+		},
+		{
+			name: "FailureInitialSend",
+			mockReloadingStream: func(m *mock.Mock) {
+				m.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
+					expectedRequest := &v3discoverypb.DiscoveryRequest{
+						TypeUrl:       resource.EndpointType,
+						ResourceNames: targets,
+					}
+					return proto.Equal(expectedRequest, req)
+				})).Return(errors.New("send error")).
+					After(10 * time.Millisecond).
+					Once()
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mrs := newMockReloadingStream(t)
+			tt.mockReloadingStream(&mrs.Mock)
+
+			c := &Client{xdsTarget: targets[0], stream: mrs, log: &log.NoOpLogger{}}
+
+			c.onStreamReConnect(errors.New("stream closed"))
+
+			mrs.AssertExpectations(t)
+		})
+	}
+}
+
+// Mocks
+
+func newMockReloadingStream(t *testing.T) *mockReloadingStream {
+	m := &mockReloadingStream{}
+	m.Test(t)
+	return m
+}
+
+type mockReloadingStream struct {
+	mock.Mock
+}
+
+func (m *mockReloadingStream) Send(req *v3discoverypb.DiscoveryRequest) error {
+	return m.Called(req).Error(0)
+}
+
+func (m *mockReloadingStream) Recv() (*v3discoverypb.DiscoveryResponse, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*v3discoverypb.DiscoveryResponse), args.Error(1)
+}
+
+func (m *mockReloadingStream) startReloader(ctx context.Context) {
+	m.Called(ctx)
 }
 
 func newMockConnection(t *testing.T) *mockConnection {
@@ -505,62 +547,4 @@ func (c *mockConnection) NewStream(ctx context.Context, desc *grpc.StreamDesc, m
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(grpc.ClientStream), args.Error(1)
-}
-
-func newMockAds(t *testing.T) *mockAds {
-	m := &mockAds{}
-	m.Test(t)
-	return m
-}
-
-type mockAds struct {
-	mock.Mock
-}
-
-func (m *mockAds) Recv() (*v3discoverypb.DiscoveryResponse, error) {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*v3discoverypb.DiscoveryResponse), args.Error(1)
-}
-
-func (m *mockAds) Send(req *v3discoverypb.DiscoveryRequest) error {
-	return m.Called(req).Error(0)
-}
-
-func (m *mockAds) Header() (metadata.MD, error) {
-	return nil, nil
-}
-
-func (m *mockAds) Trailer() metadata.MD {
-	return nil
-}
-
-func (m *mockAds) CloseSend() error {
-	return nil
-}
-
-func (m *mockAds) Context() context.Context {
-	return nil
-}
-
-func (m *mockAds) SendMsg(msg interface{}) error {
-	return m.Called(msg).Error(0)
-}
-
-func (m *mockAds) RecvMsg(msg interface{}) error {
-	args := m.Called(msg)
-	if len(args) > 1 {
-		resp := args.Get(1).(*v3discoverypb.DiscoveryResponse)
-		v, _ := msg.(*v3discoverypb.DiscoveryResponse)
-		*v = v3discoverypb.DiscoveryResponse{
-			VersionInfo: resp.VersionInfo,
-			Resources:   resp.Resources,
-			TypeUrl:     resp.TypeUrl,
-			Nonce:       resp.Nonce,
-		}
-	}
-
-	return args.Error(0)
 }

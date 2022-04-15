@@ -19,6 +19,13 @@ import (
 	"github.com/gojek/courier-go/xds/log"
 )
 
+// stream is used to mock reloadingStream
+type stream interface {
+	Send(req *v3discoverypb.DiscoveryRequest) error
+	Recv() (*v3discoverypb.DiscoveryResponse, error)
+	startReloader(ctx context.Context)
+}
+
 // Options specifies options to be provided for initialising the xds client
 type Options struct {
 	XDSTarget       string
@@ -29,49 +36,48 @@ type Options struct {
 }
 
 // NewClient returns a new ADS client stream using the *grpc.ClientConn provided.
-func NewClient(opts Options) *Client {
+func NewClient(opts Options) (*Client, error) {
 	opts = setDefaultOpts(opts)
 
-	return &Client{
+	c := &Client{
 		xdsTarget:   opts.XDSTarget,
 		cc:          opts.ClientConn,
 		nodeProto:   opts.NodeProto,
-		strategy:    opts.BackoffStrategy,
 		done:        make(chan struct{}),
 		receiveChan: make(chan []*v3endpointpb.ClusterLoadAssignment),
-		logger:      opts.Logger,
+		log:         opts.Logger,
 	}
-}
 
-type adsStream v3discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	cc := opts.ClientConn
+	rs := &reloadingStream{
+		reloadCh:    make(chan error, 1),
+		onReConnect: c.onStreamReConnect,
+		connTimeout: 10 * time.Second,
+		log:         opts.Logger,
+		strategy:    opts.BackoffStrategy,
+		ns: func() v3discoverypb.AggregatedDiscoveryServiceClient {
+			return v3discoverypb.NewAggregatedDiscoveryServiceClient(cc)
+		},
+	}
+
+	c.stream = rs
+
+	return c, rs.createStream()
+}
 
 // Client performs the actual ADS RPCs using the ADS v3 API. It creates an
 // ADS stream on which the xdsTarget resources are received.
 type Client struct {
 	nodeProto *v3corepb.Node
 	cc        grpc.ClientConnInterface
-	strategy  backoff.Strategy
-	stream    adsStream
-	logger    log.Logger
+	stream    stream
+	log       log.Logger
 
 	xdsTarget  string
 	vsn, nonce string
 
 	done        chan struct{}
 	receiveChan chan []*v3endpointpb.ClusterLoadAssignment
-}
-
-// Start sends the first discoveryRequest to the management server and starts the receive loop
-func (c *Client) Start(ctx context.Context) error {
-	c.logger.Info("xds: Starting ads stream for:", "node", c.nodeProto, "target", c.xdsTarget)
-
-	if err := c.startADSStream(ctx); err != nil {
-		return err
-	}
-
-	go c.run(ctx)
-
-	return c.sendRequest(nil)
 }
 
 // Receive returns a channel where ClusterLoadAssignment resource updates can be received
@@ -84,29 +90,66 @@ func (c *Client) Done() <-chan struct{} {
 	return c.done
 }
 
-// restart invokes the StreamEndpoints method on the ADS client and sends subscription request
-func (c *Client) restart(ctx context.Context) error {
-	c.logger.Info("xds: Restarting ads stream for:", "node", c.nodeProto, "target", c.xdsTarget)
+// Start will wait updates from control plane, it is non-blocking
+func (c *Client) Start(ctx context.Context) error {
+	c.log.Info("xds: Starting ads client", "node", c.nodeProto, "target", c.xdsTarget)
 
-	if err := c.startADSStream(ctx); err != nil {
-		return err
-	}
+	go c.stream.startReloader(ctx)
+	go c.run(ctx)
 
 	return c.sendRequest(nil)
 }
 
-// restart invokes the StreamEndpoints method on the ADS client
-func (c *Client) startADSStream(ctx context.Context) error {
+func (c *Client) run(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			close(c.done)
+			close(c.receiveChan)
+
+			return
+		default:
+			resp, err := c.stream.Recv()
+			if err != nil {
+				c.log.Error(err, "xds: error stream.Recv()")
+
+				break
+			}
+
+			if url := resp.GetTypeUrl(); url != resource.EndpointType {
+				c.nack(fmt.Errorf("xds: resource type (%s) is not EndpointResource in server response", url))
+
+				break
+			}
+
+			c.vsn, c.nonce = resp.GetVersionInfo(), resp.GetNonce()
+
+			c.ack()
+
+			c.processResources(resp.GetResources())
+		}
+	}
+}
+
+func (c *Client) nack(err error) {
+	if e := c.sendRequest(err); e != nil {
+		c.log.Error(e, "xds: Nack: SendRequest error", "version", c.vsn, "nonce", c.nonce)
+	}
+}
+
+func (c *Client) ack() {
+	if err := c.sendRequest(nil); err != nil {
+		c.log.Error(err, "xds: Ack: SendRequest error", "version", c.vsn, "nonce", c.nonce)
+	}
+}
+
+func (c *Client) onStreamReConnect(err error) {
+	c.log.Error(err, "reconnecting ADS stream")
 	c.vsn, c.nonce = "", ""
 
-	stream, err := v3discoverypb.NewAggregatedDiscoveryServiceClient(c.cc).StreamAggregatedResources(ctx, grpc.WaitForReady(true))
-	if err != nil {
-		return err
+	if err := c.sendRequest(nil); err != nil {
+		c.log.Error(err, "unable to send initial request")
 	}
-
-	c.stream = stream
-
-	return nil
 }
 
 func (c *Client) sendRequest(err error) error {
@@ -117,6 +160,7 @@ func (c *Client) sendRequest(err error) error {
 		VersionInfo:   c.vsn,
 		ResponseNonce: c.nonce,
 	}
+
 	if err != nil {
 		req.ErrorDetail = &statuspb.Status{
 			Code: int32(codes.InvalidArgument), Message: err.Error(),
@@ -130,129 +174,16 @@ func (c *Client) sendRequest(err error) error {
 	return nil
 }
 
-func (c *Client) run(ctx context.Context) {
-	retries := 0
-	streamRunning := true
+func (c *Client) processResources(resources []*anypb.Any) {
+	clusterLoadAssignments := make([]*v3endpointpb.ClusterLoadAssignment, 0, len(resources))
 
-	for {
-		select {
-		case <-ctx.Done():
-			close(c.done)
-
-			return
-		default:
-		}
-
-		if retries != 0 {
-			timer := time.NewTimer(c.strategy.Backoff(retries))
-			select {
-			case <-timer.C:
-			case <-ctx.Done():
-				if !timer.Stop() {
-					<-timer.C
-				}
-
-				return
-			}
-		}
-
-		retries++
-
-		//restart if xds stream is not already running
-		if !streamRunning {
-			//Do not use c.Start here as it calls run() again
-			if err := c.restart(ctx); err != nil {
-				//ToDo: Consider exposing metrics to track this
-				c.logger.Error(err, "xds: Failure to recover from broken stream:", "retries", retries)
-
-				continue
-			}
-
-			retries = 0
-		}
-
-		if c.recv() {
-			retries = 0
-		}
-
-		streamRunning = false
-	}
-}
-
-func (c *Client) parseResponse(r proto.Message) ([]*anypb.Any, string, string, error) {
-	resp, ok := r.(*v3discoverypb.DiscoveryResponse)
-	if !ok {
-		return nil, "", "", fmt.Errorf("xds: unsupported message type: %T", resp)
+	for _, any := range resources {
+		cla := new(v3endpointpb.ClusterLoadAssignment)
+		_ = proto.Unmarshal(any.GetValue(), cla)
+		clusterLoadAssignments = append(clusterLoadAssignments, cla)
 	}
 
-	// Note that the xDS transport protocol is versioned independently of
-	// the resource types, and it is supported to transfer older versions
-	// of resource types using new versions of the transport protocol, or
-	// vice-versa. Hence we need to handle v3 type_urls as well here.
-	var err error
-
-	url := resp.GetTypeUrl()
-
-	if url != resource.EndpointType {
-		return nil, "", "", fmt.Errorf("xds: resource type (%v) is not EndpointResource in server response",
-			resp.GetTypeUrl())
-	}
-
-	return resp.GetResources(), resp.GetVersionInfo(), resp.GetNonce(), err
-}
-
-func (c *Client) nack(err error) {
-	if e := c.sendRequest(err); e != nil {
-		c.logger.Error(e, "xds: Nack: SendRequest error", "version", c.vsn, "nonce", c.nonce)
-	}
-}
-
-func (c *Client) ack() {
-	if err := c.sendRequest(nil); err != nil {
-		c.logger.Error(err, "xds: Ack: SendRequest error", "version", c.vsn, "nonce", c.nonce)
-	}
-}
-
-func (c *Client) recv() bool {
-	isReceived := false
-
-	for {
-		c.logger.Debug("xds: Restarting recv loop ")
-
-		resp, err := c.stream.Recv()
-
-		if err != nil {
-			c.logger.Error(err, "xds: error while recv()")
-
-			return isReceived
-		}
-
-		resources, vsn, nonce, err := c.parseResponse(resp)
-
-		if err != nil {
-			c.nack(err)
-
-			isReceived = true
-
-			continue
-		}
-
-		c.vsn, c.nonce = vsn, nonce
-
-		c.ack()
-
-		isReceived = true
-
-		clusterLoadAssignments := make([]*v3endpointpb.ClusterLoadAssignment, 0, len(resources))
-
-		for _, any := range resources {
-			cla := new(v3endpointpb.ClusterLoadAssignment)
-			_ = proto.Unmarshal(any.GetValue(), cla)
-			clusterLoadAssignments = append(clusterLoadAssignments, cla)
-		}
-
-		c.receiveChan <- clusterLoadAssignments
-	}
+	c.receiveChan <- clusterLoadAssignments
 }
 
 func setDefaultOpts(opts Options) Options {

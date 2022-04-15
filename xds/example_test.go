@@ -44,7 +44,7 @@ func ExampleNewResolver() {
 		panic(err)
 	}
 
-	xdsClient := xds.NewClient(xds.Options{
+	xdsClient, _ := xds.NewClient(xds.Options{
 		XDSTarget:       "xds:///broker.domain",
 		NodeProto:       cfg.XDSServer.NodeProto.(*corev3.Node),
 		ClientConn:      cc,

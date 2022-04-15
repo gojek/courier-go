@@ -1,10 +1,12 @@
 package xds
 
 import (
-	"github.com/gojek/courier-go"
-	"github.com/stretchr/testify/assert"
 	"sort"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/gojek/courier-go"
 )
 
 func Test_endpointSlice_Sort(t *testing.T) {

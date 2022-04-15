@@ -8,7 +8,6 @@ import (
 	v3corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	v3endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	v3discoverypb "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	v3edsgrpc "github.com/envoyproxy/go-control-plane/envoy/service/endpoint/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/golang/protobuf/proto"
 	statuspb "google.golang.org/genproto/googleapis/rpc/status"
@@ -29,7 +28,7 @@ type Options struct {
 	Logger          log.Logger
 }
 
-// NewClient returns a new eDS client stream using the *grpc.ClientConn provided.
+// NewClient returns a new ADS client stream using the *grpc.ClientConn provided.
 func NewClient(opts Options) *Client {
 	opts = setDefaultOpts(opts)
 
@@ -44,15 +43,15 @@ func NewClient(opts Options) *Client {
 	}
 }
 
-type edsStream v3edsgrpc.EndpointDiscoveryService_StreamEndpointsClient
+type adsStream v3discoverypb.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 
-// Client performs the actual eDS RPCs using the eDS v3 API. It creates an
-// EDS stream on which the xdsTarget resources are received.
+// Client performs the actual ADS RPCs using the ADS v3 API. It creates an
+// ADS stream on which the xdsTarget resources are received.
 type Client struct {
 	nodeProto *v3corepb.Node
 	cc        grpc.ClientConnInterface
 	strategy  backoff.Strategy
-	stream    edsStream
+	stream    adsStream
 	logger    log.Logger
 
 	xdsTarget  string
@@ -64,9 +63,9 @@ type Client struct {
 
 // Start sends the first discoveryRequest to the management server and starts the receive loop
 func (c *Client) Start(ctx context.Context) error {
-	c.logger.Info("xds: Starting eds stream for:", "node", c.nodeProto, "target", c.xdsTarget)
+	c.logger.Info("xds: Starting ads stream for:", "node", c.nodeProto, "target", c.xdsTarget)
 
-	stream, err := c.startEDSStream(ctx)
+	stream, err := c.startADSStream(ctx)
 
 	if err != nil {
 		return err
@@ -92,11 +91,11 @@ func (c *Client) Done() <-chan struct{} {
 	return c.done
 }
 
-// restart invokes the StreamEndpoints method on the EDS client and sends subscription request
+// restart invokes the StreamEndpoints method on the ADS client and sends subscription request
 func (c *Client) restart(ctx context.Context) error {
-	c.logger.Info("xds: Restarting eds stream for:", "node", c.nodeProto, "target", c.xdsTarget)
+	c.logger.Info("xds: Restarting ads stream for:", "node", c.nodeProto, "target", c.xdsTarget)
 
-	stream, err := c.startEDSStream(ctx)
+	stream, err := c.startADSStream(ctx)
 
 	if err != nil {
 		return err
@@ -111,11 +110,11 @@ func (c *Client) restart(ctx context.Context) error {
 	return nil
 }
 
-// restart invokes the StreamEndpoints method on the EDS client
-func (c *Client) startEDSStream(ctx context.Context) (edsStream, error) {
+// restart invokes the StreamEndpoints method on the ADS client
+func (c *Client) startADSStream(ctx context.Context) (adsStream, error) {
 	c.vsn, c.nonce = "", ""
 
-	return v3edsgrpc.NewEndpointDiscoveryServiceClient(c.cc).StreamEndpoints(ctx, grpc.WaitForReady(true))
+	return v3discoverypb.NewAggregatedDiscoveryServiceClient(c.cc).StreamAggregatedResources(ctx, grpc.WaitForReady(true))
 }
 
 func (c *Client) sendRequest(resourceNames []string, version, nonce, errMsg string) error {

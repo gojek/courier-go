@@ -13,11 +13,6 @@ type clusterUpdateReceiver interface {
 	Done() <-chan struct{}
 }
 
-type weightedEp struct {
-	weight uint32
-	value  courier.TCPAddress
-}
-
 // Resolver sends updates to via the channel returned by UpdateChan()
 type Resolver struct {
 	rc clusterUpdateReceiver
@@ -52,28 +47,19 @@ func (r *Resolver) run() {
 		case <-r.Done():
 			return
 		case resources := <-r.rc.Receive():
-			var weightedEndpoints []weightedEp
-
+			es := endpointSlice{}
 			for _, cla := range resources {
-				weightedEndpoints = append(weightedEndpoints, r.sliceEndpoints(cla)...)
+				es = append(es, r.weightedEndpoints(cla)...)
 			}
 
-			sort.Slice(weightedEndpoints, func(i, j int) bool {
-				return weightedEndpoints[i].weight > weightedEndpoints[j].weight
-			})
+			sort.Sort(es)
 
-			ret := make([]courier.TCPAddress, 0, len(weightedEndpoints))
-
-			for _, wep := range weightedEndpoints {
-				ret = append(ret, wep.value)
-			}
-
-			r.ch <- ret
+			r.ch <- es.values()
 		}
 	}
 }
 
-func (r *Resolver) sliceEndpoints(resource *v3endpointpb.ClusterLoadAssignment) []weightedEp {
+func (r *Resolver) weightedEndpoints(resource *v3endpointpb.ClusterLoadAssignment) []weightedEp {
 	var endpoints []weightedEp
 
 	for _, locality := range resource.GetEndpoints() {

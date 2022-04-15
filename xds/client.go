@@ -71,7 +71,7 @@ func (c *Client) Start(ctx context.Context) error {
 
 	go c.run(ctx)
 
-	return c.sendInitRequest()
+	return c.sendRequest(nil)
 }
 
 // Receive returns a channel where ClusterLoadAssignment resource updates can be received
@@ -92,7 +92,7 @@ func (c *Client) restart(ctx context.Context) error {
 		return err
 	}
 
-	return c.sendInitRequest()
+	return c.sendRequest(nil)
 }
 
 // restart invokes the StreamEndpoints method on the ADS client
@@ -109,25 +109,17 @@ func (c *Client) startADSStream(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) sendInitRequest() error {
-	if err := c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, ""); err != nil {
-		return fmt.Errorf("xds: failed to sendRequest: %v", err)
-	}
-
-	return nil
-}
-
-func (c *Client) sendRequest(resourceNames []string, version, nonce, errMsg string) error {
+func (c *Client) sendRequest(err error) error {
 	req := &v3discoverypb.DiscoveryRequest{
 		Node:          c.nodeProto,
 		TypeUrl:       resource.EndpointType,
-		ResourceNames: resourceNames,
-		VersionInfo:   version,
-		ResponseNonce: nonce,
+		ResourceNames: []string{c.xdsTarget},
+		VersionInfo:   c.vsn,
+		ResponseNonce: c.nonce,
 	}
-	if errMsg != "" {
+	if err != nil {
 		req.ErrorDetail = &statuspb.Status{
-			Code: int32(codes.InvalidArgument), Message: errMsg,
+			Code: int32(codes.InvalidArgument), Message: err.Error(),
 		}
 	}
 
@@ -210,13 +202,13 @@ func (c *Client) parseResponse(r proto.Message) ([]*anypb.Any, string, string, e
 }
 
 func (c *Client) nack(err error) {
-	if e := c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, err.Error()); e != nil {
+	if e := c.sendRequest(err); e != nil {
 		c.logger.Error(e, "xds: Nack: SendRequest error", "version", c.vsn, "nonce", c.nonce)
 	}
 }
 
 func (c *Client) ack() {
-	if err := c.sendRequest([]string{c.xdsTarget}, c.vsn, c.nonce, ""); err != nil {
+	if err := c.sendRequest(nil); err != nil {
 		c.logger.Error(err, "xds: Ack: SendRequest error", "version", c.vsn, "nonce", c.nonce)
 	}
 }

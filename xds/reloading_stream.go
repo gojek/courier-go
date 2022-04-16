@@ -63,6 +63,7 @@ func (r *reloadingStream) createStream() error {
 
 	stream, err := r.ns().StreamAggregatedResources(ctx, grpc.WaitForReady(true))
 	if err != nil {
+		r.log.Error(err, "xds: ReloadingStream could not create stream")
 		return err
 	}
 

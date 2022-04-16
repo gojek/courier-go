@@ -144,7 +144,7 @@ func (c *Client) ack() {
 }
 
 func (c *Client) onStreamReConnect(err error) {
-	c.log.Error(err, "reconnecting ADS stream")
+	c.log.Error(err, "reconnected ADS stream")
 	c.vsn, c.nonce = "", ""
 
 	if err := c.sendRequest(nil); err != nil {

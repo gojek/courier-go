@@ -81,10 +81,6 @@ func (r *reloadingStream) startReloader(ctx context.Context) {
 		case err := <-r.reloadCh:
 			retries++
 
-			if r.onReConnect != nil {
-				r.onReConnect(err)
-			}
-
 			if err := r.createStream(); err != nil {
 				go func() {
 					select {
@@ -101,6 +97,10 @@ func (r *reloadingStream) startReloader(ctx context.Context) {
 			}
 
 			r.reloadWG.Done()
+
+			if r.onReConnect != nil {
+				r.onReConnect(err)
+			}
 
 			retries = 0
 		}

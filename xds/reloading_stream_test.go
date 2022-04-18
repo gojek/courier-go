@@ -156,7 +156,7 @@ func Test_reloadingStream_Recv(t *testing.T) {
 			want: &v3discoverypb.DiscoveryResponse{TypeUrl: resource.EndpointType},
 		},
 		{
-			name: "RecvWithReloadSuccessOnFirstTry",
+			name: "RecvWithError",
 			reloadCtx: func() (context.Context, context.CancelFunc) {
 				return context.WithTimeout(context.Background(), time.Second)
 			},
@@ -167,9 +167,6 @@ func Test_reloadingStream_Recv(t *testing.T) {
 				mads1 := newMockAdsStream(t)
 				mads1.On("Recv").Return(nil, errors.New("stream broken")).Once()
 				mads2 := newMockAdsStream(t)
-				mads2.On("Recv").Return(&v3discoverypb.DiscoveryResponse{
-					TypeUrl: resource.EndpointType,
-				}, nil).Once()
 
 				m.On("StreamAggregatedResources", mock.Anything, []grpc.CallOption{
 					grpc.WaitForReady(true),
@@ -182,9 +179,9 @@ func Test_reloadingStream_Recv(t *testing.T) {
 			},
 			wantStartErr: assert.NoError,
 			wantRecv: func(t assert.TestingT, expected interface{}, actual interface{}, err error, args ...interface{}) bool {
-				return assert.Equal(t, expected, actual, args...) && assert.NoError(t, err, args...)
+				return assert.Equal(t, expected, actual, args...) && assert.Error(t, err, args...)
 			},
-			want: &v3discoverypb.DiscoveryResponse{TypeUrl: resource.EndpointType},
+			want: nil,
 		},
 		{
 			name: "RecvWithReloadSuccessAfterFewFailures",
@@ -194,9 +191,6 @@ func Test_reloadingStream_Recv(t *testing.T) {
 			newStream: func(t *testing.T, m *mock.Mock) func() {
 				mads := newMockAdsStream(t)
 				mads.On("Recv").Return(nil, errors.New("stream broken")).Once()
-				mads.On("Recv").Return(&v3discoverypb.DiscoveryResponse{
-					TypeUrl: resource.EndpointType,
-				}, nil).Once()
 
 				m.On("StreamAggregatedResources", mock.Anything, []grpc.CallOption{
 					grpc.WaitForReady(true),
@@ -212,9 +206,9 @@ func Test_reloadingStream_Recv(t *testing.T) {
 			},
 			wantStartErr: assert.NoError,
 			wantRecv: func(t assert.TestingT, expected interface{}, actual interface{}, err error, args ...interface{}) bool {
-				return assert.Equal(t, expected, actual, args...) && assert.NoError(t, err, args...)
+				return assert.Equal(t, expected, actual, args...) && assert.Error(t, err, args...)
 			},
-			want: &v3discoverypb.DiscoveryResponse{TypeUrl: resource.EndpointType},
+			want: nil,
 		},
 		{
 			name: "RecvErrorExceedReloadTime",

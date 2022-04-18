@@ -19,7 +19,7 @@ type reloadingStream struct {
 	reloadWG sync.WaitGroup
 	log      log.Logger
 	s        adsStream
-	ns       func() v3discoverypb.AggregatedDiscoveryServiceClient
+	ns       v3discoverypb.AggregatedDiscoveryServiceClient
 
 	strategy    backoff.Strategy
 	onReConnect func(error)
@@ -58,7 +58,7 @@ func (r *reloadingStream) createStream(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	stream, err := r.ns().StreamAggregatedResources(ctx, grpc.WaitForReady(true))
+	stream, err := r.ns.StreamAggregatedResources(ctx, grpc.WaitForReady(true))
 	if err != nil {
 		r.log.Error(err, "xds: ReloadingStream could not create stream")
 

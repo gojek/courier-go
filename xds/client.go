@@ -56,9 +56,7 @@ func NewClient(opts Options) *Client {
 		connTimeout: 10 * time.Second,
 		log:         opts.Logger,
 		strategy:    opts.BackoffStrategy,
-		ns: func() v3discoverypb.AggregatedDiscoveryServiceClient {
-			return v3discoverypb.NewAggregatedDiscoveryServiceClient(cc)
-		},
+		ns:          v3discoverypb.NewAggregatedDiscoveryServiceClient(cc),
 	}
 
 	c.stream = rs

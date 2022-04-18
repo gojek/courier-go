@@ -96,9 +96,7 @@ func Test_reloadingStream_Send(t *testing.T) {
 			}
 
 			r := &reloadingStream{
-				ns: func() v3discoverypb.AggregatedDiscoveryServiceClient {
-					return mads
-				},
+				ns:          mads,
 				strategy:    &backoff.DefaultExponential,
 				reloadCh:    make(chan error, 1),
 				connTimeout: time.Second,
@@ -254,9 +252,7 @@ func Test_reloadingStream_Recv(t *testing.T) {
 			}
 
 			r := &reloadingStream{
-				ns: func() v3discoverypb.AggregatedDiscoveryServiceClient {
-					return mads
-				},
+				ns: mads,
 				onReConnect: func(err error) {
 					if tt.onReConnect != nil {
 						tt.onReConnect(t, err)

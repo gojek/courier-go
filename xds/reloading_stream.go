@@ -54,12 +54,9 @@ func (r *reloadingStream) safeRead() (*v3discoverypb.DiscoveryResponse, error) {
 	return r.s.Recv()
 }
 
-func (r *reloadingStream) createStream() error {
+func (r *reloadingStream) createStream(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
-	ctx, cancel := context.WithTimeout(context.Background(), r.connTimeout)
-	defer cancel()
 
 	stream, err := r.ns().StreamAggregatedResources(ctx, grpc.WaitForReady(true))
 	if err != nil {
@@ -82,7 +79,7 @@ func (r *reloadingStream) startReloader(ctx context.Context) {
 		case err := <-r.reloadCh:
 			retries++
 
-			if err := r.createStream(); err != nil {
+			if err := r.createStream(ctx); err != nil {
 				go func() {
 					select {
 					case <-ctx.Done():

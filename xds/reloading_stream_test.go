@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/gojek/courier-go/xds/backoff"
+	"github.com/gojek/courier-go/xds/log"
 )
 
 func Test_reloadingStream_Send(t *testing.T) {
@@ -101,10 +102,11 @@ func Test_reloadingStream_Send(t *testing.T) {
 				strategy:    &backoff.DefaultExponential,
 				reloadCh:    make(chan error, 1),
 				connTimeout: time.Second,
+				log:         &log.NoOpLogger{},
 			}
 
 			if tt.wantStartErr != nil {
-				tt.wantStartErr(t, r.createStream())
+				tt.wantStartErr(t, r.createStream(context.Background()))
 			}
 
 			if tt.wantSendErr != nil {
@@ -263,10 +265,11 @@ func Test_reloadingStream_Recv(t *testing.T) {
 				strategy:    &backoff.DefaultExponential,
 				reloadCh:    make(chan error, 1),
 				connTimeout: 100 * time.Millisecond,
+				log:         &log.NoOpLogger{},
 			}
 
 			if tt.wantStartErr != nil {
-				tt.wantStartErr(t, r.createStream())
+				tt.wantStartErr(t, r.createStream(context.Background()))
 			}
 
 			if tt.reloadCtx != nil {

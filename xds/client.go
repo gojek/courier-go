@@ -24,6 +24,7 @@ type stream interface {
 	Send(req *v3discoverypb.DiscoveryRequest) error
 	Recv() (*v3discoverypb.DiscoveryResponse, error)
 	startReloader(ctx context.Context)
+	createStream(ctx context.Context) error
 }
 
 // Options specifies options to be provided for initialising the xds client
@@ -36,7 +37,7 @@ type Options struct {
 }
 
 // NewClient returns a new ADS client stream using the *grpc.ClientConn provided.
-func NewClient(opts Options) (*Client, error) {
+func NewClient(opts Options) *Client {
 	opts = setDefaultOpts(opts)
 
 	c := &Client{
@@ -62,7 +63,7 @@ func NewClient(opts Options) (*Client, error) {
 
 	c.stream = rs
 
-	return c, rs.createStream()
+	return c
 }
 
 // Client performs the actual ADS RPCs using the ADS v3 API. It creates an
@@ -93,6 +94,10 @@ func (c *Client) Done() <-chan struct{} {
 // Start will wait updates from control plane, it is non-blocking
 func (c *Client) Start(ctx context.Context) error {
 	c.log.Info("xds: Starting ads client", "node", c.nodeProto, "target", c.xdsTarget)
+
+	if err := c.stream.createStream(ctx); err != nil {
+		return err
+	}
 
 	go c.stream.startReloader(ctx)
 	go c.run(ctx)

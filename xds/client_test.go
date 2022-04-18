@@ -24,13 +24,8 @@ import (
 	"github.com/gojek/courier-go/xds/log"
 )
 
-const adsRPCFullMethod = "/envoy.service.discovery.v3.AggregatedDiscoveryService/StreamAggregatedResources"
-
 func TestNewClient(t *testing.T) {
 	mc := newMockConnection(t)
-	mc.On("NewStream", mock.Anything, mock.Anything, adsRPCFullMethod, []grpc.CallOption{
-		grpc.WaitForReady(true),
-	}).Return(nil, nil)
 
 	opts := Options{
 		XDSTarget:  "cluster",
@@ -38,8 +33,7 @@ func TestNewClient(t *testing.T) {
 		ClientConn: mc,
 	}
 
-	client, err := NewClient(opts)
-	assert.NoError(t, err)
+	client := NewClient(opts)
 
 	switch client.log.(type) {
 	case *log.NoOpLogger:
@@ -107,6 +101,8 @@ func TestClient_Start(t *testing.T) {
 		{
 			name: "Success",
 			mockReloadingStream: func(m *mock.Mock, wg *sync.WaitGroup) {
+				m.On("createStream", mock.Anything).Return(nil)
+
 				m.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
 						TypeUrl:       resource.EndpointType,
@@ -123,8 +119,17 @@ func TestClient_Start(t *testing.T) {
 			want: assert.NoError,
 		},
 		{
+			name: "createStreamError",
+			mockReloadingStream: func(m *mock.Mock, wg *sync.WaitGroup) {
+				m.On("createStream", mock.Anything).Return(errors.New("some error"))
+			},
+			want: assert.Error,
+		},
+		{
 			name: "Error",
 			mockReloadingStream: func(m *mock.Mock, wg *sync.WaitGroup) {
+				m.On("createStream", mock.Anything).Return(nil)
+
 				m.On("Send", mock.MatchedBy(func(req *v3discoverypb.DiscoveryRequest) bool {
 					expectedRequest := &v3discoverypb.DiscoveryRequest{
 						TypeUrl:       resource.EndpointType,
@@ -525,6 +530,10 @@ func (m *mockReloadingStream) Recv() (*v3discoverypb.DiscoveryResponse, error) {
 
 func (m *mockReloadingStream) startReloader(ctx context.Context) {
 	m.Called(ctx)
+}
+
+func (m *mockReloadingStream) createStream(ctx context.Context) error {
+	return m.Called(ctx).Error(0)
 }
 
 func newMockConnection(t *testing.T) *mockConnection {

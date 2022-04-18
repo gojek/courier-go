@@ -36,15 +36,13 @@ func (r *reloadingStream) Send(req *v3discoverypb.DiscoveryRequest) error {
 
 func (r *reloadingStream) Recv() (*v3discoverypb.DiscoveryResponse, error) {
 	resp, err := r.safeRead()
-	if err == nil {
-		return resp, nil
+	if err != nil {
+		r.reloadWG.Add(1)
+		r.reloadCh <- err
+		r.reloadWG.Wait()
 	}
 
-	r.reloadWG.Add(1)
-	r.reloadCh <- err
-	r.reloadWG.Wait()
-
-	return r.safeRead()
+	return resp, err
 }
 
 func (r *reloadingStream) safeRead() (*v3discoverypb.DiscoveryResponse, error) {

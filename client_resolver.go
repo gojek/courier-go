@@ -53,7 +53,7 @@ func (c *Client) newClient(addrs []TCPAddress, attempt int) mqtt.Client {
 	addr := addrs[attempt%len(addrs)]
 
 	c.options.brokerAddress = fmt.Sprintf("tcp://%s:%d", addr.Host, addr.Port)
-	cc := newClientFunc(toClientOptions(c, c.options))
+	cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options))
 
 	t := cc.Connect()
 	if !t.WaitTimeout(c.options.connectTimeout) {

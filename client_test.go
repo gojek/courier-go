@@ -117,9 +117,9 @@ func (s *ClientSuite) TestStart() {
 	for _, t := range tests {
 		s.Run(t.name, func() {
 			if t.newClientFunc != nil {
-				newClientFunc = t.newClientFunc
+				newClientFunc.Store(t.newClientFunc)
 			} else {
-				newClientFunc = mqtt.NewClient
+				newClientFunc.Store(mqtt.NewClient)
 			}
 
 			mr := newMockResolver(s.T())
@@ -160,11 +160,9 @@ func TestNewClientWithResolverOption(t *testing.T) {
 	mc.On("Connect").Return(mt)
 	mc.On("IsConnectionOpen").After(2 * time.Second).Return(true)
 	mc.On("Disconnect", uint(30*time.Second/time.Millisecond)).After(10 * time.Millisecond).Return()
-	newClientFunc = func(_ *mqtt.ClientOptions) mqtt.Client {
-		return mc
-	}
+	newClientFunc.Store(func(_ *mqtt.ClientOptions) mqtt.Client { return mc })
 	defer func() {
-		newClientFunc = mqtt.NewClient
+		newClientFunc.Store(mqtt.NewClient)
 	}()
 
 	mr := newMockResolver(t)

@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
-var newClientFunc = mqtt.NewClient
+var newClientFunc = defaultNewClientFunc()
 
 // Client allows to communicate with an MQTT broker
 type Client struct {
@@ -43,7 +44,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	c := &Client{options: o}
 
 	if len(o.brokerAddress) != 0 {
-		c.mqttClient = newClientFunc(toClientOptions(c, c.options))
+		c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options))
 	}
 
 	c.publisher = publishHandler(c)
@@ -169,4 +170,11 @@ func onConnectHandler(client PubSub, o *clientOptions) mqtt.OnConnectHandler {
 			o.onConnectHandler(client)
 		}
 	}
+}
+
+func defaultNewClientFunc() *atomic.Value {
+	v := &atomic.Value{}
+	v.Store(mqtt.NewClient)
+
+	return v
 }

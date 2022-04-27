@@ -25,7 +25,7 @@ gomod.tidy:
 test: check test-run
 
 test-run:
-	@$(call run-go-mod-dir,go test ./... -covermode=atomic -coverprofile=coverage.out,"go test")
+	@$(call run-go-mod-dir,go test -race -covermode=atomic -coverprofile=coverage.out ./...,"go test")
 
 test-cov: gocov
 	@$(call run-go-mod-dir,$(GOCOV) convert coverage.out > coverage.json)

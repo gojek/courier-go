@@ -50,7 +50,7 @@ func subscriberFuncs(c *Client) Subscriber {
 		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) (err error) {
 			c.execute(func(cc mqtt.Client) {
 				t := cc.SubscribeMultiple(routeFilters(topicsWithQos), callbackWrapper(c, callback))
-				err = c.handleToken(t, ErrSubscribeTimeout)
+				err = c.handleToken(t, ErrSubscribeMultipleTimeout)
 			})
 
 			return

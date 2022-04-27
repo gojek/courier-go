@@ -3,6 +3,7 @@ package xds
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	v3endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -51,15 +52,13 @@ func TestResolver_Done(t *testing.T) {
 		rc: rc,
 	}
 
-	ch := r.Done()
-	var a interface{}
-
 	go func() {
-		a = <-ch
+		done <- struct{}{}
 	}()
-	done <- struct{}{}
 
-	if a != struct{}{} {
+	select {
+	case <-r.Done():
+	case <-time.After(3 * time.Second):
 		t.Errorf("Done(), no value received")
 	}
 }

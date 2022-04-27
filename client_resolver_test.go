@@ -64,7 +64,7 @@ func TestClient_newClient(t *testing.T) {
 				tkn1.On("WaitTimeout", o.ConnectTimeout).Return(false)
 
 				m.On("Connect").Return(tkn1).Run(func(args mock.Arguments) {
-					newClientFunc = func(o *mqtt.ClientOptions) mqtt.Client {
+					newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
 						if o.Servers[0].String() != "tcp://localhost:8888" {
 							panic(o.Servers[0].String())
 						}
@@ -74,7 +74,7 @@ func TestClient_newClient(t *testing.T) {
 						m.On("Connect").Return(tkn2).Once()
 
 						return m
-					}
+					})
 				}).Once()
 
 				return m
@@ -103,7 +103,7 @@ func TestClient_newClient(t *testing.T) {
 				tkn1.On("Error").Return(errors.New("some error"))
 
 				m.On("Connect").Return(tkn1).Run(func(args mock.Arguments) {
-					newClientFunc = func(o *mqtt.ClientOptions) mqtt.Client {
+					newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
 						if o.Servers[0].String() != "tcp://localhost:8888" {
 							panic(o.Servers[0].String())
 						}
@@ -113,7 +113,7 @@ func TestClient_newClient(t *testing.T) {
 						m.On("Connect").Return(tkn2).Once()
 
 						return m
-					}
+					})
 				}).Once()
 
 				return m
@@ -126,7 +126,7 @@ func TestClient_newClient(t *testing.T) {
 			c := &Client{
 				options: defaultOptions(),
 			}
-			newClientFunc = tt.newClientFunc
+			newClientFunc.Store(tt.newClientFunc)
 			got := c.newClient(tt.addrs, 0)
 
 			got.(*mockClient).AssertExpectations(t)
@@ -189,13 +189,13 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 			wg.Add(1)
 			go tt.sender(uc, dc, wg)
 
-			newClientFunc = func(o *mqtt.ClientOptions) mqtt.Client {
+			newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
 				tkn1 := &mockToken{}
 				tkn1.On("WaitTimeout", o.ConnectTimeout).Return(true)
 				tkn1.On("Error").Return(nil)
 				newClient.On("Connect").Return(tkn1).Once()
 				return newClient
-			}
+			})
 
 			go c.watchAddressUpdates(r)
 

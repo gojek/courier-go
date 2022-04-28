@@ -15,6 +15,20 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+var defOpts []ClientOption
+
+func init() {
+	brokerAddress := os.Getenv("BROKER_ADDRESS") // host:port format
+	if len(brokerAddress) == 0 {
+		brokerAddress = "localhost:1883"
+	}
+
+	list := strings.Split(brokerAddress, ":")
+	p, _ := strconv.Atoi(list[1])
+
+	defOpts = append(defOpts, WithTCPAddress(list[0], uint16(p)), WithClientID("clientID"))
+}
+
 type ClientSuite struct {
 	suite.Suite
 }
@@ -25,17 +39,9 @@ func TestClientSuite(t *testing.T) {
 
 func (s *ClientSuite) TestStart() {
 	errConnect := errors.New("err_connect")
-	brokerAddress := os.Getenv("BROKER_ADDRESS") // host:port format
-
-	defOpts := []ClientOption{WithOnConnect(func(_ PubSub) {
+	defOpts := append(defOpts, WithOnConnect(func(_ PubSub) {
 		s.T().Logf("connected")
-	}), WithClientID("clientID")}
-
-	if brokerAddress != "" {
-		list := strings.Split(brokerAddress, ":")
-		p, _ := strconv.Atoi(list[1])
-		defOpts = append(defOpts, WithTCPAddress(list[0], uint16(p)))
-	}
+	}))
 
 	tests := []struct {
 		name          string
@@ -43,6 +49,7 @@ func (s *ClientSuite) TestStart() {
 		ctxFunc       func() (context.Context, context.CancelFunc)
 		checkConnect  bool
 		wantErr       error
+		resolver      func(*mock.Mock)
 		newClientFunc func(o *mqtt.ClientOptions) mqtt.Client
 	}{
 		{
@@ -56,7 +63,7 @@ func (s *ClientSuite) TestStart() {
 		},
 		{
 			name: "ConnectWaitTimeoutError",
-			opts: []ClientOption{WithConnectTimeout(5 * time.Second)},
+			opts: append(defOpts, WithConnectTimeout(5*time.Second)),
 			ctxFunc: func() (context.Context, context.CancelFunc) {
 				return context.WithDeadline(context.TODO(), time.Now().Add(10*time.Second))
 			},
@@ -68,6 +75,25 @@ func (s *ClientSuite) TestStart() {
 				m.On("Connect").Return(t)
 				return m
 			},
+		},
+		{
+			name: "ConnectWaitTimeoutErrorWithResolver",
+			opts: []ClientOption{
+				WithClientID("clientID"),
+				WithConnectTimeout(5 * time.Second),
+			},
+			resolver: func(m *mock.Mock) {
+				ch := make(chan []TCPAddress, 1)
+				m.On("UpdateChan").Return(ch)
+				go func() {
+					time.Sleep(6 * time.Second)
+					ch <- []TCPAddress{{Host: "localhost", Port: 1883}}
+				}()
+			},
+			ctxFunc: func() (context.Context, context.CancelFunc) {
+				return context.WithDeadline(context.TODO(), time.Now().Add(10*time.Second))
+			},
+			wantErr: ErrConnectTimeout,
 		},
 		{
 			name: "ConnectError",
@@ -91,10 +117,17 @@ func (s *ClientSuite) TestStart() {
 	for _, t := range tests {
 		s.Run(t.name, func() {
 			if t.newClientFunc != nil {
-				newClientFunc = t.newClientFunc
+				newClientFunc.Store(t.newClientFunc)
 			} else {
-				newClientFunc = mqtt.NewClient
+				newClientFunc.Store(mqtt.NewClient)
 			}
+
+			mr := newMockResolver(s.T())
+			if t.resolver != nil {
+				t.resolver(&mr.Mock)
+				t.opts = append(t.opts, WithResolver(mr))
+			}
+
 			c, err := NewClient(t.opts...)
 			s.NoError(err)
 
@@ -113,18 +146,63 @@ func (s *ClientSuite) TestStart() {
 			if t.wantErr == nil {
 				c.Stop()
 			}
+
+			mr.AssertExpectations(s.T())
 		})
 	}
 }
 
+func TestNewClientWithResolverOption(t *testing.T) {
+	mc := newMockClient(t)
+	mt := newMockToken(t)
+	mt.On("WaitTimeout", 15*time.Second).Return(true)
+	mt.On("Error").Return(nil)
+	mc.On("Connect").Return(mt)
+	mc.On("IsConnectionOpen").After(2 * time.Second).Return(true)
+	mc.On("Disconnect", uint(30*time.Second/time.Millisecond)).After(10 * time.Millisecond).Return()
+	newClientFunc.Store(func(_ *mqtt.ClientOptions) mqtt.Client { return mc })
+	defer func() {
+		newClientFunc.Store(mqtt.NewClient)
+	}()
+
+	mr := newMockResolver(t)
+	c, err := NewClient(WithResolver(mr))
+
+	assert.NoError(t, err)
+	mr.AssertExpectations(t)
+
+	rCh := make(chan []TCPAddress, 1)
+	dCh := make(chan struct{}, 1)
+	go func() {
+		rCh <- []TCPAddress{{Host: "localhost", Port: 1883}}
+	}()
+
+	mr.On("UpdateChan").Return(rCh)
+	mr.On("Done").Return(dCh)
+	assert.NoError(t, c.Start())
+
+	assert.Eventually(t, func() bool {
+		return c.IsConnected()
+	}, 10*time.Second, 250*time.Millisecond)
+
+	c.Stop()
+	dCh <- struct{}{}
+
+	mr.AssertExpectations(t)
+}
+
 func TestNewClient(t *testing.T) {
 	cc, err := NewClient()
+	assert.EqualError(t, err, "at least WithTCPAddress or WithResolver ClientOption should be used")
+	assert.Nil(t, cc)
+
+	cc, err = NewClient(WithTCPAddress("localhost", 1883))
 	assert.NoError(t, err)
 	assert.NotNil(t, cc.mqttClient)
 }
 
 func TestNewClient_WithOptions(t *testing.T) {
-	c, err := NewClient(WithClientID("clientID"))
+	c, err := NewClient(defOpts...)
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 }
@@ -160,6 +238,12 @@ func Test_onConnectHandler(t *testing.T) {
 }
 
 // mocks
+func newMockClient(t *testing.T) *mockClient {
+	m := &mockClient{}
+	m.Test(t)
+	return m
+}
+
 type mockClient struct {
 	mock.Mock
 }
@@ -204,6 +288,12 @@ func (m *mockClient) OptionsReader() mqtt.ClientOptionsReader {
 	return mqtt.ClientOptionsReader{}
 }
 
+func newMockToken(t *testing.T) *mockToken {
+	m := &mockToken{}
+	m.Test(t)
+	return m
+}
+
 type mockToken struct {
 	mock.Mock
 }
@@ -222,4 +312,28 @@ func (m *mockToken) Done() <-chan struct{} {
 
 func (m *mockToken) Error() error {
 	return m.Called().Error(0)
+}
+
+func newMockResolver(t *testing.T) *mockResolver {
+	m := &mockResolver{}
+	m.Test(t)
+	return m
+}
+
+type mockResolver struct {
+	mock.Mock
+}
+
+func (m *mockResolver) UpdateChan() <-chan []TCPAddress {
+	if ch := m.Called().Get(0); ch != nil {
+		return ch.(chan []TCPAddress)
+	}
+	return nil
+}
+
+func (m *mockResolver) Done() <-chan struct{} {
+	if ch := m.Called().Get(0); ch != nil {
+		return ch.(chan struct{})
+	}
+	return nil
 }

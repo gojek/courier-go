@@ -3,6 +3,7 @@ package courier
 import (
 	"context"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,20 +22,20 @@ func TestExponentialStartStrategySuite(t *testing.T) {
 }
 
 func (s *ExponentialStartStrategySuite) SetupSuite() {
-	newClientFunc = func(o *mqtt.ClientOptions) mqtt.Client {
+	newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
 		m := &mockClient{}
 		m.Test(s.T())
 		s.mockClient = m
 		return m
-	}
+	})
 }
 
 func (s *ExponentialStartStrategySuite) TearDownSuite() {
-	newClientFunc = mqtt.NewClient
+	newClientFunc.Store(mqtt.NewClient)
 }
 
 func (s *ExponentialStartStrategySuite) TestSuccessfulStartOnFirstTry() {
-	c, err := NewClient()
+	c, err := NewClient(defOpts...)
 	s.NoError(err)
 
 	tk := &mockToken{}
@@ -57,7 +58,7 @@ func (s *ExponentialStartStrategySuite) TestSuccessfulStartOnFirstTry() {
 }
 
 func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailure() {
-	c, err := NewClient()
+	c, err := NewClient(defOpts...)
 	s.NoError(err)
 
 	tk := &mockToken{}
@@ -90,7 +91,7 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailure() {
 }
 
 func (s *ExponentialStartStrategySuite) TestReconnectAttemptStopOnCancel() {
-	c, err := NewClient()
+	c, err := NewClient(defOpts...)
 	s.NoError(err)
 
 	tk := &mockToken{}
@@ -105,9 +106,11 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptStopOnCancel() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	onRetryCalled := false
+	onRetryCalled := &atomic.Value{}
+	onRetryCalled.Store(false)
+
 	ExponentialStartStrategy(ctx, c, WithMaxInterval(5*time.Second), WithOnRetry(func(err error) {
-		onRetryCalled = true
+		onRetryCalled.Store(true)
 		s.EqualError(err, "address :1883: connection refused")
 	}))
 
@@ -116,13 +119,13 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptStopOnCancel() {
 
 	time.Sleep(3 * time.Second)
 
-	s.True(onRetryCalled)
+	s.True(onRetryCalled.Load().(bool))
 	tk.AssertExpectations(s.T())
 	s.mockClient.AssertExpectations(s.T())
 }
 
 func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailureBeyondMaxTimeout() {
-	c, err := NewClient()
+	c, err := NewClient(defOpts...)
 	s.NoError(err)
 
 	tk := &mockToken{}

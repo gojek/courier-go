@@ -114,7 +114,7 @@ func (s *ClientPublishSuite) TestPublish() {
 	}
 	for _, t := range tests {
 		s.Run(t.name, func() {
-			c, err := NewClient()
+			c, err := NewClient(defOpts...)
 			s.NoError(err)
 
 			if t.useMiddlewares != nil {
@@ -139,7 +139,7 @@ func (s *ClientPublishSuite) TestPublish() {
 }
 
 func (s *ClientPublishSuite) TestPublishMiddleware() {
-	c, err := NewClient()
+	c, err := NewClient(defOpts...)
 	s.NoError(err)
 
 	mc := &mockClient{}

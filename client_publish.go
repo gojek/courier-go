@@ -3,6 +3,8 @@ package courier
 import (
 	"bytes"
 	"context"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 // Publish allows to publish messages to an MQTT broker
@@ -26,17 +28,20 @@ func (c *Client) UsePublisherMiddleware(mwf ...PublisherMiddlewareFunc) {
 }
 
 func publishHandler(c *Client) Publisher {
-	return PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...Option) error {
+	return PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...Option) (err error) {
 		buf := bytes.Buffer{}
 
-		err := c.options.newEncoder(&buf).Encode(message)
+		err = c.options.newEncoder(&buf).Encode(message)
 		if err != nil {
-			return err
+			return
 		}
 
 		o := composeOptions(opts)
-		t := c.mqttClient.Publish(topic, o.qos, o.retained, buf.Bytes())
+		c.execute(func(cc mqtt.Client) {
+			t := cc.Publish(topic, o.qos, o.retained, buf.Bytes())
+			err = c.handleToken(t, ErrPublishTimeout)
+		})
 
-		return c.handleToken(t, ErrPublishTimeout)
+		return
 	})
 }

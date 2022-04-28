@@ -2,6 +2,8 @@ package courier
 
 import (
 	"context"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 // Unsubscribe removes any subscription to messages from an MQTT broker
@@ -25,9 +27,12 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc) {
 }
 
 func unsubscriberHandler(c *Client) Unsubscriber {
-	return UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
-		t := c.mqttClient.Unsubscribe(topics...)
+	return UnsubscriberFunc(func(ctx context.Context, topics ...string) (err error) {
+		c.execute(func(cc mqtt.Client) {
+			t := cc.Unsubscribe(topics...)
+			err = c.handleToken(t, ErrUnsubscribeTimeout)
+		})
 
-		return c.handleToken(t, ErrUnsubscribeTimeout)
+		return
 	})
 }

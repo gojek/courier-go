@@ -18,6 +18,7 @@ func TestClientOptionSuite(t *testing.T) {
 
 func (s *ClientOptionSuite) Test_apply() {
 	store := NewMemoryStore()
+	r := resolver{}
 
 	tests := []struct {
 		name   string
@@ -89,6 +90,11 @@ func (s *ClientOptionSuite) Test_apply() {
 			option: WithPersistence(store),
 			want:   &clientOptions{store: store},
 		},
+		{
+			name:   "WithResolver",
+			option: WithResolver(r),
+			want:   &clientOptions{resolver: r},
+		},
 	}
 
 	for _, t := range tests {
@@ -156,7 +162,6 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 
 func (s *ClientOptionSuite) Test_defaultOptions() {
 	o := &clientOptions{
-		brokerAddress:          fmt.Sprintf("tcp://%s:%d", "127.0.0.1", 1883),
 		autoReconnect:          true,
 		maintainOrder:          true,
 		connectTimeout:         15 * time.Second,

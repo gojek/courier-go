@@ -1,13 +1,16 @@
 package courier
 
 import (
+	"fmt"
 	"os"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
-var newClientFunc = mqtt.NewClient
+var newClientFunc = defaultNewClientFunc()
 
 // Client allows to communicate with an MQTT broker
 type Client struct {
@@ -20,6 +23,8 @@ type Client struct {
 	pMiddlewares  []publishMiddleware
 	sMiddlewares  []subscribeMiddleware
 	usMiddlewares []unsubscribeMiddleware
+
+	mu sync.RWMutex
 }
 
 // NewClient creates the Client struct with the clientOptions provided,
@@ -32,9 +37,16 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		f(o)
 	}
 
+	if len(o.brokerAddress) == 0 && o.resolver == nil {
+		return nil, fmt.Errorf("at least WithTCPAddress or WithResolver ClientOption should be used")
+	}
+
 	c := &Client{options: o}
 
-	c.mqttClient = newClientFunc(toClientOptions(c, c.options))
+	if len(o.brokerAddress) != 0 {
+		c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options))
+	}
+
 	c.publisher = publishHandler(c)
 	c.subscriber = subscriberFuncs(c)
 	c.unsubscriber = unsubscriberHandler(c)
@@ -42,30 +54,61 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
+func (c *Client) execute(f func(mqtt.Client)) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	f(c.mqttClient)
+}
+
 // IsConnected checks whether the client is connected to the broker
-func (c *Client) IsConnected() bool {
-	return c.mqttClient != nil && c.mqttClient.IsConnectionOpen()
+func (c *Client) IsConnected() (online bool) {
+	c.execute(func(cc mqtt.Client) {
+		online = cc != nil && cc.IsConnectionOpen()
+	})
+
+	return
 }
 
 // Start will attempt to connect to the broker.
-func (c *Client) Start() error {
-	t := c.mqttClient.Connect()
-	if !t.WaitTimeout(c.options.connectTimeout) {
-		return ErrConnectTimeout
+func (c *Client) Start() (err error) {
+	if len(c.options.brokerAddress) != 0 {
+		c.execute(func(cc mqtt.Client) {
+			t := cc.Connect()
+			if !t.WaitTimeout(c.options.connectTimeout) {
+				err = ErrConnectTimeout
+
+				return
+			}
+
+			err = t.Error()
+		})
 	}
 
-	if err := t.Error(); err != nil {
-		return err
+	if c.options.resolver != nil {
+		// try first connect attempt on start, then start a watcher on channel
+		select {
+		case <-time.After(c.options.connectTimeout):
+			err = ErrConnectTimeout
+
+			return
+		case addrs := <-c.options.resolver.UpdateChan():
+			c.attemptConnection(addrs)
+		}
+
+		go c.watchAddressUpdates(c.options.resolver)
 	}
 
-	return nil
+	return
 }
 
 // Stop will disconnect from the broker and finish up any pending work on internal
 // communication workers. This can only block until the period configured with
 // the ClientOption WithGracefulShutdownPeriod.
 func (c *Client) Stop() {
-	c.mqttClient.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+	c.execute(func(cc mqtt.Client) {
+		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+	})
 }
 
 func (c *Client) handleToken(t mqtt.Token, timeoutErr error) error {
@@ -127,4 +170,11 @@ func onConnectHandler(client PubSub, o *clientOptions) mqtt.OnConnectHandler {
 			o.onConnectHandler(client)
 		}
 	}
+}
+
+func defaultNewClientFunc() *atomic.Value {
+	v := &atomic.Value{}
+	v.Store(mqtt.NewClient)
+
+	return v
 }

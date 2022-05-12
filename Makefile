@@ -35,12 +35,12 @@ test-xml: test-cov gocov-xml
 	@jq -n '{ Packages: [ inputs.Packages ] | add }' $(shell find . -type f -name 'coverage.json' | sort) | $(GOCOVXML) > coverage.xml
 
 .PHONY: check
-check: fmt vet lint imports docs
+check: fmt vet lint imports
 	@git diff --quiet || test $$(git diff --name-only | grep -v -e 'go.mod$$' -e 'go.sum$$' | wc -l) -eq 0 || ( echo "The following changes (result of code generators and code checks) have been detected:" && git --no-pager diff && false ) # fail if Git working tree is dirty
 
 docs: godoc
 	@$(GODOC) --repository.default-branch main --repository.path / \
-		--output './docs/docs/sdk/{{.Dir}}/index.md' ./...
+		--output './docs/docs/sdk/{{.ImportPath}}.md' ./...
 
 # ========= Helpers ===========
 

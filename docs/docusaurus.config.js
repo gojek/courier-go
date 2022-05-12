@@ -8,8 +8,8 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const config = {
   title: 'Courier Go',
   tagline: 'Information Superhighway',
-  url: 'https://gojek.github.io/courier-go/getting-started/',
-  baseUrl: '/',
+  url: 'https://gojek.github.io',
+  baseUrl: '/courier-go/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',

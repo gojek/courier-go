@@ -35,18 +35,28 @@ test-xml: test-cov gocov-xml
 	@jq -n '{ Packages: [ inputs.Packages ] | add }' $(shell find . -type f -name 'coverage.json' | sort) | $(GOCOVXML) > coverage.xml
 
 .PHONY: check
-check: fmt vet lint imports
+check: fmt vet lint imports docs
 	@git diff --quiet || test $$(git diff --name-only | grep -v -e 'go.mod$$' -e 'go.sum$$' | wc -l) -eq 0 || ( echo "The following changes (result of code generators and code checks) have been detected:" && git --no-pager diff && false ) # fail if Git working tree is dirty
+
+docs: godoc
+	@$(GODOC) --repository.default-branch main --repository.path / \
+		--output './docs/docs/sdk/{{.ImportPath}}.md' ./...
+	@mv ./docs/docs/sdk/.md ./docs/docs/sdk/SDK.md
+	@mv ./docs/docs/sdk/xds.md ./docs/docs/sdk/xds/xDS.md
 
 # ========= Helpers ===========
 
 GOLANGCI_LINT = $(shell pwd)/.bin/golangci-lint
 golangci-lint:
-	$(call go-get-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint)
+	$(call go-get-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.44.2)
 
 GCI = $(shell pwd)/.bin/gci
 gci:
 	$(call go-get-tool,$(GCI),github.com/daixiang0/gci@v0.2.9)
+
+GODOC = $(shell pwd)/.bin/gomarkdoc
+godoc:
+	$(call go-get-tool,$(GODOC),github.com/princjef/gomarkdoc/cmd/gomarkdoc)
 
 GOCOV = $(shell pwd)/.bin/gocov
 gocov:

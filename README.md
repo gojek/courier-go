@@ -5,10 +5,13 @@
 [![codecov][coverage-badge]][codecov]
 [![docs][docs-badge]][pkg-dev]
 [![go-report-card][report-badge]][report-card]
+[![docs][docusaurus-badge]][gh-pages]
 
 ## Introduction
 
 Courier Golang client library provides an opinionated wrapper over paho MQTT library to add features on top of it.
+
+Head over to [Documentation][gh-pages] to get started.
 
 ## Features
 
@@ -45,3 +48,5 @@ Courier Go Client is [MIT licensed](./LICENSE).
 [pkg-dev]: https://pkg.go.dev/github.com/gojek/courier-go
 [report-badge]: https://goreportcard.com/badge/github.com/gojek/courier-go
 [report-card]: https://goreportcard.com/report/github.com/gojek/courier-go
+[docusaurus-badge]: https://img.shields.io/badge/Docs-latest-blue.svg
+[gh-pages]: https://gojek.github.io/courier-go/

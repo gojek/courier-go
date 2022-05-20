@@ -90,6 +90,14 @@ const config = {
                 label: 'Getting Started',
                 to: '/docs/getting-started',
               },
+              {
+                label: 'Tutorials',
+                to: '/docs/Tutorials/connect',
+              },
+              {
+                label: 'API',
+                href: 'https://pkg.go.dev/github.com/gojek/courier-go',
+              },
             ],
           },
           {

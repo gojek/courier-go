@@ -63,6 +63,17 @@ const config = {
             label: 'Docs',
           },
           {
+            type: 'doc',
+            docId: 'Tutorials/connect',
+            position: 'left',
+            label: 'Tutorials',
+          },
+          {
+            href: 'https://pkg.go.dev/github.com/gojek/courier-go',
+            position: 'left',
+            label: 'API',
+          },
+          {
             href: 'https://github.com/gojek/courier-go',
             label: 'GitHub',
             position: 'right',

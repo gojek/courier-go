@@ -107,6 +107,10 @@ const config = {
                 label: 'GitHub',
                 href: 'https://github.com/gojek/courier-go/projects',
               },
+              {
+                label: 'Discord',
+                href: 'https://discord.gg/C823qK4AK7',
+              },
             ],
           },
         ],

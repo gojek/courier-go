@@ -114,7 +114,7 @@ const config = {
               { label: 'Courier', href: 'https://gojek.github.io/courier/', },
               { label: 'E2E example', href: 'https://gojek.github.io/courier/docs/Introduction', },
               { label: 'Blogs', href: 'https://gojek.github.io/courier/blog', },
-              { label: 'Github', href: 'https://github.com/gojek/courier-android', },
+              { label: 'Github', href: 'https://github.com/gojek/courier-go', },
             ],
           },
         ],

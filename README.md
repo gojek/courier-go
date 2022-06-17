@@ -13,6 +13,8 @@ Courier Golang client library provides an opinionated wrapper over paho MQTT lib
 
 Head over to [Documentation][gh-pages] to get started.
 
+Find the end-to-end courier example [here][e2e-example].
+
 ## Features
 
 - Supports MQTT v3.1.1
@@ -50,3 +52,4 @@ Courier Go Client is [MIT licensed](./LICENSE).
 [report-card]: https://goreportcard.com/report/github.com/gojek/courier-go
 [docusaurus-badge]: https://img.shields.io/badge/Docs-latest-blue.svg
 [gh-pages]: https://gojek.github.io/courier-go/
+[e2e-example]: https://gojek.github.io/courier/docs/Introduction

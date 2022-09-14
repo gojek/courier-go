@@ -208,7 +208,7 @@ func TestNewClient_WithOptions(t *testing.T) {
 }
 
 func Test_reconnectHandler(t *testing.T) {
-	o := defaultOptions()
+	o := defaultClientOptions()
 	o.onReconnectHandler = func(_ PubSub) {
 		t.Logf("reconnectHandler called")
 	}
@@ -218,7 +218,7 @@ func Test_reconnectHandler(t *testing.T) {
 }
 
 func Test_connectionLostHandler(t *testing.T) {
-	o := defaultOptions()
+	o := defaultClientOptions()
 	o.onConnectionLostHandler = func(err error) {
 		t.Logf("onConnectionLostHandler called")
 	}
@@ -228,7 +228,7 @@ func Test_connectionLostHandler(t *testing.T) {
 }
 
 func Test_onConnectHandler(t *testing.T) {
-	o := defaultOptions()
+	o := defaultClientOptions()
 	o.onConnectHandler = func(_ PubSub) {
 		t.Logf("onConnectHandler called")
 	}

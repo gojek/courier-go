@@ -31,19 +31,19 @@ type Client struct {
 // it can return error when prometheus.DefaultRegisterer has already
 // been used to register the collected metrics
 func NewClient(opts ...ClientOption) (*Client, error) {
-	o := defaultOptions()
+	co := defaultClientOptions()
 
-	for _, f := range opts {
-		f(o)
+	for _, opt := range opts {
+		opt.apply(co)
 	}
 
-	if len(o.brokerAddress) == 0 && o.resolver == nil {
+	if len(co.brokerAddress) == 0 && co.resolver == nil {
 		return nil, fmt.Errorf("at least WithAddress or WithResolver ClientOption should be used")
 	}
 
-	c := &Client{options: o}
+	c := &Client{options: co}
 
-	if len(o.brokerAddress) != 0 {
+	if len(co.brokerAddress) != 0 {
 		c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options))
 	}
 

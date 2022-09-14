@@ -124,7 +124,7 @@ func TestClient_newClient(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Client{
-				options: defaultOptions(),
+				options: defaultClientOptions(),
 			}
 			newClientFunc.Store(tt.newClientFunc)
 			got := c.newClient(tt.addrs, 0)
@@ -172,10 +172,10 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 			newClient := &mockClient{}
 
 			oldClient := &mockClient{}
-			oldClient.On("Disconnect", uint(defaultOptions().gracefulShutdownPeriod/time.Millisecond)).Return()
+			oldClient.On("Disconnect", uint(defaultClientOptions().gracefulShutdownPeriod/time.Millisecond)).Return()
 
 			c := &Client{
-				options:    defaultOptions(),
+				options:    defaultClientOptions(),
 				mqttClient: oldClient,
 			}
 			uc := make(chan []TCPAddress)

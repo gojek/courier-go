@@ -17,3 +17,5 @@ type Encoder interface {
 func defaultEncoderFunc(w io.Writer) Encoder {
 	return json.NewEncoder(w)
 }
+
+func (f EncoderFunc) apply(o *clientOptions) { o.newEncoder = f }

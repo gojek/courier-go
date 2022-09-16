@@ -1,6 +1,7 @@
 package courier
 
 import (
+	"crypto/tls"
 	"fmt"
 	"time"
 )
@@ -11,7 +12,7 @@ var inMemoryPersistence = NewMemoryStore()
 type ClientOption func(*clientOptions)
 
 // WithClientID sets the clientID to be used while connecting to an MQTT broker.
-//According to the MQTT v3.1 specification, a client id must be no longer than 23 characters.
+// According to the MQTT v3.1 specification, a client id must be no longer than 23 characters.
 func WithClientID(clientID string) ClientOption {
 	return func(o *clientOptions) {
 		o.clientID = clientID
@@ -29,6 +30,13 @@ func WithUsername(username string) ClientOption {
 func WithPassword(password string) ClientOption {
 	return func(o *clientOptions) {
 		o.password = password
+	}
+}
+
+// WithTLS sets the TLs configuration to be used while connecting to an MQTT broker.
+func WithTLS(tlsConfig *tls.Config) ClientOption {
+	return func(o *clientOptions) {
+		o.tlsConfig = tlsConfig
 	}
 }
 
@@ -92,9 +100,21 @@ func WithOnReconnect(handler OnReconnectHandler) ClientOption {
 
 // WithTCPAddress sets the broker address to be used.
 // Default values for hostname is "127.0.0.1" and for port is 1883.
+//
+// Deprecated: This Option used to work with plain TCP connections,
+// it's now possible to use TLS with WithAddress and WithTLS combination.
 func WithTCPAddress(host string, port uint16) ClientOption {
 	return func(o *clientOptions) {
-		o.brokerAddress = fmt.Sprintf("tcp://%s:%d", host, port)
+		o.brokerAddress = fmt.Sprintf("%s:%d", host, port)
+	}
+}
+
+// WithAddress sets the broker address to be used.
+// To establish a TLS connection, use WithTLS Option along with this.
+// Default values for hostname is "127.0.0.1" and for port is 1883.
+func WithAddress(host string, port uint16) ClientOption {
+	return func(o *clientOptions) {
+		o.brokerAddress = fmt.Sprintf("%s:%d", host, port)
 	}
 }
 
@@ -173,6 +193,8 @@ type clientOptions struct {
 	username, clientID, password,
 	brokerAddress string
 	resolver Resolver
+
+	tlsConfig *tls.Config
 
 	autoReconnect, maintainOrder, cleanSession bool
 

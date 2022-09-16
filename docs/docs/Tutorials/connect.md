@@ -9,7 +9,7 @@ You can verify the connection by calling `.IsConnected()` and it should return t
 
 ```go title="connect.go" {2,11,15}
 c, err := courier.NewClient(
-    courier.WithTCPAddress("broker.emqx.io", 1883),
+    courier.WithAddress("broker.emqx.io", 1883),
     // courier.WithUsername("username"),
     // courier.WithPassword("password"),
 )

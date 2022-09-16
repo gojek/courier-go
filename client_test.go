@@ -26,7 +26,7 @@ func init() {
 	list := strings.Split(brokerAddress, ":")
 	p, _ := strconv.Atoi(list[1])
 
-	defOpts = append(defOpts, WithTCPAddress(list[0], uint16(p)), WithClientID("clientID"))
+	defOpts = append(defOpts, WithAddress(list[0], uint16(p)), WithClientID("clientID"))
 }
 
 type ClientSuite struct {
@@ -97,7 +97,7 @@ func (s *ClientSuite) TestStart() {
 		},
 		{
 			name: "ConnectError",
-			opts: []ClientOption{WithTCPAddress("127.0.0.1", 9999), WithOnReconnect(func(_ PubSub) {
+			opts: []ClientOption{WithAddress("127.0.0.1", 9999), WithOnReconnect(func(_ PubSub) {
 				s.T().Logf("reconnecting")
 			})},
 			ctxFunc: func() (context.Context, context.CancelFunc) {
@@ -193,10 +193,10 @@ func TestNewClientWithResolverOption(t *testing.T) {
 
 func TestNewClient(t *testing.T) {
 	cc, err := NewClient()
-	assert.EqualError(t, err, "at least WithTCPAddress or WithResolver ClientOption should be used")
+	assert.EqualError(t, err, "at least WithAddress or WithResolver ClientOption should be used")
 	assert.Nil(t, cc)
 
-	cc, err = NewClient(WithTCPAddress("localhost", 1883))
+	cc, err = NewClient(WithAddress("localhost", 1883))
 	assert.NoError(t, err)
 	assert.NotNil(t, cc.mqttClient)
 }

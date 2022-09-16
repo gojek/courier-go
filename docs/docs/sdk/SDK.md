@@ -43,7 +43,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func WithPassword(password string) ClientOption](<#func-withpassword>)
   - [func WithPersistence(store Store) ClientOption](<#func-withpersistence>)
   - [func WithResolver(resolver Resolver) ClientOption](<#func-withresolver>)
-  - [func WithTCPAddress(host string, port uint16) ClientOption](<#func-withtcpaddress>)
+  - [func WithAddress(host string, port uint16) ClientOption](<#func-withaddress>)
   - [func WithUseBase64Decoder() ClientOption](<#func-withusebase64decoder>)
   - [func WithUsername(username string) ClientOption](<#func-withusername>)
   - [func WithWriteTimeout(duration time.Duration) ClientOption](<#func-withwritetimeout>)
@@ -156,7 +156,7 @@ NewClient creates the Client struct with the clientOptions provided\, it can ret
 	c, err := courier.NewClient(
 		courier.WithUsername("username"),
 		courier.WithPassword("password"),
-		courier.WithTCPAddress("localhost", 1883),
+		courier.WithAddress("localhost", 1883),
 	)
 
 	if err != nil {
@@ -414,13 +414,13 @@ func WithResolver(resolver Resolver) ClientOption
 
 WithResolver sets the specified Resolver\.
 
-### func [WithTCPAddress](<https://github.com/gojek/courier-go/blob/main/client_options.go#L95>)
+### func [WithAddress](<https://github.com/gojek/courier-go/blob/main/client_options.go#L95>)
 
 ```go
-func WithTCPAddress(host string, port uint16) ClientOption
+func WithAddress(host string, port uint16) ClientOption
 ```
 
-WithTCPAddress sets the broker address to be used\. Default values for hostname is "127\.0\.0\.1" and for port is 1883\.
+WithAddress sets the broker address to be used\. Default values for hostname is "127\.0\.0\.1" and for port is 1883\ the protocol << tcp ot tls >> is set off depend on option  `WithTLS`,if this one is nil then the protocol is `tcp`.
 
 ### func [WithUseBase64Decoder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L166>)
 

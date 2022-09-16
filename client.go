@@ -38,7 +38,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	}
 
 	if len(o.brokerAddress) == 0 && o.resolver == nil {
-		return nil, fmt.Errorf("at least WithTCPAddress or WithResolver ClientOption should be used")
+		return nil, fmt.Errorf("at least WithAddress or WithResolver ClientOption should be used")
 	}
 
 	c := &Client{options: o}
@@ -132,9 +132,10 @@ func toClientOptions(c *Client, o *clientOptions) *mqtt.ClientOptions {
 		opts.SetClientID(o.clientID)
 	}
 
-	opts.AddBroker(o.brokerAddress).
+	opts.AddBroker(formatAddressWithProtocol(o)).
 		SetUsername(o.username).
 		SetPassword(o.password).
+		SetTLSConfig(o.tlsConfig).
 		SetAutoReconnect(o.autoReconnect).
 		SetCleanSession(o.cleanSession).
 		SetOrderMatters(o.maintainOrder).
@@ -146,6 +147,14 @@ func toClientOptions(c *Client, o *clientOptions) *mqtt.ClientOptions {
 		SetOnConnectHandler(onConnectHandler(c, o))
 
 	return opts
+}
+
+func formatAddressWithProtocol(opts *clientOptions) string {
+	if opts.tlsConfig != nil {
+		return fmt.Sprintf("tls://%s", opts.brokerAddress)
+	}
+
+	return fmt.Sprintf("tcp://%s", opts.brokerAddress)
 }
 
 func reconnectHandler(client PubSub, o *clientOptions) mqtt.ReconnectHandler {

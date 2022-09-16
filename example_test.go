@@ -15,7 +15,7 @@ func ExampleNewClient() {
 	c, err := courier.NewClient(
 		courier.WithUsername("username"),
 		courier.WithPassword("password"),
-		courier.WithTCPAddress("localhost", 1883),
+		courier.WithAddress("localhost", 1883),
 	)
 
 	if err != nil {

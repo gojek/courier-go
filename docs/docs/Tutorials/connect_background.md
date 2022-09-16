@@ -11,7 +11,7 @@ You can wait for the connection with `courier.WaitForConnection` and verify the 
 
 ```go title="background_connect.go" {2,13,15}
 c, err := courier.NewClient(
-    courier.WithTCPAddress("broker.emqx.io", 1883),
+    courier.WithAddress("broker.emqx.io", 1883),
     // courier.WithUsername("username"),
     // courier.WithPassword("password"),
 )

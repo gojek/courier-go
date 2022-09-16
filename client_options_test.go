@@ -1,6 +1,7 @@
 package courier
 
 import (
+	"crypto/tls"
 	"fmt"
 	"testing"
 	"time"
@@ -58,7 +59,12 @@ func (s *ClientOptionSuite) Test_apply() {
 		{
 			name:   "WithTCPAddress",
 			option: WithTCPAddress("localhost", 9999),
-			want:   &clientOptions{brokerAddress: fmt.Sprintf("tcp://%s:%d", "localhost", 9999)},
+			want:   &clientOptions{brokerAddress: fmt.Sprintf("%s:%d", "localhost", 9999)},
+		},
+		{
+			name:   "WithAddress",
+			option: WithAddress("localhost", 9999),
+			want:   &clientOptions{brokerAddress: fmt.Sprintf("%s:%d", "localhost", 9999)},
 		},
 		{
 			name:   "WithKeepAlive",
@@ -110,6 +116,13 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 	emptyErrFunc := func(error) {}
 	clientFunc := func(_ PubSub) {}
 
+	tlsConfig := &tls.Config{
+		RootCAs:      nil,
+		ClientAuth:   tls.NoClientCert,
+		ClientCAs:    nil,
+		Certificates: nil,
+	}
+
 	tests := []struct {
 		name   string
 		option ClientOption
@@ -144,6 +157,11 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 			name:   "WithUseBase64Decoder",
 			option: WithUseBase64Decoder(),
 			want:   &clientOptions{newDecoder: base64JsonDecoder},
+		},
+		{
+			name:   "WithTLS",
+			option: WithTLS(tlsConfig),
+			want:   &clientOptions{tlsConfig: tlsConfig},
 		},
 	}
 

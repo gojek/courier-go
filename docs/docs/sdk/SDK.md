@@ -27,6 +27,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func (c *Client) UseSubscriberMiddleware(mwf ...SubscriberMiddlewareFunc)](<#func-client-usesubscribermiddleware>)
   - [func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc)](<#func-client-useunsubscribermiddleware>)
 - [type ClientOption](<#type-clientoption>)
+  - [func WithAddress(host string, port uint16) ClientOption](<#func-withaddress>)
   - [func WithAutoReconnect(autoReconnect bool) ClientOption](<#func-withautoreconnect>)
   - [func WithCleanSession(cleanSession bool) ClientOption](<#func-withcleansession>)
   - [func WithClientID(clientID string) ClientOption](<#func-withclientid>)
@@ -43,7 +44,8 @@ Package courier contains the client that can be used to interact with the courie
   - [func WithPassword(password string) ClientOption](<#func-withpassword>)
   - [func WithPersistence(store Store) ClientOption](<#func-withpersistence>)
   - [func WithResolver(resolver Resolver) ClientOption](<#func-withresolver>)
-  - [func WithAddress(host string, port uint16) ClientOption](<#func-withaddress>)
+  - [func WithTCPAddress(host string, port uint16) ClientOption](<#func-withtcpaddress>)
+  - [func WithTLS(tlsConfig *tls.Config) ClientOption](<#func-withtls>)
   - [func WithUseBase64Decoder() ClientOption](<#func-withusebase64decoder>)
   - [func WithUsername(username string) ClientOption](<#func-withusername>)
   - [func WithWriteTimeout(duration time.Duration) ClientOption](<#func-withwritetimeout>)
@@ -112,7 +114,7 @@ var (
 func ExponentialStartStrategy(ctx context.Context, c *Client, opts ...StartOption)
 ```
 
-ExponentialStartStrategy will keep attempting to call Client\.Start in the background and retry on error\, it will never exit unless the context used to invoke is cancelled\. This will NOT stop the client\, that is the responsibility of caller\.
+ExponentialStartStrategy will keep attempting to call Client.Start in the background and retry on error, it will never exit unless the context used to invoke is cancelled. This will NOT stop the client, that is the responsibility of caller.
 
 ## func [Version](<https://github.com/gojek/courier-go/blob/main/version.go#L4>)
 
@@ -128,7 +130,7 @@ Version can be used to get the current courier library version
 func WaitForConnection(c ConnectionInformer, waitFor time.Duration, tick time.Duration) bool
 ```
 
-WaitForConnection checks if the Client is connected\, it calls ConnectionInformer\.IsConnected after every tick and waitFor is the maximum duration it can block\. Returns true only when ConnectionInformer\.IsConnected returns true
+WaitForConnection checks if the Client is connected, it calls ConnectionInformer.IsConnected after every tick and waitFor is the maximum duration it can block. Returns true only when ConnectionInformer.IsConnected returns true
 
 ## type [Client](<https://github.com/gojek/courier-go/blob/main/client.go#L16-L28>)
 
@@ -146,7 +148,7 @@ type Client struct {
 func NewClient(opts ...ClientOption) (*Client, error)
 ```
 
-NewClient creates the Client struct with the clientOptions provided\, it can return error when prometheus\.DefaultRegisterer has already been used to register the collected metrics
+NewClient creates the Client struct with the clientOptions provided, it can return error when prometheus.DefaultRegisterer has already been used to register the collected metrics
 
 <details><summary>Example</summary>
 <p>
@@ -220,7 +222,7 @@ Publish allows to publish messages to an MQTT broker
 func (c *Client) Start() (err error)
 ```
 
-Start will attempt to connect to the broker\.
+Start will attempt to connect to the broker.
 
 ### func \(\*Client\) [Stop](<https://github.com/gojek/courier-go/blob/main/client.go#L108>)
 
@@ -228,7 +230,7 @@ Start will attempt to connect to the broker\.
 func (c *Client) Stop()
 ```
 
-Stop will disconnect from the broker and finish up any pending work on internal communication workers\. This can only block until the period configured with the ClientOption WithGracefulShutdownPeriod\.
+Stop will disconnect from the broker and finish up any pending work on internal communication workers. This can only block until the period configured with the ClientOption WithGracefulShutdownPeriod.
 
 ### func \(\*Client\) [Subscribe](<https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L11>)
 
@@ -260,7 +262,7 @@ Unsubscribe removes any subscription to messages from an MQTT broker
 func (c *Client) UsePublisherMiddleware(mwf ...PublisherMiddlewareFunc)
 ```
 
-UsePublisherMiddleware appends a PublisherMiddlewareFunc to the chain\. Middleware can be used to intercept or otherwise modify\, process or skip messages\. They are executed in the order that they are applied to the Client\.
+UsePublisherMiddleware appends a PublisherMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip messages. They are executed in the order that they are applied to the Client.
 
 ### func \(\*Client\) [UseSubscriberMiddleware](<https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L27>)
 
@@ -268,7 +270,7 @@ UsePublisherMiddleware appends a PublisherMiddlewareFunc to the chain\. Middlewa
 func (c *Client) UseSubscriberMiddleware(mwf ...SubscriberMiddlewareFunc)
 ```
 
-UseSubscriberMiddleware appends a SubscriberMiddlewareFunc to the chain\. Middleware can be used to intercept or otherwise modify\, process or skip subscriptions\. They are executed in the order that they are applied to the Client\.
+UseSubscriberMiddleware appends a SubscriberMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip subscriptions. They are executed in the order that they are applied to the Client.
 
 ### func \(\*Client\) [UseUnsubscriberMiddleware](<https://github.com/gojek/courier-go/blob/main/client_unsubscribe.go#L17>)
 
@@ -276,135 +278,143 @@ UseSubscriberMiddleware appends a SubscriberMiddlewareFunc to the chain\. Middle
 func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc)
 ```
 
-UseUnsubscriberMiddleware appends a UnsubscriberMiddlewareFunc to the chain\. Middleware can be used to intercept or otherwise modify\, process or skip subscriptions\. They are executed in the order that they are applied to the Client\.
+UseUnsubscriberMiddleware appends a UnsubscriberMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip subscriptions. They are executed in the order that they are applied to the Client.
 
-## type [ClientOption](<https://github.com/gojek/courier-go/blob/main/client_options.go#L11>)
+## type [ClientOption](<https://github.com/gojek/courier-go/blob/main/client_options.go#L12>)
 
-ClientOption allows to configure the behaviour of a Client\.
+ClientOption allows to configure the behaviour of a Client.
 
 ```go
 type ClientOption func(*clientOptions)
 ```
 
-### func [WithAutoReconnect](<https://github.com/gojek/courier-go/blob/main/client_options.go#L37>)
+### func [WithAddress](<https://github.com/gojek/courier-go/blob/main/client_options.go#L115>)
+
+```go
+func WithAddress(host string, port uint16) ClientOption
+```
+
+WithAddress sets the broker address to be used. To establish a TLS connection, use WithTLS Option along with this. Default values for hostname is "127.0.0.1" and for port is 1883.
+
+### func [WithAutoReconnect](<https://github.com/gojek/courier-go/blob/main/client_options.go#L45>)
 
 ```go
 func WithAutoReconnect(autoReconnect bool) ClientOption
 ```
 
-WithAutoReconnect sets whether the automatic reconnection logic should be used when the connection is lost\, even if disabled the WithOnConnectionLost is still called\.
+WithAutoReconnect sets whether the automatic reconnection logic should be used when the connection is lost, even if disabled the WithOnConnectionLost is still called.
 
-### func [WithCleanSession](<https://github.com/gojek/courier-go/blob/main/client_options.go#L49>)
+### func [WithCleanSession](<https://github.com/gojek/courier-go/blob/main/client_options.go#L57>)
 
 ```go
 func WithCleanSession(cleanSession bool) ClientOption
 ```
 
-WithCleanSession will set the "clean session" flag in the connect message when this client connects to an MQTT broker\. By setting this flag\, you are indicating that no messages saved by the broker for this client should be delivered\. Any messages that were going to be sent by this client before disconnecting but didn't\, will not be sent upon connecting to the broker\.
+WithCleanSession will set the "clean session" flag in the connect message when this client connects to an MQTT broker. By setting this flag, you are indicating that no messages saved by the broker for this client should be delivered. Any messages that were going to be sent by this client before disconnecting but didn't, will not be sent upon connecting to the broker.
 
-### func [WithClientID](<https://github.com/gojek/courier-go/blob/main/client_options.go#L15>)
+### func [WithClientID](<https://github.com/gojek/courier-go/blob/main/client_options.go#L16>)
 
 ```go
 func WithClientID(clientID string) ClientOption
 ```
 
-WithClientID sets the clientID to be used while connecting to an MQTT broker\. According to the MQTT v3\.1 specification\, a client id must be no longer than 23 characters\.
+WithClientID sets the clientID to be used while connecting to an MQTT broker. According to the MQTT v3.1 specification, a client id must be no longer than 23 characters.
 
-### func [WithConnectTimeout](<https://github.com/gojek/courier-go/blob/main/client_options.go#L114>)
+### func [WithConnectTimeout](<https://github.com/gojek/courier-go/blob/main/client_options.go#L134>)
 
 ```go
 func WithConnectTimeout(duration time.Duration) ClientOption
 ```
 
-WithConnectTimeout limits how long the client will wait when trying to open a connection to an MQTT server before timing out\. A duration of 0 never times out\. Default 15 seconds\.
+WithConnectTimeout limits how long the client will wait when trying to open a connection to an MQTT server before timing out. A duration of 0 never times out. Default 15 seconds.
 
-### func [WithCustomDecoder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L158>)
+### func [WithCustomDecoder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L178>)
 
 ```go
 func WithCustomDecoder(decoderFunc DecoderFunc) ClientOption
 ```
 
-WithCustomDecoder allows to decode message bytes into the desired object\.
+WithCustomDecoder allows to decode message bytes into the desired object.
 
-### func [WithCustomEncoder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L151>)
+### func [WithCustomEncoder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L171>)
 
 ```go
 func WithCustomEncoder(encoder EncoderFunc) ClientOption
 ```
 
-WithCustomEncoder allows to transform objects into the desired message bytes\.
+WithCustomEncoder allows to transform objects into the desired message bytes.
 
-### func [WithGracefulShutdownPeriod](<https://github.com/gojek/courier-go/blob/main/client_options.go#L136>)
+### func [WithGracefulShutdownPeriod](<https://github.com/gojek/courier-go/blob/main/client_options.go#L156>)
 
 ```go
 func WithGracefulShutdownPeriod(duration time.Duration) ClientOption
 ```
 
-WithGracefulShutdownPeriod sets the limit that is allowed for existing work to be completed\.
+WithGracefulShutdownPeriod sets the limit that is allowed for existing work to be completed.
 
-### func [WithKeepAlive](<https://github.com/gojek/courier-go/blob/main/client_options.go#L105>)
+### func [WithKeepAlive](<https://github.com/gojek/courier-go/blob/main/client_options.go#L125>)
 
 ```go
 func WithKeepAlive(duration time.Duration) ClientOption
 ```
 
-WithKeepAlive will set the amount of time \(in seconds\) that the client should wait before sending a PING request to the broker\. This will allow the client to know that a connection has not been lost with the server\.
+WithKeepAlive will set the amount of time \(in seconds\) that the client should wait before sending a PING request to the broker. This will allow the client to know that a connection has not been lost with the server.
 
-### func [WithMaintainOrder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L63>)
+### func [WithMaintainOrder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L71>)
 
 ```go
 func WithMaintainOrder(maintainOrder bool) ClientOption
 ```
 
-WithMaintainOrder will set the message routing to guarantee order within each QoS level\. By default\, this value is true\. If set to false \(recommended\)\, this flag indicates that messages can be delivered asynchronously from the client to the application and possibly arrive out of order\. Specifically\, the message handler is called in its own go routine\. Note that setting this to true does not guarantee in\-order delivery \(this is subject to broker settings like "max\_inflight\_messages=1"\) and if true then  MessageHandler callback must not block\.
+WithMaintainOrder will set the message routing to guarantee order within each QoS level. By default, this value is true. If set to false \(recommended\), this flag indicates that messages can be delivered asynchronously from the client to the application and possibly arrive out of order. Specifically, the message handler is called in its own go routine. Note that setting this to true does not guarantee in\-order delivery \(this is subject to broker settings like "max\_inflight\_messages=1"\) and if true then  MessageHandler callback must not block.
 
-### func [WithMaxReconnectInterval](<https://github.com/gojek/courier-go/blob/main/client_options.go#L129>)
+### func [WithMaxReconnectInterval](<https://github.com/gojek/courier-go/blob/main/client_options.go#L149>)
 
 ```go
 func WithMaxReconnectInterval(duration time.Duration) ClientOption
 ```
 
-WithMaxReconnectInterval sets the maximum time that will be waited between reconnection attempts\. when connection is lost
+WithMaxReconnectInterval sets the maximum time that will be waited between reconnection attempts. when connection is lost
 
-### func [WithOnConnect](<https://github.com/gojek/courier-go/blob/main/client_options.go#L71>)
+### func [WithOnConnect](<https://github.com/gojek/courier-go/blob/main/client_options.go#L79>)
 
 ```go
 func WithOnConnect(handler OnConnectHandler) ClientOption
 ```
 
-WithOnConnect will set the OnConnectHandler callback to be called when the client is connected\. Both at initial connection time and upon automatic reconnect\.
+WithOnConnect will set the OnConnectHandler callback to be called when the client is connected. Both at initial connection time and upon automatic reconnect.
 
-### func [WithOnConnectionLost](<https://github.com/gojek/courier-go/blob/main/client_options.go#L79>)
+### func [WithOnConnectionLost](<https://github.com/gojek/courier-go/blob/main/client_options.go#L87>)
 
 ```go
 func WithOnConnectionLost(handler OnConnectionLostHandler) ClientOption
 ```
 
-WithOnConnectionLost will set the OnConnectionLostHandler callback to be executed in the case where the client unexpectedly loses connection with the MQTT broker\.
+WithOnConnectionLost will set the OnConnectionLostHandler callback to be executed in the case where the client unexpectedly loses connection with the MQTT broker.
 
-### func [WithOnReconnect](<https://github.com/gojek/courier-go/blob/main/client_options.go#L87>)
+### func [WithOnReconnect](<https://github.com/gojek/courier-go/blob/main/client_options.go#L95>)
 
 ```go
 func WithOnReconnect(handler OnReconnectHandler) ClientOption
 ```
 
-WithOnReconnect sets the OnReconnectHandler callback to be executed prior to the client attempting a reconnect to the MQTT broker\.
+WithOnReconnect sets the OnReconnectHandler callback to be executed prior to the client attempting a reconnect to the MQTT broker.
 
-### func [WithPassword](<https://github.com/gojek/courier-go/blob/main/client_options.go#L29>)
+### func [WithPassword](<https://github.com/gojek/courier-go/blob/main/client_options.go#L30>)
 
 ```go
 func WithPassword(password string) ClientOption
 ```
 
-WithPassword sets the password to be used while connecting to an MQTT broker\.
+WithPassword sets the password to be used while connecting to an MQTT broker.
 
-### func [WithPersistence](<https://github.com/gojek/courier-go/blob/main/client_options.go#L144>)
+### func [WithPersistence](<https://github.com/gojek/courier-go/blob/main/client_options.go#L164>)
 
 ```go
 func WithPersistence(store Store) ClientOption
 ```
 
-WithPersistence allows to configure the store to be used by broker Default persistence is in\-memory persistence with mqtt\.MemoryStore
+WithPersistence allows to configure the store to be used by broker Default persistence is in\-memory persistence with mqtt.MemoryStore
 
 ### func [WithResolver](<https://github.com/gojek/courier-go/blob/main/client_resolver.go#L25>)
 
@@ -412,39 +422,49 @@ WithPersistence allows to configure the store to be used by broker Default persi
 func WithResolver(resolver Resolver) ClientOption
 ```
 
-WithResolver sets the specified Resolver\.
+WithResolver sets the specified Resolver.
 
-### func [WithAddress](<https://github.com/gojek/courier-go/blob/main/client_options.go#L95>)
+### func [WithTCPAddress](<https://github.com/gojek/courier-go/blob/main/client_options.go#L106>)
 
 ```go
-func WithAddress(host string, port uint16) ClientOption
+func WithTCPAddress(host string, port uint16) ClientOption
 ```
 
-WithAddress sets the broker address to be used\. Default values for hostname is "127\.0\.0\.1" and for port is 1883\ the protocol << tcp ot tls >> is set off depend on option  `WithTLS`,if this one is nil then the protocol is `tcp`.
+WithTCPAddress sets the broker address to be used. Default values for hostname is "127.0.0.1" and for port is 1883.
 
-### func [WithUseBase64Decoder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L166>)
+Deprecated: This Option used to work with plain TCP connections, it's now possible to use TLS with WithAddress and WithTLS combination.
+
+### func [WithTLS](<https://github.com/gojek/courier-go/blob/main/client_options.go#L37>)
+
+```go
+func WithTLS(tlsConfig *tls.Config) ClientOption
+```
+
+WithTLS sets the TLs configuration to be used while connecting to an MQTT broker.
+
+### func [WithUseBase64Decoder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L186>)
 
 ```go
 func WithUseBase64Decoder() ClientOption
 ```
 
-WithUseBase64Decoder configures a json decoder with a base64\.StdEncoding wrapped decoder which decodes base64 encoded message bytes into the passed object\.
+WithUseBase64Decoder configures a json decoder with a base64.StdEncoding wrapped decoder which decodes base64 encoded message bytes into the passed object.
 
-### func [WithUsername](<https://github.com/gojek/courier-go/blob/main/client_options.go#L22>)
+### func [WithUsername](<https://github.com/gojek/courier-go/blob/main/client_options.go#L23>)
 
 ```go
 func WithUsername(username string) ClientOption
 ```
 
-WithUsername sets the username to be used while connecting to an MQTT broker\.
+WithUsername sets the username to be used while connecting to an MQTT broker.
 
-### func [WithWriteTimeout](<https://github.com/gojek/courier-go/blob/main/client_options.go#L121>)
+### func [WithWriteTimeout](<https://github.com/gojek/courier-go/blob/main/client_options.go#L141>)
 
 ```go
 func WithWriteTimeout(duration time.Duration) ClientOption
 ```
 
-WithWriteTimeout limits how long the client will wait when trying to publish or subscribe on topic\.
+WithWriteTimeout limits how long the client will wait when trying to publish or subscribe on topic.
 
 ## type [ConnectionInformer](<https://github.com/gojek/courier-go/blob/main/interface.go#L13-L16>)
 
@@ -470,7 +490,7 @@ type Decoder interface {
 
 ## type [DecoderFunc](<https://github.com/gojek/courier-go/blob/main/decoder.go#L11>)
 
-DecoderFunc is used to create a Decoder from io\.Reader stream of message bytes before calling MessageHandler
+DecoderFunc is used to create a Decoder from io.Reader stream of message bytes before calling MessageHandler
 
 ```go
 type DecoderFunc func(io.Reader) Decoder
@@ -489,7 +509,7 @@ type Encoder interface {
 
 ## type [EncoderFunc](<https://github.com/gojek/courier-go/blob/main/encoder.go#L9>)
 
-EncoderFunc is used to create an Encoder from io\.Writer
+EncoderFunc is used to create an Encoder from io.Writer
 
 ```go
 type EncoderFunc func(io.Writer) Encoder
@@ -497,7 +517,7 @@ type EncoderFunc func(io.Writer) Encoder
 
 ## type [Message](<https://github.com/gojek/courier-go/blob/main/message.go#L4-L12>)
 
-Message represents the entity that is being relayed via the courier MQTT brokers from Publisher\(s\) to Subscriber\(s\)\.
+Message represents the entity that is being relayed via the courier MQTT brokers from Publisher\(s\) to Subscriber\(s\).
 
 ```go
 type Message struct {
@@ -516,7 +536,7 @@ type Message struct {
 func NewMessageWithDecoder(payloadDecoder Decoder) *Message
 ```
 
-NewMessageWithDecoder is a helper to create Message\, ideally payloadDecoder should not be mutated once created\.
+NewMessageWithDecoder is a helper to create Message, ideally payloadDecoder should not be mutated once created.
 
 ### func \(Message\) [DecodePayload](<https://github.com/gojek/courier-go/blob/main/message.go#L24>)
 
@@ -524,11 +544,11 @@ NewMessageWithDecoder is a helper to create Message\, ideally payloadDecoder sho
 func (m Message) DecodePayload(v interface{}) error
 ```
 
-DecodePayload can decode the message payload bytes into the desired object\.
+DecodePayload can decode the message payload bytes into the desired object.
 
 ## type [MessageHandler](<https://github.com/gojek/courier-go/blob/main/types.go#L24>)
 
-MessageHandler is the type that all callbacks being passed to Subscriber must satisfy\.
+MessageHandler is the type that all callbacks being passed to Subscriber must satisfy.
 
 ```go
 type MessageHandler func(context.Context, PubSub, *Message)
@@ -536,7 +556,7 @@ type MessageHandler func(context.Context, PubSub, *Message)
 
 ## type [OnConnectHandler](<https://github.com/gojek/courier-go/blob/main/types.go#L10>)
 
-OnConnectHandler is a callback that is called when the client state changes from disconnected to connected\. Both at initial connection and on reconnection
+OnConnectHandler is a callback that is called when the client state changes from disconnected to connected. Both at initial connection and on reconnection
 
 ```go
 type OnConnectHandler func(PubSub)
@@ -544,7 +564,7 @@ type OnConnectHandler func(PubSub)
 
 ## type [OnConnectionLostHandler](<https://github.com/gojek/courier-go/blob/main/types.go#L16>)
 
-OnConnectionLostHandler is a callback type which can be set to be executed upon an unintended disconnection from the MQTT broker\. Disconnects caused by calling Disconnect or ForceDisconnect will not cause an WithOnConnectionLost callback to execute\.
+OnConnectionLostHandler is a callback type which can be set to be executed upon an unintended disconnection from the MQTT broker. Disconnects caused by calling Disconnect or ForceDisconnect will not cause an WithOnConnectionLost callback to execute.
 
 ```go
 type OnConnectionLostHandler func(error)
@@ -560,7 +580,7 @@ type OnReconnectHandler func(PubSub)
 
 ## type [Option](<https://github.com/gojek/courier-go/blob/main/options.go#L4-L6>)
 
-Option changes behaviour of Publisher\.Publish\, Subscriber\.Subscribe calls\.
+Option changes behaviour of Publisher.Publish, Subscriber.Subscribe calls.
 
 ```go
 type Option interface {
@@ -570,7 +590,7 @@ type Option interface {
 
 ## type [PubSub](<https://github.com/gojek/courier-go/blob/main/interface.go#L5-L10>)
 
-PubSub exposes all the operational functionalities of Client with Publisher\, Subscriber\, Unsubscriber and ConnectionInformer
+PubSub exposes all the operational functionalities of Client with Publisher, Subscriber, Unsubscriber and ConnectionInformer
 
 ```go
 type PubSub interface {
@@ -583,7 +603,7 @@ type PubSub interface {
 
 ## type [Publisher](<https://github.com/gojek/courier-go/blob/main/publisher.go#L8-L11>)
 
-Publisher defines behaviour of an MQTT publisher that can send messages\.
+Publisher defines behaviour of an MQTT publisher that can send messages.
 
 ```go
 type Publisher interface {
@@ -594,7 +614,7 @@ type Publisher interface {
 
 ## type [PublisherFunc](<https://github.com/gojek/courier-go/blob/main/publisher.go#L14>)
 
-PublisherFunc defines signature of a Publish function\.
+PublisherFunc defines signature of a Publish function.
 
 ```go
 type PublisherFunc func(context.Context, string, interface{}, ...Option) error
@@ -606,11 +626,11 @@ type PublisherFunc func(context.Context, string, interface{}, ...Option) error
 func (f PublisherFunc) Publish(ctx context.Context, topic string, message interface{}, opts ...Option) error
 ```
 
-Publish implements Publisher interface on PublisherFunc\.
+Publish implements Publisher interface on PublisherFunc.
 
 ## type [PublisherMiddlewareFunc](<https://github.com/gojek/courier-go/blob/main/publisher.go#L32>)
 
-PublisherMiddlewareFunc functions are closures that intercept Publisher\.Publish calls\.
+PublisherMiddlewareFunc functions are closures that intercept Publisher.Publish calls.
 
 ```go
 type PublisherMiddlewareFunc func(Publisher) Publisher
@@ -622,7 +642,7 @@ type PublisherMiddlewareFunc func(Publisher) Publisher
 func (pmw PublisherMiddlewareFunc) Middleware(publisher Publisher) Publisher
 ```
 
-Middleware allows PublisherMiddlewareFunc to implement the publishMiddleware interface\.
+Middleware allows PublisherMiddlewareFunc to implement the publishMiddleware interface.
 
 ## type [QOSLevel](<https://github.com/gojek/courier-go/blob/main/options.go#L10>)
 
@@ -645,7 +665,7 @@ const (
 
 ## type [Resolver](<https://github.com/gojek/courier-go/blob/main/client_resolver.go#L17-L22>)
 
-Resolver sends TCPAddress updates on channel returned by UpdateChan\(\) channel\.
+Resolver sends TCPAddress updates on channel returned by UpdateChan\(\) channel.
 
 ```go
 type Resolver interface {
@@ -658,7 +678,7 @@ type Resolver interface {
 
 ## type [Retained](<https://github.com/gojek/courier-go/blob/main/options.go#L26>)
 
-Retained is an option used with Publisher\.Publish call
+Retained is an option used with Publisher.Publish call
 
 ```go
 type Retained bool
@@ -678,7 +698,7 @@ type StartOption func(*startOptions)
 func WithMaxInterval(interval time.Duration) StartOption
 ```
 
-WithMaxInterval sets the maximum interval the retry logic will wait before attempting another Client\.Start\, Default is 30 seconds
+WithMaxInterval sets the maximum interval the retry logic will wait before attempting another Client.Start, Default is 30 seconds
 
 ### func [WithOnRetry](<https://github.com/gojek/courier-go/blob/main/exp_starter.go#L28>)
 
@@ -686,13 +706,13 @@ WithMaxInterval sets the maximum interval the retry logic will wait before attem
 func WithOnRetry(retryFunc func(error)) StartOption
 ```
 
-WithOnRetry sets the func which is called when there is an error in the previous Client\.Start attempt
+WithOnRetry sets the func which is called when there is an error in the previous Client.Start attempt
 
 ## type [Store](<https://github.com/gojek/courier-go/blob/main/alias.go#L16>)
 
-Store is an interface which can be used to provide implementations for message persistence\.
+Store is an interface which can be used to provide implementations for message persistence.
 
-\[IMPORTANT\] When implementing a store with a shared storage \(ex: redis\) across multiple application instances\, it should be ensured that the keys are namespaced for each application instance otherwise there will be collisions\. The messages are identified based on message id from the MQTT packets\, and they have values in range \(0\, 2^16\)\, this coincides with max number of in\-flight messages
+\[IMPORTANT\] When implementing a store with a shared storage \(ex: redis\) across multiple application instances, it should be ensured that the keys are namespaced for each application instance otherwise there will be collisions. The messages are identified based on message id from the MQTT packets, and they have values in range \(0, 2^16\), this coincides with max number of in\-flight messages
 
 ```go
 type Store = mqtt.Store
@@ -704,11 +724,11 @@ type Store = mqtt.Store
 func NewMemoryStore() Store
 ```
 
-NewMemoryStore returns a pointer to a new instance of mqtt\.MemoryStore\, the instance is not initialized and ready to use until Open\(\) has been called on it\.
+NewMemoryStore returns a pointer to a new instance of mqtt.MemoryStore, the instance is not initialized and ready to use until Open\(\) has been called on it.
 
 ## type [Subscriber](<https://github.com/gojek/courier-go/blob/main/subscriber.go#L8-L14>)
 
-Subscriber defines behaviour of an MQTT subscriber that can create subscriptions\.
+Subscriber defines behaviour of an MQTT subscriber that can create subscriptions.
 
 ```go
 type Subscriber interface {
@@ -722,7 +742,7 @@ type Subscriber interface {
 
 ## type [SubscriberFuncs](<https://github.com/gojek/courier-go/blob/main/subscriber.go#L30-L33>)
 
-SubscriberFuncs defines signature of a Subscribe function\.
+SubscriberFuncs defines signature of a Subscribe function.
 
 ```go
 type SubscriberFuncs struct {
@@ -744,7 +764,7 @@ NewSubscriberFuncs is a helper function to create SubscriberFuncs
 func (s SubscriberFuncs) Subscribe(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error
 ```
 
-Subscribe implements Subscriber interface on SubscriberFuncs\.
+Subscribe implements Subscriber interface on SubscriberFuncs.
 
 ### func \(SubscriberFuncs\) [SubscribeMultiple](<https://github.com/gojek/courier-go/blob/main/subscriber.go#L49-L53>)
 
@@ -752,11 +772,11 @@ Subscribe implements Subscriber interface on SubscriberFuncs\.
 func (s SubscriberFuncs) SubscribeMultiple(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error
 ```
 
-SubscribeMultiple implements Subscriber interface on SubscriberFuncs\.
+SubscribeMultiple implements Subscriber interface on SubscriberFuncs.
 
 ## type [SubscriberMiddlewareFunc](<https://github.com/gojek/courier-go/blob/main/subscriber.go#L22>)
 
-SubscriberMiddlewareFunc functions are closures that intercept Subscriber\.Subscribe calls\.
+SubscriberMiddlewareFunc functions are closures that intercept Subscriber.Subscribe calls.
 
 ```go
 type SubscriberMiddlewareFunc func(Subscriber) Subscriber
@@ -768,7 +788,7 @@ type SubscriberMiddlewareFunc func(Subscriber) Subscriber
 func (smw SubscriberMiddlewareFunc) Middleware(subscriber Subscriber) Subscriber
 ```
 
-Middleware allows SubscriberMiddlewareFunc to implement the subscribeMiddleware interface\.
+Middleware allows SubscriberMiddlewareFunc to implement the subscribeMiddleware interface.
 
 ## type [TCPAddress](<https://github.com/gojek/courier-go/blob/main/client_resolver.go#L11-L14>)
 
@@ -783,7 +803,7 @@ type TCPAddress struct {
 
 ## type [Unsubscriber](<https://github.com/gojek/courier-go/blob/main/unsubscriber.go#L8-L11>)
 
-Unsubscriber defines behaviour of an MQTT client that can remove subscriptions\.
+Unsubscriber defines behaviour of an MQTT client that can remove subscriptions.
 
 ```go
 type Unsubscriber interface {
@@ -794,7 +814,7 @@ type Unsubscriber interface {
 
 ## type [UnsubscriberFunc](<https://github.com/gojek/courier-go/blob/main/unsubscriber.go#L27>)
 
-UnsubscriberFunc defines signature of a Unsubscribe function\.
+UnsubscriberFunc defines signature of a Unsubscribe function.
 
 ```go
 type UnsubscriberFunc func(context.Context, ...string) error
@@ -806,11 +826,11 @@ type UnsubscriberFunc func(context.Context, ...string) error
 func (f UnsubscriberFunc) Unsubscribe(ctx context.Context, topics ...string) error
 ```
 
-Unsubscribe implements Unsubscriber interface on UnsubscriberFunc\.
+Unsubscribe implements Unsubscriber interface on UnsubscriberFunc.
 
 ## type [UnsubscriberMiddlewareFunc](<https://github.com/gojek/courier-go/blob/main/unsubscriber.go#L19>)
 
-UnsubscriberMiddlewareFunc functions are closures that intercept Unsubscriber\.Unsubscribe calls\.
+UnsubscriberMiddlewareFunc functions are closures that intercept Unsubscriber.Unsubscribe calls.
 
 ```go
 type UnsubscriberMiddlewareFunc func(Unsubscriber) Unsubscriber
@@ -822,7 +842,7 @@ type UnsubscriberMiddlewareFunc func(Unsubscriber) Unsubscriber
 func (usmw UnsubscriberMiddlewareFunc) Middleware(unsubscriber Unsubscriber) Unsubscriber
 ```
 
-Middleware allows UnsubscriberMiddlewareFunc to implement the unsubscribeMiddleware interface\.
+Middleware allows UnsubscriberMiddlewareFunc to implement the unsubscribeMiddleware interface.
 
 
 

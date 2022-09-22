@@ -21,7 +21,7 @@ Package bootstrap provides bootstrap config loading capabilities to xds client
 
 ## type [Config](<https://github.com/gojek/courier-go/blob/main/xds/bootstrap/bootstrap.go#L55-L58>)
 
-Config provides the xDS client with several key bits of information that it requires in its interaction with the management server\. The Config is initialized from the bootstrap file\.
+Config provides the xDS client with several key bits of information that it requires in its interaction with the management server. The Config is initialized from the bootstrap file.
 
 ```go
 type Config struct {
@@ -36,7 +36,7 @@ type Config struct {
 func NewConfig() (*Config, error)
 ```
 
-NewConfig returns a bootstrap config after reading the BootstrapConfig from the file specified by COURIER\_XDS\_BOOTSTRAP env var or the base64 encoded string in COURIER\_XDS\_BOOTSTRAP\_CONFIG\_BASE64 var\.
+NewConfig returns a bootstrap config after reading the BootstrapConfig from the file specified by COURIER\_XDS\_BOOTSTRAP env var or the base64 encoded string in COURIER\_XDS\_BOOTSTRAP\_CONFIG\_BASE64 var.
 
 ### func [NewConfigFromContents](<https://github.com/gojek/courier-go/blob/main/xds/bootstrap/bootstrap.go#L73>)
 
@@ -44,11 +44,11 @@ NewConfig returns a bootstrap config after reading the BootstrapConfig from the 
 func NewConfigFromContents(data []byte) (*Config, error)
 ```
 
-NewConfigFromContents returns a bootstrap config after reading the BootstrapConfig from data\.
+NewConfigFromContents returns a bootstrap config after reading the BootstrapConfig from data.
 
 ## type [ServerConfig](<https://github.com/gojek/courier-go/blob/main/xds/bootstrap/bootstrap.go#L95-L108>)
 
-ServerConfig contains the configuration to connect to a server\, including URI\, creds\, and transport API version \(e\.g\. v2 or v3\)\.
+ServerConfig contains the configuration to connect to a server, including URI, creds, and transport API version \(e.g. v2 or v3\).
 
 ```go
 type ServerConfig struct {
@@ -73,7 +73,7 @@ type ServerConfig struct {
 func (sc ServerConfig) MarshalJSON() ([]byte, error)
 ```
 
-MarshalJSON marshals the ServerConfig to json\.
+MarshalJSON marshals the ServerConfig to json.
 
 ### func \(\*ServerConfig\) [String](<https://github.com/gojek/courier-go/blob/main/xds/bootstrap/bootstrap.go#L119>)
 
@@ -81,11 +81,11 @@ MarshalJSON marshals the ServerConfig to json\.
 func (sc *ServerConfig) String() string
 ```
 
-String returns the string representation of the ServerConfig\.
+String returns the string representation of the ServerConfig.
 
-This string representation will be used as map keys in federation \(\`map\[ServerConfig\]authority\`\)\, so that the xDS ClientConn and stream will be shared by authorities with different names but the same server config\.
+This string representation will be used as map keys in federation \(\`map\[ServerConfig\]authority\`\), so that the xDS ClientConn and stream will be shared by authorities with different names but the same server config.
 
-It covers \(almost\) all the fields so the string can represent the config content\. It doesn't cover NodeProto because NodeProto isn't used by federation\.
+It covers \(almost\) all the fields so the string can represent the config content. It doesn't cover NodeProto because NodeProto isn't used by federation.
 
 ### func \(\*ServerConfig\) [UnmarshalJSON](<https://github.com/gojek/courier-go/blob/main/xds/bootstrap/bootstrap.go#L135>)
 
@@ -93,7 +93,7 @@ It covers \(almost\) all the fields so the string can represent the config conte
 func (sc *ServerConfig) UnmarshalJSON(data []byte) error
 ```
 
-UnmarshalJSON takes the json data \(a server\) and unmarshals it to the struct\.
+UnmarshalJSON takes the json data \(a server\) and unmarshals it to the struct.
 
 
 

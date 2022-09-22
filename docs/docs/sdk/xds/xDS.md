@@ -24,7 +24,7 @@ Package xds contains the client that can be used to interact with the management
 
 ## type [Client](<https://github.com/gojek/courier-go/blob/main/xds/client.go#L69-L80>)
 
-Client performs the actual ADS RPCs using the ADS v3 API\. It creates an ADS stream on which the xdsTarget resources are received\.
+Client performs the actual ADS RPCs using the ADS v3 API. It creates an ADS stream on which the xdsTarget resources are received.
 
 ```go
 type Client struct {
@@ -38,7 +38,7 @@ type Client struct {
 func NewClient(opts Options) *Client
 ```
 
-NewClient returns a new ADS client stream using the \*grpc\.ClientConn provided\.
+NewClient returns a new ADS client stream using the \*grpc.ClientConn provided.
 
 ### func \(\*Client\) [Done](<https://github.com/gojek/courier-go/blob/main/xds/client.go#L88>)
 
@@ -62,7 +62,7 @@ Receive returns a channel where ClusterLoadAssignment resource updates can be re
 func (c *Client) Start(ctx context.Context) error
 ```
 
-Start will wait updates from control plane\, it is non\-blocking
+Start will wait updates from control plane, it is non\-blocking
 
 ## type [Options](<https://github.com/gojek/courier-go/blob/main/xds/client.go#L31-L37>)
 
@@ -172,7 +172,7 @@ Done returns a channel which is closed when the underlying clusterUpdateReceiver
 func (r *Resolver) UpdateChan() <-chan []courier.TCPAddress
 ```
 
-UpdateChan returns a channel where \[\]courier\.TCPAddress can be received
+UpdateChan returns a channel where \[\]courier.TCPAddress can be received
 
 
 

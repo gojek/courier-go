@@ -18,7 +18,7 @@ Package backoff provides exponential backoff capabilities
 
 ## Variables
 
-DefaultExponential is an exponential backoff implementation using the default values for all the configurable knobs defined in https://github.com/grpc/grpc/blob/master/doc/connection-backoff.md\.
+DefaultExponential is an exponential backoff implementation using the default values for all the configurable knobs defined in https://github.com/grpc/grpc/blob/master/doc/connection-backoff.md.
 
 ```go
 var DefaultExponential = Exponential{Config: grpcbackoff.DefaultConfig}
@@ -26,7 +26,7 @@ var DefaultExponential = Exponential{Config: grpcbackoff.DefaultConfig}
 
 ## type [Exponential](<https://github.com/gojek/courier-go/blob/main/xds/backoff/backoff.go#L27-L30>)
 
-Exponential implements exponential backoff algorithm as defined in https://github.com/grpc/grpc/blob/master/doc/connection-backoff.md\.
+Exponential implements exponential backoff algorithm as defined in https://github.com/grpc/grpc/blob/master/doc/connection-backoff.md.
 
 ```go
 type Exponential struct {
@@ -41,11 +41,11 @@ type Exponential struct {
 func (bc Exponential) Backoff(retries int) time.Duration
 ```
 
-Backoff returns the amount of time to wait before the next retry given the number of retries\.
+Backoff returns the amount of time to wait before the next retry given the number of retries.
 
 ## type [Strategy](<https://github.com/gojek/courier-go/blob/main/xds/backoff/backoff.go#L12-L16>)
 
-Strategy defines the methodology for backing off after a grpc connection failure\.
+Strategy defines the methodology for backing off after a grpc connection failure.
 
 ```go
 type Strategy interface {

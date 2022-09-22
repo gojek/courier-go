@@ -6,7 +6,7 @@
 import "github.com/gojek/courier-go/otelcourier"
 ```
 
-Package otelcourier instruments the github\.com/gojek/courier\-go package\.
+Package otelcourier instruments the github.com/gojek/courier\-go package.
 
 ## Index
 
@@ -43,7 +43,7 @@ const (
 func DisableCallbackTracing(opts *traceOptions)
 ```
 
-DisableCallbackTracing disables implicit tracing on subscription callbacks\.
+DisableCallbackTracing disables implicit tracing on subscription callbacks.
 
 ## func [DisablePublisherTracing](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L48>)
 
@@ -51,7 +51,7 @@ DisableCallbackTracing disables implicit tracing on subscription callbacks\.
 func DisablePublisherTracing(opts *traceOptions)
 ```
 
-DisablePublisherTracing disables courier\.Publisher tracing\.
+DisablePublisherTracing disables courier.Publisher tracing.
 
 ## func [DisableSubscriberTracing](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L53>)
 
@@ -59,7 +59,7 @@ DisablePublisherTracing disables courier\.Publisher tracing\.
 func DisableSubscriberTracing(opts *traceOptions)
 ```
 
-DisableSubscriberTracing disables courier\.Subscriber tracing\.
+DisableSubscriberTracing disables courier.Subscriber tracing.
 
 ## func [DisableUnsubscriberTracing](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L58>)
 
@@ -67,11 +67,11 @@ DisableSubscriberTracing disables courier\.Subscriber tracing\.
 func DisableUnsubscriberTracing(opts *traceOptions)
 ```
 
-DisableUnsubscriberTracing disables courier\.Unsubscriber tracing\.
+DisableUnsubscriberTracing disables courier.Unsubscriber tracing.
 
 ## type [Option](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L25>)
 
-Option helps configure trace options\.
+Option helps configure trace options.
 
 ```go
 type Option func(*traceOptions)
@@ -83,11 +83,11 @@ type Option func(*traceOptions)
 func WithTracerProvider(provider oteltrace.TracerProvider) Option
 ```
 
-WithTracerProvider specifies a tracer provider to use for creating a tracer\. If none is specified\, the global provider is used\.
+WithTracerProvider specifies a tracer provider to use for creating a tracer. If none is specified, the global provider is used.
 
 ## type [Tracer](<https://github.com/gojek/courier-go/blob/main/otelcourier/trace.go#L14-L18>)
 
-Tracer implements tracing abilities using OpenTelemetry SDK\.
+Tracer implements tracing abilities using OpenTelemetry SDK.
 
 ```go
 type Tracer struct {
@@ -101,7 +101,7 @@ type Tracer struct {
 func NewTracer(service string, opts ...Option) *Tracer
 ```
 
-NewTracer creates a new Tracer with Option\(s\)\.
+NewTracer creates a new Tracer with Option\(s\).
 
 <details><summary>Example</summary>
 <p>
@@ -155,7 +155,7 @@ func main() {
 func (t *Tracer) ApplyTraceMiddlewares(c *courier.Client)
 ```
 
-ApplyTraceMiddlewares will instrument all the operations of a courier\.Client instance
+ApplyTraceMiddlewares will instrument all the operations of a courier.Client instance
 
 
 

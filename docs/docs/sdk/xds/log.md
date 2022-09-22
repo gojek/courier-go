@@ -19,7 +19,7 @@ Package log provides logger interface for usage inside xds client
 
 ## type [Logger](<https://github.com/gojek/courier-go/blob/main/xds/log/logger.go#L4-L11>)
 
-Logger is used to log messages of info\, error and debug levels
+Logger is used to log messages of info, error and debug levels
 
 ```go
 type Logger interface {

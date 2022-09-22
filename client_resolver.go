@@ -23,9 +23,9 @@ type Resolver interface {
 
 // WithResolver sets the specified Resolver.
 func WithResolver(resolver Resolver) ClientOption {
-	return func(c *clientOptions) {
+	return optionFunc(func(c *clientOptions) {
 		c.resolver = resolver
-	}
+	})
 }
 
 func (c *Client) watchAddressUpdates(r Resolver) {

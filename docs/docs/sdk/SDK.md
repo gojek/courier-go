@@ -33,7 +33,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func WithClientID(clientID string) ClientOption](<#func-withclientid>)
   - [func WithConnectTimeout(duration time.Duration) ClientOption](<#func-withconnecttimeout>)
   - [func WithCustomDecoder(decoderFunc DecoderFunc) ClientOption](<#func-withcustomdecoder>)
-  - [func WithCustomEncoder(encoder EncoderFunc) ClientOption](<#func-withcustomencoder>)
+  - [func WithCustomEncoder(encoderFunc EncoderFunc) ClientOption](<#func-withcustomencoder>)
   - [func WithGracefulShutdownPeriod(duration time.Duration) ClientOption](<#func-withgracefulshutdownperiod>)
   - [func WithKeepAlive(duration time.Duration) ClientOption](<#func-withkeepalive>)
   - [func WithMaintainOrder(maintainOrder bool) ClientOption](<#func-withmaintainorder>)
@@ -285,7 +285,9 @@ UseUnsubscriberMiddleware appends a UnsubscriberMiddlewareFunc to the chain. Mid
 ClientOption allows to configure the behaviour of a Client.
 
 ```go
-type ClientOption func(*clientOptions)
+type ClientOption interface {
+    // contains filtered or unexported methods
+}
 ```
 
 ### func [WithAddress](<https://github.com/gojek/courier-go/blob/main/client_options.go#L115>)
@@ -328,7 +330,7 @@ func WithConnectTimeout(duration time.Duration) ClientOption
 
 WithConnectTimeout limits how long the client will wait when trying to open a connection to an MQTT server before timing out. A duration of 0 never times out. Default 15 seconds.
 
-### func [WithCustomDecoder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L178>)
+### func [WithCustomDecoder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L174>)
 
 ```go
 func WithCustomDecoder(decoderFunc DecoderFunc) ClientOption
@@ -339,7 +341,7 @@ WithCustomDecoder allows to decode message bytes into the desired object.
 ### func [WithCustomEncoder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L171>)
 
 ```go
-func WithCustomEncoder(encoder EncoderFunc) ClientOption
+func WithCustomEncoder(encoderFunc EncoderFunc) ClientOption
 ```
 
 WithCustomEncoder allows to transform objects into the desired message bytes.
@@ -442,7 +444,7 @@ func WithTLS(tlsConfig *tls.Config) ClientOption
 
 WithTLS sets the TLs configuration to be used while connecting to an MQTT broker.
 
-### func [WithUseBase64Decoder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L186>)
+### func [WithUseBase64Decoder](<https://github.com/gojek/courier-go/blob/main/client_options.go#L178>)
 
 ```go
 func WithUseBase64Decoder() ClientOption

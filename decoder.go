@@ -23,3 +23,5 @@ func defaultDecoderFunc(r io.Reader) Decoder {
 func base64JsonDecoder(r io.Reader) Decoder {
 	return json.NewDecoder(base64.NewDecoder(base64.StdEncoding, r))
 }
+
+func (f DecoderFunc) apply(o *clientOptions) { o.newDecoder = f }

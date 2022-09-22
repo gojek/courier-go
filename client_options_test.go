@@ -106,7 +106,7 @@ func (s *ClientOptionSuite) Test_apply() {
 	for _, t := range tests {
 		s.Run(t.name, func() {
 			options := &clientOptions{}
-			t.option(options)
+			t.option.apply(options)
 			s.Equal(t.want, options)
 		})
 	}
@@ -168,7 +168,7 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 	for _, t := range tests {
 		s.Run(t.name, func() {
 			options := &clientOptions{}
-			t.option(options)
+			t.option.apply(options)
 
 			val1 := fmt.Sprintf("%v", options)
 			val2 := fmt.Sprintf("%v", t.want)
@@ -193,6 +193,6 @@ func (s *ClientOptionSuite) Test_defaultOptions() {
 	}
 
 	val1 := fmt.Sprintf("%v", o)
-	val2 := fmt.Sprintf("%v", defaultOptions())
+	val2 := fmt.Sprintf("%v", defaultClientOptions())
 	s.Equal(val2, val1)
 }

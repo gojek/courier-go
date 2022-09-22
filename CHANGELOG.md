@@ -8,8 +8,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.1]
+
+### Added
+
+- add support for TLS connection ([#12](https://github.com/gojek/courier-go/pull/12))
+
+### Changed
+
+- update Options API to retain Option type definition ([#11](https://github.com/gojek/courier-go/pull/11))
+
 ## [0.1.0]
 
 Initial Release
 
+[0.1.1]: https://github.com/gojek/courier-go/-/releases/v0.1.1
 [0.1.0]: https://github.com/gojek/courier-go/-/releases/v0.1.0

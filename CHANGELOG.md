@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- add xds resolver ([#3]()https://github.com/gojek/courier-go/pull/3)
 - add support for TLS connection ([#12](https://github.com/gojek/courier-go/pull/12))
 
 ### Changed

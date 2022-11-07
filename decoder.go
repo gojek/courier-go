@@ -1,6 +1,7 @@
 package courier
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -8,7 +9,7 @@ import (
 
 // DecoderFunc is used to create a Decoder from io.Reader stream
 // of message bytes before calling MessageHandler
-type DecoderFunc func(io.Reader) Decoder
+type DecoderFunc func(context.Context, io.Reader) Decoder
 
 // Decoder helps to decode message bytes into the desired object
 type Decoder interface {
@@ -16,11 +17,12 @@ type Decoder interface {
 	Decode(v interface{}) error
 }
 
-func defaultDecoderFunc(r io.Reader) Decoder {
+// DefaultDecoderFunc is a DecoderFunc that uses a json.Decoder as the Decoder.
+func DefaultDecoderFunc(_ context.Context, r io.Reader) Decoder {
 	return json.NewDecoder(r)
 }
 
-func base64JsonDecoder(r io.Reader) Decoder {
+func base64JsonDecoder(_ context.Context, r io.Reader) Decoder {
 	return json.NewDecoder(base64.NewDecoder(base64.StdEncoding, r))
 }
 

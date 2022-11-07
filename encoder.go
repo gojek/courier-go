@@ -1,12 +1,13 @@
 package courier
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 )
 
 // EncoderFunc is used to create an Encoder from io.Writer
-type EncoderFunc func(io.Writer) Encoder
+type EncoderFunc func(context.Context, io.Writer) Encoder
 
 // Encoder helps in transforming objects to message bytes
 type Encoder interface {
@@ -14,7 +15,8 @@ type Encoder interface {
 	Encode(v interface{}) error
 }
 
-func defaultEncoderFunc(w io.Writer) Encoder {
+// DefaultEncoderFunc is a EncoderFunc that uses a json.Encoder as the Encoder.
+func DefaultEncoderFunc(_ context.Context, w io.Writer) Encoder {
 	return json.NewEncoder(w)
 }
 

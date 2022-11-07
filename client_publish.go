@@ -31,7 +31,7 @@ func publishHandler(c *Client) Publisher {
 	return PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...Option) (err error) {
 		buf := bytes.Buffer{}
 
-		err = c.options.newEncoder(&buf).Encode(message)
+		err = c.options.newEncoder(ctx, &buf).Encode(message)
 		if err != nil {
 			return
 		}

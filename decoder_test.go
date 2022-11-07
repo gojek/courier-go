@@ -1,6 +1,7 @@
 package courier
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -41,7 +42,7 @@ func (s *jsonDecoderSuite) TestDecode() {
 	}
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			d := defaultDecoderFunc(strings.NewReader(tt.payload))
+			d := DefaultDecoderFunc(context.TODO(), strings.NewReader(tt.payload))
 
 			err := d.Decode(&tt.result)
 
@@ -74,7 +75,7 @@ func (s *jsonDecoderSuite) TestDecodeWithBase64() {
 	}
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			d := base64JsonDecoder(strings.NewReader(tt.payload))
+			d := base64JsonDecoder(context.TODO(), strings.NewReader(tt.payload))
 
 			err := d.Decode(&tt.result)
 

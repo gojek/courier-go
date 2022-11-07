@@ -35,7 +35,7 @@ func (s *ClientPublishSuite) TestPublish() {
 				t.On("WaitTimeout", 10*time.Second).Return(true)
 				t.On("Error").Return(nil)
 				buf := bytes.Buffer{}
-				_ = defaultEncoderFunc(&buf).Encode(p)
+				_ = DefaultEncoderFunc(context.TODO(), &buf).Encode(p)
 				m.On("Publish", "topic", byte(QOSOne), false, buf.Bytes()).Return(t)
 				return t
 			},
@@ -48,7 +48,7 @@ func (s *ClientPublishSuite) TestPublish() {
 				t.On("WaitTimeout", 10*time.Second).Return(true)
 				t.On("Error").Return(nil)
 				buf := bytes.Buffer{}
-				_ = defaultEncoderFunc(&buf).Encode(p)
+				_ = DefaultEncoderFunc(context.TODO(), &buf).Encode(p)
 				m.On("Publish", "topic-new", byte(QOSOne), false, buf.Bytes()).Return(t)
 				return t
 			},
@@ -82,7 +82,7 @@ func (s *ClientPublishSuite) TestPublish() {
 				t := &mockToken{}
 				t.On("WaitTimeout", 10*time.Second).Return(false)
 				buf := bytes.Buffer{}
-				_ = defaultEncoderFunc(&buf).Encode(p)
+				_ = DefaultEncoderFunc(context.TODO(), &buf).Encode(p)
 				m.On("Publish", "topic", byte(QOSOne), false, buf.Bytes()).Return(t)
 				return t
 			},
@@ -96,7 +96,7 @@ func (s *ClientPublishSuite) TestPublish() {
 				t.On("WaitTimeout", 10*time.Second).Return(true)
 				t.On("Error").Return(errors.New("random_error"))
 				buf := bytes.Buffer{}
-				_ = defaultEncoderFunc(&buf).Encode(p)
+				_ = DefaultEncoderFunc(context.TODO(), &buf).Encode(p)
 				m.On("Publish", "topic", byte(QOSOne), false, buf.Bytes()).Return(t)
 				return t
 			},
@@ -112,6 +112,7 @@ func (s *ClientPublishSuite) TestPublish() {
 			wantErr: true,
 		},
 	}
+
 	for _, t := range tests {
 		s.Run(t.name, func() {
 			c, err := NewClient(defOpts...)

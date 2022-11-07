@@ -215,8 +215,8 @@ func defaultClientOptions() *clientOptions {
 		maxReconnectInterval:   5 * time.Minute,
 		gracefulShutdownPeriod: 30 * time.Second,
 		keepAlive:              60 * time.Second,
-		newEncoder:             defaultEncoderFunc,
-		newDecoder:             defaultDecoderFunc,
+		newEncoder:             DefaultEncoderFunc,
+		newDecoder:             DefaultDecoderFunc,
 		store:                  inMemoryPersistence,
 	}
 }

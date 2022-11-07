@@ -60,8 +60,10 @@ func subscriberFuncs(c *Client) Subscriber {
 
 func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 	return func(_ mqtt.Client, m mqtt.Message) {
+		ctx := context.Background()
+
 		msg := NewMessageWithDecoder(
-			c.options.newDecoder(bytes.NewReader(m.Payload())),
+			c.options.newDecoder(ctx, bytes.NewReader(m.Payload())),
 		)
 		msg.ID = int(m.MessageID())
 		msg.Topic = m.Topic()
@@ -69,7 +71,7 @@ func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 		msg.Retained = m.Retained()
 		msg.QoS = QOSLevel(m.Qos())
 
-		callback(context.Background(), c, msg)
+		callback(ctx, c, msg)
 	}
 }
 

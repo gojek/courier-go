@@ -51,8 +51,10 @@ Package courier contains the client that can be used to interact with the courie
   - [func WithWriteTimeout(duration time.Duration) ClientOption](<#func-withwritetimeout>)
 - [type ConnectionInformer](<#type-connectioninformer>)
 - [type Decoder](<#type-decoder>)
+  - [func DefaultDecoderFunc(_ context.Context, r io.Reader) Decoder](<#func-defaultdecoderfunc>)
 - [type DecoderFunc](<#type-decoderfunc>)
 - [type Encoder](<#type-encoder>)
+  - [func DefaultEncoderFunc(_ context.Context, w io.Writer) Encoder](<#func-defaultencoderfunc>)
 - [type EncoderFunc](<#type-encoderfunc>)
 - [type Message](<#type-message>)
   - [func NewMessageWithDecoder(payloadDecoder Decoder) *Message](<#func-newmessagewithdecoder>)
@@ -479,7 +481,7 @@ type ConnectionInformer interface {
 }
 ```
 
-## type [Decoder](<https://github.com/gojek/courier-go/blob/main/decoder.go#L14-L17>)
+## type [Decoder](<https://github.com/gojek/courier-go/blob/main/decoder.go#L15-L18>)
 
 Decoder helps to decode message bytes into the desired object
 
@@ -490,15 +492,23 @@ type Decoder interface {
 }
 ```
 
-## type [DecoderFunc](<https://github.com/gojek/courier-go/blob/main/decoder.go#L11>)
+### func [DefaultDecoderFunc](<https://github.com/gojek/courier-go/blob/main/decoder.go#L21>)
+
+```go
+func DefaultDecoderFunc(_ context.Context, r io.Reader) Decoder
+```
+
+DefaultDecoderFunc is a DecoderFunc that uses a json.Decoder as the Decoder.
+
+## type [DecoderFunc](<https://github.com/gojek/courier-go/blob/main/decoder.go#L12>)
 
 DecoderFunc is used to create a Decoder from io.Reader stream of message bytes before calling MessageHandler
 
 ```go
-type DecoderFunc func(io.Reader) Decoder
+type DecoderFunc func(context.Context, io.Reader) Decoder
 ```
 
-## type [Encoder](<https://github.com/gojek/courier-go/blob/main/encoder.go#L12-L15>)
+## type [Encoder](<https://github.com/gojek/courier-go/blob/main/encoder.go#L13-L16>)
 
 Encoder helps in transforming objects to message bytes
 
@@ -509,12 +519,20 @@ type Encoder interface {
 }
 ```
 
-## type [EncoderFunc](<https://github.com/gojek/courier-go/blob/main/encoder.go#L9>)
+### func [DefaultEncoderFunc](<https://github.com/gojek/courier-go/blob/main/encoder.go#L19>)
+
+```go
+func DefaultEncoderFunc(_ context.Context, w io.Writer) Encoder
+```
+
+DefaultEncoderFunc is a EncoderFunc that uses a json.Encoder as the Encoder.
+
+## type [EncoderFunc](<https://github.com/gojek/courier-go/blob/main/encoder.go#L10>)
 
 EncoderFunc is used to create an Encoder from io.Writer
 
 ```go
-type EncoderFunc func(io.Writer) Encoder
+type EncoderFunc func(context.Context, io.Writer) Encoder
 ```
 
 ## type [Message](<https://github.com/gojek/courier-go/blob/main/message.go#L4-L12>)

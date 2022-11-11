@@ -150,8 +150,8 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 		},
 		{
 			name:   "WithCustomEncoder",
-			option: WithCustomEncoder(defaultEncoderFunc),
-			want:   &clientOptions{newEncoder: defaultEncoderFunc},
+			option: WithCustomEncoder(DefaultEncoderFunc),
+			want:   &clientOptions{newEncoder: DefaultEncoderFunc},
 		},
 		{
 			name:   "WithUseBase64Decoder",
@@ -187,8 +187,8 @@ func (s *ClientOptionSuite) Test_defaultOptions() {
 		maxReconnectInterval:   5 * time.Minute,
 		gracefulShutdownPeriod: 30 * time.Second,
 		keepAlive:              60 * time.Second,
-		newEncoder:             defaultEncoderFunc,
-		newDecoder:             defaultDecoderFunc,
+		newEncoder:             DefaultEncoderFunc,
+		newDecoder:             DefaultDecoderFunc,
 		store:                  inMemoryPersistence,
 	}
 

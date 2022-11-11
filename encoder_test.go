@@ -2,6 +2,7 @@ package courier
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"math"
 	"testing"
@@ -45,7 +46,7 @@ func Test_defaultEncoderFunc(t *testing.T) {
 			wantBuf, wantErr := tt.want()
 
 			buf := bytes.Buffer{}
-			j := defaultEncoderFunc(&buf)
+			j := DefaultEncoderFunc(context.TODO(), &buf)
 			err := j.Encode(tt.obj)
 
 			if wantErr != nil {

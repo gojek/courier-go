@@ -481,7 +481,7 @@ type ConnectionInformer interface {
 }
 ```
 
-## type [Decoder](<https://github.com/gojek/courier-go/blob/main/decoder.go#L15-L18>)
+## type [Decoder](<https://github.com/gojek/courier-go/blob/main/decoder.go#L16-L19>)
 
 Decoder helps to decode message bytes into the desired object
 
@@ -492,7 +492,7 @@ type Decoder interface {
 }
 ```
 
-### func [DefaultDecoderFunc](<https://github.com/gojek/courier-go/blob/main/decoder.go#L21>)
+### func [DefaultDecoderFunc](<https://github.com/gojek/courier-go/blob/main/decoder.go#L22>)
 
 ```go
 func DefaultDecoderFunc(_ context.Context, r io.Reader) Decoder
@@ -500,15 +500,15 @@ func DefaultDecoderFunc(_ context.Context, r io.Reader) Decoder
 
 DefaultDecoderFunc is a DecoderFunc that uses a json.Decoder as the Decoder.
 
-## type [DecoderFunc](<https://github.com/gojek/courier-go/blob/main/decoder.go#L12>)
+## type [DecoderFunc](<https://github.com/gojek/courier-go/blob/main/decoder.go#L13>)
 
-DecoderFunc is used to create a Decoder from io.Reader stream of message bytes before calling MessageHandler
+DecoderFunc is used to create a Decoder from io.Reader stream of message bytes before calling MessageHandler; the context.Context value may be used to select appropriate Decoder.
 
 ```go
 type DecoderFunc func(context.Context, io.Reader) Decoder
 ```
 
-## type [Encoder](<https://github.com/gojek/courier-go/blob/main/encoder.go#L13-L16>)
+## type [Encoder](<https://github.com/gojek/courier-go/blob/main/encoder.go#L14-L17>)
 
 Encoder helps in transforming objects to message bytes
 
@@ -519,7 +519,7 @@ type Encoder interface {
 }
 ```
 
-### func [DefaultEncoderFunc](<https://github.com/gojek/courier-go/blob/main/encoder.go#L19>)
+### func [DefaultEncoderFunc](<https://github.com/gojek/courier-go/blob/main/encoder.go#L20>)
 
 ```go
 func DefaultEncoderFunc(_ context.Context, w io.Writer) Encoder
@@ -527,9 +527,9 @@ func DefaultEncoderFunc(_ context.Context, w io.Writer) Encoder
 
 DefaultEncoderFunc is a EncoderFunc that uses a json.Encoder as the Encoder.
 
-## type [EncoderFunc](<https://github.com/gojek/courier-go/blob/main/encoder.go#L10>)
+## type [EncoderFunc](<https://github.com/gojek/courier-go/blob/main/encoder.go#L11>)
 
-EncoderFunc is used to create an Encoder from io.Writer
+EncoderFunc is used to create an Encoder from io.Writer; the context.Context value may be used to select appropriate Encoder.
 
 ```go
 type EncoderFunc func(context.Context, io.Writer) Encoder

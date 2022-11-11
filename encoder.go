@@ -6,7 +6,8 @@ import (
 	"io"
 )
 
-// EncoderFunc is used to create an Encoder from io.Writer
+// EncoderFunc is used to create an Encoder from io.Writer;
+// the context.Context value may be used to select appropriate Encoder.
 type EncoderFunc func(context.Context, io.Writer) Encoder
 
 // Encoder helps in transforming objects to message bytes

@@ -8,7 +8,8 @@ import (
 )
 
 // DecoderFunc is used to create a Decoder from io.Reader stream
-// of message bytes before calling MessageHandler
+// of message bytes before calling MessageHandler;
+// the context.Context value may be used to select appropriate Decoder.
 type DecoderFunc func(context.Context, io.Reader) Decoder
 
 // Decoder helps to decode message bytes into the desired object

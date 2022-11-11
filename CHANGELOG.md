@@ -8,11 +8,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.2.0]
+
+### Changed
+
+- add context to EncoderFunc/DecoderFunc signature ([#14](https://github.com/gojek/courier-go/pull/14))
+
 ## [0.1.1]
 
 ### Added
 
-- add xds resolver ([#3]()https://github.com/gojek/courier-go/pull/3)
+- add xds resolver ([#3](https://github.com/gojek/courier-go/pull/3))
 - add support for TLS connection ([#12](https://github.com/gojek/courier-go/pull/12))
 
 ### Changed
@@ -23,5 +29,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Initial Release
 
+[0.2.0]: https://github.com/gojek/courier-go/-/releases/v0.2.0
 [0.1.1]: https://github.com/gojek/courier-go/-/releases/v0.1.1
 [0.1.0]: https://github.com/gojek/courier-go/-/releases/v0.1.0

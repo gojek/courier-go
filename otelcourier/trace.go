@@ -1,6 +1,8 @@
 package otelcourier
 
 import (
+	"context"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
 	courier "github.com/gojek/courier-go"
@@ -12,9 +14,11 @@ const (
 
 // Tracer implements tracing abilities using OpenTelemetry SDK.
 type Tracer struct {
-	service    string
-	tracer     trace.Tracer
-	tracePaths tracePath
+	service            string
+	tracePaths         tracePath
+	tracer             trace.Tracer
+	propagator         propagation.TextMapPropagator
+	textMapCarrierFunc func(context.Context) propagation.TextMapCarrier
 }
 
 // NewTracer creates a new Tracer with Option(s).
@@ -31,9 +35,11 @@ func NewTracer(service string, opts ...Option) *Tracer {
 	)
 
 	return &Tracer{
-		service:    service,
-		tracer:     tracer,
-		tracePaths: to.tracePaths,
+		service:            service,
+		tracer:             tracer,
+		propagator:         to.propagator,
+		textMapCarrierFunc: to.textMapCarrierExtractor,
+		tracePaths:         to.tracePaths,
 	}
 }
 
@@ -47,7 +53,7 @@ func (t *Tracer) ApplyTraceMiddlewares(c *courier.Client) {
 		c.UseSubscriberMiddleware(t.subscriber)
 	}
 
-	if t.tracePaths.match(traceUnsubsriber) {
+	if t.tracePaths.match(traceUnsubscriber) {
 		c.UseUnsubscriberMiddleware(t.unsubscriber)
 	}
 }

@@ -3,7 +3,10 @@ package otelcourier
 import (
 	"context"
 	"errors"
+	"github.com/stretchr/testify/mock"
+	"go.opentelemetry.io/otel/propagation"
 	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,19 +21,49 @@ import (
 	courier "github.com/gojek/courier-go"
 )
 
+type testTextMapCarrier struct {
+	payload string
+	headers map[string]string
+}
+
+func (t *testTextMapCarrier) Get(key string) string {
+	return t.headers[key]
+}
+
+func (t *testTextMapCarrier) Set(key string, value string) {
+	t.headers[key] = value
+}
+
+func (t *testTextMapCarrier) Keys() []string {
+	var keys []string
+	for k := range t.headers {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 func TestPublishTraceSpan(t *testing.T) {
 	tp := trace.NewTracerProvider()
 	sr := tracetest.NewSpanRecorder()
 	tp.RegisterSpanProcessor(sr)
 
-	mwf := NewTracer("test-service", WithTracerProvider(tp))
+	mtmc := newMockTextMapCarrier(t, "hello-world")
+
+	mwf := NewTracer("test-service", WithTracerProvider(tp),
+		WithTextMapPropagator(propagation.NewCompositeTextMapPropagator(&propagation.TraceContext{})))
 	uErr := errors.New("error_from_upstream")
 
 	p := mwf.publisher(courier.PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...courier.Option) error {
 		return uErr
 	}))
 
-	err := p.Publish(context.Background(), "test-topic", "hello-world", courier.QOSOne, courier.Retained(false))
+	traceParentRegex := regexp.MustCompile(`^\d{2}-\w{32}-\w{16}-\d{2}$`)
+	mtmc.On("Set", "traceparent", mock.MatchedBy(func(in string) bool {
+		return traceParentRegex.MatchString(in)
+	}))
+
+	err := p.Publish(context.Background(), "test-topic", mtmc, courier.QOSOne, courier.Retained(false))
+
 	assert.EqualError(t, err, uErr.Error())
 
 	spans := sr.Ended()
@@ -62,6 +95,8 @@ func TestPublishTraceSpan(t *testing.T) {
 		assert.Equal(t, codes.Error, span.Status().Code)
 		assert.Equal(t, publishErrMessage, span.Status().Description)
 	})
+
+	mtmc.AssertExpectations(t)
 }
 
 func TestPublishSpanNotInstrumented(t *testing.T) {
@@ -74,4 +109,31 @@ func TestPublishSpanNotInstrumented(t *testing.T) {
 
 	err := p.Publish(context.Background(), "test-topic", "hello-world", courier.QOSOne)
 	assert.NoError(t, err)
+}
+
+func newMockTextMapCarrier(t *testing.T, payload string) *mockTextMapCarrier {
+	m := &mockTextMapCarrier{Payload: payload}
+	m.Test(t)
+	return m
+}
+
+type mockTextMapCarrier struct {
+	Payload string `json:"payload"`
+	mock.Mock
+}
+
+func (m *mockTextMapCarrier) Get(key string) string {
+	return m.Called(key).String(0)
+}
+
+func (m *mockTextMapCarrier) Set(key string, value string) {
+	m.Called(key, value)
+}
+
+func (m *mockTextMapCarrier) Keys() []string {
+	if v, ok := m.Called().Get(0).([]string); ok {
+		return v
+	}
+
+	return nil
 }

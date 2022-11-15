@@ -3,6 +3,7 @@ package otelcourier
 import (
 	"context"
 	"errors"
+	"go.opentelemetry.io/otel/propagation"
 	"reflect"
 	"testing"
 
@@ -146,17 +147,28 @@ func Test_instrumentCallback(t *testing.T) {
 	sr := tracetest.NewSpanRecorder()
 	tp.RegisterSpanProcessor(sr)
 
-	m := NewTracer("test-service", WithTracerProvider(tp))
+	extFn := func(ctx context.Context) propagation.TextMapCarrier {
+		return ctx.Value("traceparent").(propagation.TextMapCarrier)
+	}
+
+	m := NewTracer("test-service",
+		WithTracerProvider(tp),
+		WithTextMapPropagator(propagation.NewCompositeTextMapPropagator(&propagation.TraceContext{})),
+		WithTextMapCarrierExtractFunc(extFn),
+	)
 
 	callback := m.instrumentCallback(func(_ context.Context, _ courier.PubSub, _ *courier.Message) {})
 
 	c, _ := courier.NewClient()
-	callback(context.Background(), c, &courier.Message{})
+	callback(context.WithValue(context.Background(), "traceparent", &propagation.MapCarrier{
+		"traceparent": "00-c8e801456e8232f618c49c6f65f101db-1986c136102242cd-01",
+	}), c, &courier.Message{})
 
 	spans := sr.Ended()
 	require.Len(t, spans, 1)
 	span := spans[0]
-	assert.Equal(t, "github.com/gojek/courier-go/otelcourier.Test_instrumentCallback.func1", span.Name())
+	assert.Equal(t, "c8e801456e8232f618c49c6f65f101db", span.SpanContext().TraceID().String())
+	assert.Equal(t, "github.com/gojek/courier-go/otelcourier.Test_instrumentCallback.func2", span.Name())
 }
 
 func Test_instrumentCallbackDisabled(t *testing.T) {

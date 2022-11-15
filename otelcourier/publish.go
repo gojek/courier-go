@@ -4,10 +4,11 @@ import (
 	"context"
 
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
 
-	courier "github.com/gojek/courier-go"
+	"github.com/gojek/courier-go"
 )
 
 const (
@@ -31,6 +32,10 @@ func (t *Tracer) publisher(next courier.Publisher) courier.Publisher {
 
 		ctx, span := t.tracer.Start(ctx, publishSpanName, traceOpts...)
 		defer span.End()
+
+		if tmc, ok := message.(propagation.TextMapCarrier); ok {
+			t.propagator.Inject(ctx, tmc)
+		}
 
 		err := next.Publish(ctx, topic, message, opts...)
 		if err != nil {

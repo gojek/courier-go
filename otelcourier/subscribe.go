@@ -73,6 +73,10 @@ func (t *Tracer) instrumentCallback(in courier.MessageHandler) courier.MessageHa
 			spanName = fnPtr.Name()
 		}
 
+		if t.textMapCarrierFunc != nil {
+			ctx = t.propagator.Extract(ctx, t.textMapCarrierFunc(ctx))
+		}
+
 		ctx, span := t.tracer.Start(ctx, spanName)
 		defer span.End()
 

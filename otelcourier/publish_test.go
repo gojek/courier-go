@@ -34,7 +34,7 @@ func (t *testTextMapCarrier) Set(key string, value string) {
 }
 
 func (t *testTextMapCarrier) Keys() []string {
-	var keys []string
+	keys := make([]string, 0, len(t.headers))
 	for k := range t.headers {
 		keys = append(keys, k)
 	}

@@ -170,31 +170,37 @@ func main() {
 </p>
 </details>
 
-### func \(\*Tracer\) [ApplyTraceMiddlewares](<https://github.com/gojek/courier-go/blob/main/otelcourier/trace.go#L48>)
+### func \(\*Tracer\) [ApplyTraceMiddlewares](<https://github.com/gojek/courier-go/blob/main/otelcourier/trace.go#L49>)
 
 ```go
 func (t *Tracer) ApplyTraceMiddlewares(c *courier.Client)
 ```
 
-ApplyTraceMiddlewares will instrument all the operations of a courier.Client instance
+ApplyTraceMiddlewares will instrument all the operations of a courier.Client instance according to Option\(s\) used.
 
-### func \(\*Tracer\) [PublisherMiddleware](<https://github.com/gojek/courier-go/blob/main/otelcourier/publish.go#L19>)
+### func \(\*Tracer\) [PublisherMiddleware](<https://github.com/gojek/courier-go/blob/main/otelcourier/publish.go#L20>)
 
 ```go
 func (t *Tracer) PublisherMiddleware(next courier.Publisher) courier.Publisher
 ```
 
-### func \(\*Tracer\) [SubscriberMiddleware](<https://github.com/gojek/courier-go/blob/main/otelcourier/subscribe.go#L24>)
+PublisherMiddleware is a courier.PublisherMiddlewareFunc for tracing publish calls.
+
+### func \(\*Tracer\) [SubscriberMiddleware](<https://github.com/gojek/courier-go/blob/main/otelcourier/subscribe.go#L25>)
 
 ```go
 func (t *Tracer) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber
 ```
 
-### func \(\*Tracer\) [UnsubscriberMiddleware](<https://github.com/gojek/courier-go/blob/main/otelcourier/unsubscribe.go#L18>)
+SubscriberMiddleware is a courier.SubscriberMiddlewareFunc for tracing subscribe calls.
+
+### func \(\*Tracer\) [UnsubscriberMiddleware](<https://github.com/gojek/courier-go/blob/main/otelcourier/unsubscribe.go#L19>)
 
 ```go
 func (t *Tracer) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubscriber
 ```
+
+UnsubscriberMiddleware is a courier.UnsubscriberMiddlewareFunc for tracing unsubscribe calls.
 
 
 

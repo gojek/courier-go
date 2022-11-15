@@ -16,6 +16,7 @@ const (
 	publishErrMessage = "publish error"
 )
 
+// PublisherMiddleware is a courier.PublisherMiddlewareFunc for tracing publish calls.
 func (t *Tracer) PublisherMiddleware(next courier.Publisher) courier.Publisher {
 	return courier.PublisherFunc(func(
 		ctx context.Context,

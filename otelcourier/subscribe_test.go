@@ -19,6 +19,10 @@ import (
 	courier "github.com/gojek/courier-go"
 )
 
+type traceparent int
+
+const traceparentKey traceparent = 0
+
 func TestSubscribeTraceSpan(t *testing.T) {
 	tp := trace.NewTracerProvider()
 	sr := tracetest.NewSpanRecorder()
@@ -148,7 +152,7 @@ func Test_instrumentCallback(t *testing.T) {
 	tp.RegisterSpanProcessor(sr)
 
 	extFn := func(ctx context.Context) propagation.TextMapCarrier {
-		return ctx.Value("traceparent").(propagation.TextMapCarrier)
+		return ctx.Value(traceparentKey).(propagation.TextMapCarrier)
 	}
 
 	m := NewTracer("test-service",
@@ -160,7 +164,7 @@ func Test_instrumentCallback(t *testing.T) {
 	callback := m.instrumentCallback(func(_ context.Context, _ courier.PubSub, _ *courier.Message) {})
 
 	c, _ := courier.NewClient()
-	callback(context.WithValue(context.Background(), "traceparent", &propagation.MapCarrier{
+	callback(context.WithValue(context.Background(), traceparentKey, &propagation.MapCarrier{
 		"traceparent": "00-c8e801456e8232f618c49c6f65f101db-1986c136102242cd-01",
 	}), c, &courier.Message{})
 

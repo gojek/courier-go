@@ -21,6 +21,7 @@ const (
 	subscribeMultipleErrMessage = "subscribe multiple error"
 )
 
+// SubscriberMiddleware is a courier.SubscriberMiddlewareFunc for tracing subscribe calls.
 func (t *Tracer) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber {
 	return courier.NewSubscriberFuncs(
 		func(ctx context.Context, topic string, callback courier.MessageHandler, opts ...courier.Option) error {

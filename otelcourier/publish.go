@@ -16,7 +16,7 @@ const (
 	publishErrMessage = "publish error"
 )
 
-func (t *Tracer) publisher(next courier.Publisher) courier.Publisher {
+func (t *Tracer) PublisherMiddleware(next courier.Publisher) courier.Publisher {
 	return courier.PublisherFunc(func(
 		ctx context.Context,
 		topic string,

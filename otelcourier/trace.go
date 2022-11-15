@@ -47,14 +47,14 @@ func NewTracer(service string, opts ...Option) *Tracer {
 // ApplyTraceMiddlewares will instrument all the operations of a courier.Client instance
 func (t *Tracer) ApplyTraceMiddlewares(c *courier.Client) {
 	if t.tracePaths.match(tracePublisher) {
-		c.UsePublisherMiddleware(t.publisher)
+		c.UsePublisherMiddleware(t.PublisherMiddleware)
 	}
 
 	if t.tracePaths.match(traceSubscriber) {
-		c.UseSubscriberMiddleware(t.subscriber)
+		c.UseSubscriberMiddleware(t.SubscriberMiddleware)
 	}
 
 	if t.tracePaths.match(traceUnsubscriber) {
-		c.UseUnsubscriberMiddleware(t.unsubscriber)
+		c.UseUnsubscriberMiddleware(t.UnsubscriberMiddleware)
 	}
 }

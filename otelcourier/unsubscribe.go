@@ -15,7 +15,7 @@ const (
 	unsubscribeErrMessage = "unsubscribe error"
 )
 
-func (t *Tracer) unsubscriber(next courier.Unsubscriber) courier.Unsubscriber {
+func (t *Tracer) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubscriber {
 	return courier.UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
 		opts := []trace.SpanStartOption{
 			trace.WithAttributes(MQTTTopic.StringSlice(topics)),

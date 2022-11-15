@@ -22,6 +22,9 @@ Package otelcourier instruments the github.com/gojek/courier\-go package.
 - [type Tracer](<#type-tracer>)
   - [func NewTracer(service string, opts ...Option) *Tracer](<#func-newtracer>)
   - [func (t *Tracer) ApplyTraceMiddlewares(c *courier.Client)](<#func-tracer-applytracemiddlewares>)
+  - [func (t *Tracer) PublisherMiddleware(next courier.Publisher) courier.Publisher](<#func-tracer-publishermiddleware>)
+  - [func (t *Tracer) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber](<#func-tracer-subscribermiddleware>)
+  - [func (t *Tracer) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubscriber](<#func-tracer-unsubscribermiddleware>)
 
 
 ## Constants
@@ -174,6 +177,24 @@ func (t *Tracer) ApplyTraceMiddlewares(c *courier.Client)
 ```
 
 ApplyTraceMiddlewares will instrument all the operations of a courier.Client instance
+
+### func \(\*Tracer\) [PublisherMiddleware](<https://github.com/gojek/courier-go/blob/main/otelcourier/publish.go#L19>)
+
+```go
+func (t *Tracer) PublisherMiddleware(next courier.Publisher) courier.Publisher
+```
+
+### func \(\*Tracer\) [SubscriberMiddleware](<https://github.com/gojek/courier-go/blob/main/otelcourier/subscribe.go#L24>)
+
+```go
+func (t *Tracer) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber
+```
+
+### func \(\*Tracer\) [UnsubscriberMiddleware](<https://github.com/gojek/courier-go/blob/main/otelcourier/unsubscribe.go#L18>)
+
+```go
+func (t *Tracer) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubscriber
+```
 
 
 

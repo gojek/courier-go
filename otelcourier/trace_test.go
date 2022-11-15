@@ -21,7 +21,7 @@ func TestChildSpanFromGlobalTracer(t *testing.T) {
 
 	mwf := NewTracer("test-service")
 
-	p := mwf.publisher(courier.PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...courier.Option) error {
+	p := mwf.PublisherMiddleware(courier.PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...courier.Option) error {
 		span := oteltrace.SpanFromContext(ctx)
 		_, ok := span.(trace.ReadWriteSpan)
 		assert.True(t, ok)
@@ -39,7 +39,7 @@ func TestChildSpanFromCustomTracer(t *testing.T) {
 
 	m := NewTracer("test-service", WithTracerProvider(tp))
 
-	p := m.publisher(courier.PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...courier.Option) error {
+	p := m.PublisherMiddleware(courier.PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...courier.Option) error {
 		span := oteltrace.SpanFromContext(ctx)
 		_, ok := span.(trace.ReadWriteSpan)
 		assert.True(t, ok)

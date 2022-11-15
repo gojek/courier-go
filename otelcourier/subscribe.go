@@ -21,7 +21,7 @@ const (
 	subscribeMultipleErrMessage = "subscribe multiple error"
 )
 
-func (t *Tracer) subscriber(next courier.Subscriber) courier.Subscriber {
+func (t *Tracer) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber {
 	return courier.NewSubscriberFuncs(
 		func(ctx context.Context, topic string, callback courier.MessageHandler, opts ...courier.Option) error {
 			traceOpts := []trace.SpanStartOption{

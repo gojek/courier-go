@@ -27,7 +27,7 @@ func TestSubscribeTraceSpan(t *testing.T) {
 	mwf := NewTracer("test-service", WithTracerProvider(tp))
 	uErr := errors.New("error_from_upstream")
 
-	u := mwf.subscriber(courier.NewSubscriberFuncs(
+	u := mwf.SubscriberMiddleware(courier.NewSubscriberFuncs(
 		func(_ context.Context, _ string, _ courier.MessageHandler, _ ...courier.Option) error {
 			return uErr
 		},
@@ -82,7 +82,7 @@ func TestSubscribeMultipleTraceSpan(t *testing.T) {
 	mwf := NewTracer("test-service", WithTracerProvider(tp))
 	uErr := errors.New("error_from_upstream")
 
-	u := mwf.subscriber(courier.NewSubscriberFuncs(
+	u := mwf.SubscriberMiddleware(courier.NewSubscriberFuncs(
 		func(_ context.Context, _ string, _ courier.MessageHandler, _ ...courier.Option) error {
 			return nil
 		},

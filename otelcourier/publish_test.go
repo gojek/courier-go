@@ -22,7 +22,6 @@ import (
 )
 
 type testTextMapCarrier struct {
-	payload string
 	headers map[string]string
 }
 
@@ -53,7 +52,7 @@ func TestPublishTraceSpan(t *testing.T) {
 		WithTextMapPropagator(propagation.NewCompositeTextMapPropagator(&propagation.TraceContext{})))
 	uErr := errors.New("error_from_upstream")
 
-	p := mwf.publisher(courier.PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...courier.Option) error {
+	p := mwf.PublisherMiddleware(courier.PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...courier.Option) error {
 		return uErr
 	}))
 

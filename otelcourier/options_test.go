@@ -3,11 +3,11 @@ package otelcourier
 import (
 	"context"
 	"fmt"
-	"go.opentelemetry.io/otel/propagation"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 func TestOption(t *testing.T) {

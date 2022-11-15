@@ -2,6 +2,7 @@ package otelcourier
 
 import (
 	"context"
+
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 

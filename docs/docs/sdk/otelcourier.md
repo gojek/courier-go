@@ -39,7 +39,7 @@ const (
 )
 ```
 
-## func [DisableCallbackTracing](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L58>)
+## func [DisableCallbackTracing](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L59>)
 
 ```go
 func DisableCallbackTracing(opts *traceOptions)
@@ -47,7 +47,7 @@ func DisableCallbackTracing(opts *traceOptions)
 
 DisableCallbackTracing disables implicit tracing on subscription callbacks.
 
-## func [DisablePublisherTracing](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L61>)
+## func [DisablePublisherTracing](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L62>)
 
 ```go
 func DisablePublisherTracing(opts *traceOptions)
@@ -55,7 +55,7 @@ func DisablePublisherTracing(opts *traceOptions)
 
 DisablePublisherTracing disables courier.Publisher tracing.
 
-## func [DisableSubscriberTracing](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L64>)
+## func [DisableSubscriberTracing](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L65>)
 
 ```go
 func DisableSubscriberTracing(opts *traceOptions)
@@ -63,7 +63,7 @@ func DisableSubscriberTracing(opts *traceOptions)
 
 DisableSubscriberTracing disables courier.Subscriber tracing.
 
-## func [DisableUnsubscriberTracing](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L67>)
+## func [DisableUnsubscriberTracing](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L68>)
 
 ```go
 func DisableUnsubscriberTracing(opts *traceOptions)
@@ -71,7 +71,7 @@ func DisableUnsubscriberTracing(opts *traceOptions)
 
 DisableUnsubscriberTracing disables courier.Unsubscriber tracing.
 
-## type [Option](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L29>)
+## type [Option](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L30>)
 
 Option helps configure trace options.
 
@@ -79,7 +79,7 @@ Option helps configure trace options.
 type Option func(*traceOptions)
 ```
 
-### func [WithTextMapCarrierExtractFunc](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L53>)
+### func [WithTextMapCarrierExtractFunc](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L54>)
 
 ```go
 func WithTextMapCarrierExtractFunc(fn func(context.Context) propagation.TextMapCarrier) Option
@@ -87,7 +87,7 @@ func WithTextMapCarrierExtractFunc(fn func(context.Context) propagation.TextMapC
 
 WithTextMapCarrierExtractFunc is used to specify the function which should be used to extract propagation.TextMapCarrier from the ongoing context.Context.
 
-### func [WithTextMapPropagator](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L47>)
+### func [WithTextMapPropagator](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L48>)
 
 ```go
 func WithTextMapPropagator(propagator propagation.TextMapPropagator) Option
@@ -95,7 +95,7 @@ func WithTextMapPropagator(propagator propagation.TextMapPropagator) Option
 
 WithTextMapPropagator specifies the propagator to use for extracting/injecting key\-value texts. If none is specified, the global provider is used.
 
-### func [WithTracerProvider](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L41>)
+### func [WithTracerProvider](<https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L42>)
 
 ```go
 func WithTracerProvider(provider oteltrace.TracerProvider) Option
@@ -103,7 +103,7 @@ func WithTracerProvider(provider oteltrace.TracerProvider) Option
 
 WithTracerProvider specifies a tracer provider to use for creating a tracer. If none is specified, the global provider is used.
 
-## type [Tracer](<https://github.com/gojek/courier-go/blob/main/otelcourier/trace.go#L16-L22>)
+## type [Tracer](<https://github.com/gojek/courier-go/blob/main/otelcourier/trace.go#L17-L23>)
 
 Tracer implements tracing abilities using OpenTelemetry SDK.
 
@@ -113,7 +113,7 @@ type Tracer struct {
 }
 ```
 
-### func [NewTracer](<https://github.com/gojek/courier-go/blob/main/otelcourier/trace.go#L25>)
+### func [NewTracer](<https://github.com/gojek/courier-go/blob/main/otelcourier/trace.go#L26>)
 
 ```go
 func NewTracer(service string, opts ...Option) *Tracer
@@ -167,7 +167,7 @@ func main() {
 </p>
 </details>
 
-### func \(\*Tracer\) [ApplyTraceMiddlewares](<https://github.com/gojek/courier-go/blob/main/otelcourier/trace.go#L47>)
+### func \(\*Tracer\) [ApplyTraceMiddlewares](<https://github.com/gojek/courier-go/blob/main/otelcourier/trace.go#L48>)
 
 ```go
 func (t *Tracer) ApplyTraceMiddlewares(c *courier.Client)

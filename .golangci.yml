@@ -73,6 +73,7 @@ issues:
         - lll
         - funlen
         - nlreturn
+        - unused
     - path: _test\.go
       text: ^Error return value is not checked$
       linters:

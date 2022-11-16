@@ -1,6 +1,9 @@
 package otelcourier
 
 import (
+	"context"
+
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
 	courier "github.com/gojek/courier-go"
@@ -12,9 +15,11 @@ const (
 
 // Tracer implements tracing abilities using OpenTelemetry SDK.
 type Tracer struct {
-	service    string
-	tracer     trace.Tracer
-	tracePaths tracePath
+	service            string
+	tracePaths         tracePath
+	tracer             trace.Tracer
+	propagator         propagation.TextMapPropagator
+	textMapCarrierFunc func(context.Context) propagation.TextMapCarrier
 }
 
 // NewTracer creates a new Tracer with Option(s).
@@ -31,23 +36,26 @@ func NewTracer(service string, opts ...Option) *Tracer {
 	)
 
 	return &Tracer{
-		service:    service,
-		tracer:     tracer,
-		tracePaths: to.tracePaths,
+		service:            service,
+		tracer:             tracer,
+		propagator:         to.propagator,
+		textMapCarrierFunc: to.textMapCarrierExtractor,
+		tracePaths:         to.tracePaths,
 	}
 }
 
 // ApplyTraceMiddlewares will instrument all the operations of a courier.Client instance
+// according to Option(s) used.
 func (t *Tracer) ApplyTraceMiddlewares(c *courier.Client) {
 	if t.tracePaths.match(tracePublisher) {
-		c.UsePublisherMiddleware(t.publisher)
+		c.UsePublisherMiddleware(t.PublisherMiddleware)
 	}
 
 	if t.tracePaths.match(traceSubscriber) {
-		c.UseSubscriberMiddleware(t.subscriber)
+		c.UseSubscriberMiddleware(t.SubscriberMiddleware)
 	}
 
-	if t.tracePaths.match(traceUnsubsriber) {
-		c.UseUnsubscriberMiddleware(t.unsubscriber)
+	if t.tracePaths.match(traceUnsubscriber) {
+		c.UseUnsubscriberMiddleware(t.UnsubscriberMiddleware)
 	}
 }

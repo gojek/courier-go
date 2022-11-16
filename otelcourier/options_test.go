@@ -1,10 +1,13 @@
 package otelcourier
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 func TestOption(t *testing.T) {
@@ -17,7 +20,8 @@ func TestOption(t *testing.T) {
 			name: "DefaultOptions",
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
-				tracePaths:     tracePublisher + traceSubscriber + traceUnsubsriber + traceCallback,
+				propagator:     otel.GetTextMapPropagator(),
+				tracePaths:     tracePublisher + traceSubscriber + traceUnsubscriber + traceCallback,
 			},
 		},
 		{
@@ -25,7 +29,8 @@ func TestOption(t *testing.T) {
 			options: []Option{DisablePublisherTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
-				tracePaths:     traceSubscriber + traceUnsubsriber + traceCallback,
+				propagator:     otel.GetTextMapPropagator(),
+				tracePaths:     traceSubscriber + traceUnsubscriber + traceCallback,
 			},
 		},
 		{
@@ -33,7 +38,8 @@ func TestOption(t *testing.T) {
 			options: []Option{DisableSubscriberTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
-				tracePaths:     tracePublisher + traceUnsubsriber + traceCallback,
+				propagator:     otel.GetTextMapPropagator(),
+				tracePaths:     tracePublisher + traceUnsubscriber + traceCallback,
 			},
 		},
 		{
@@ -41,6 +47,7 @@ func TestOption(t *testing.T) {
 			options: []Option{DisableUnsubscriberTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
+				propagator:     otel.GetTextMapPropagator(),
 				tracePaths:     tracePublisher + traceSubscriber + traceCallback,
 			},
 		},
@@ -49,7 +56,8 @@ func TestOption(t *testing.T) {
 			options: []Option{DisableCallbackTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
-				tracePaths:     tracePublisher + traceSubscriber + traceUnsubsriber,
+				propagator:     otel.GetTextMapPropagator(),
+				tracePaths:     tracePublisher + traceSubscriber + traceUnsubscriber,
 			},
 		},
 		{
@@ -57,7 +65,8 @@ func TestOption(t *testing.T) {
 			options: []Option{DisableCallbackTracing, DisableCallbackTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
-				tracePaths:     tracePublisher + traceSubscriber + traceUnsubsriber,
+				propagator:     otel.GetTextMapPropagator(),
+				tracePaths:     tracePublisher + traceSubscriber + traceUnsubscriber,
 			},
 		},
 		{
@@ -65,6 +74,7 @@ func TestOption(t *testing.T) {
 			options: []Option{DisablePublisherTracing, DisableSubscriberTracing, DisableUnsubscriberTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
+				propagator:     otel.GetTextMapPropagator(),
 				tracePaths:     traceCallback,
 			},
 		},
@@ -73,7 +83,8 @@ func TestOption(t *testing.T) {
 			options: []Option{DisablePublisherTracing, DisableSubscriberTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
-				tracePaths:     traceUnsubsriber + traceCallback,
+				propagator:     otel.GetTextMapPropagator(),
+				tracePaths:     traceUnsubscriber + traceCallback,
 			},
 		},
 	}
@@ -89,4 +100,14 @@ func TestOption(t *testing.T) {
 			assert.Equal(t, tt.want, to)
 		})
 	}
+
+	extractorFn := func(_ context.Context) propagation.TextMapCarrier { return &propagation.MapCarrier{} }
+
+	t.Run("TextMapCarrierExtractor", func(t *testing.T) {
+		to := defaultOptions()
+
+		WithTextMapCarrierExtractFunc(extractorFn)(to)
+
+		assert.Equal(t, fmt.Sprintf("%p", extractorFn), fmt.Sprintf("%p", to.textMapCarrierExtractor))
+	})
 }

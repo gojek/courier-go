@@ -21,7 +21,8 @@ const (
 	subscribeMultipleErrMessage = "subscribe multiple error"
 )
 
-func (t *Tracer) subscriber(next courier.Subscriber) courier.Subscriber {
+// SubscriberMiddleware is a courier.SubscriberMiddlewareFunc for tracing subscribe calls.
+func (t *Tracer) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber {
 	return courier.NewSubscriberFuncs(
 		func(ctx context.Context, topic string, callback courier.MessageHandler, opts ...courier.Option) error {
 			traceOpts := []trace.SpanStartOption{
@@ -71,6 +72,10 @@ func (t *Tracer) instrumentCallback(in courier.MessageHandler) courier.MessageHa
 		spanName := "UnknownSubscribeCallback"
 		if fnPtr := runtime.FuncForPC(reflect.ValueOf(in).Pointer()); fnPtr != nil {
 			spanName = fnPtr.Name()
+		}
+
+		if t.textMapCarrierFunc != nil {
+			ctx = t.propagator.Extract(ctx, t.textMapCarrierFunc(ctx))
 		}
 
 		ctx, span := t.tracer.Start(ctx, spanName)

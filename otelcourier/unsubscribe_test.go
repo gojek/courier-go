@@ -26,7 +26,7 @@ func TestUnsubscriberTraceSpan(t *testing.T) {
 	mwf := NewTracer("test-service", WithTracerProvider(tp))
 	uErr := errors.New("error_from_upstream")
 
-	u := mwf.unsubscriber(courier.UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
+	u := mwf.UnsubscriberMiddleware(courier.UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
 		return uErr
 	}))
 

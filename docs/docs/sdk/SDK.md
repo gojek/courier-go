@@ -58,7 +58,7 @@ Package courier contains the client that can be used to interact with the courie
 - [type EncoderFunc](<#type-encoderfunc>)
 - [type Message](<#type-message>)
   - [func NewMessageWithDecoder(payloadDecoder Decoder) *Message](<#func-newmessagewithdecoder>)
-  - [func (m Message) DecodePayload(v interface{}) error](<#func-message-decodepayload>)
+  - [func (m *Message) DecodePayload(v interface{}) error](<#func-message-decodepayload>)
 - [type MessageHandler](<#type-messagehandler>)
 - [type OnConnectHandler](<#type-onconnecthandler>)
 - [type OnConnectionLostHandler](<#type-onconnectionlosthandler>)
@@ -558,10 +558,10 @@ func NewMessageWithDecoder(payloadDecoder Decoder) *Message
 
 NewMessageWithDecoder is a helper to create Message, ideally payloadDecoder should not be mutated once created.
 
-### func \(Message\) [DecodePayload](<https://github.com/gojek/courier-go/blob/main/message.go#L24>)
+### func \(\*Message\) [DecodePayload](<https://github.com/gojek/courier-go/blob/main/message.go#L24>)
 
 ```go
-func (m Message) DecodePayload(v interface{}) error
+func (m *Message) DecodePayload(v interface{}) error
 ```
 
 DecodePayload can decode the message payload bytes into the desired object.

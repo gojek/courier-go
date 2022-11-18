@@ -21,6 +21,6 @@ func NewMessageWithDecoder(
 }
 
 // DecodePayload can decode the message payload bytes into the desired object.
-func (m Message) DecodePayload(v interface{}) error {
+func (m *Message) DecodePayload(v interface{}) error {
 	return m.payloadDecoder.Decode(v)
 }

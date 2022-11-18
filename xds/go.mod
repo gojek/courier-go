@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/envoyproxy/go-control-plane v0.10.1
-	github.com/gojek/courier-go v0.2.1
+	github.com/gojek/courier-go v0.3.0
 	github.com/golang/protobuf v1.5.0
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect

@@ -11,7 +11,7 @@ Package courier contains the client that can be used to interact with the courie
 ## Index
 
 - [Variables](<#variables>)
-- [func ExponentialStartStrategy(ctx context.Context, c *Client, opts ...StartOption)](<#func-exponentialstartstrategy>)
+- [func ExponentialStartStrategy(ctx context.Context, c interface{ Start() error }, opts ...StartOption)](<#func-exponentialstartstrategy>)
 - [func Version() string](<#func-version>)
 - [func WaitForConnection(c ConnectionInformer, waitFor time.Duration, tick time.Duration) bool](<#func-waitforconnection>)
 - [type Client](<#type-client>)
@@ -113,7 +113,7 @@ var (
 ## func [ExponentialStartStrategy](<https://github.com/gojek/courier-go/blob/main/exp_starter.go#L37>)
 
 ```go
-func ExponentialStartStrategy(ctx context.Context, c *Client, opts ...StartOption)
+func ExponentialStartStrategy(ctx context.Context, c interface{ Start() error }, opts ...StartOption)
 ```
 
 ExponentialStartStrategy will keep attempting to call Client.Start in the background and retry on error, it will never exit unless the context used to invoke is cancelled. This will NOT stop the client, that is the responsibility of caller.

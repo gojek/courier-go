@@ -34,7 +34,7 @@ func WithOnRetry(retryFunc func(error)) StartOption {
 // ExponentialStartStrategy will keep attempting to call Client.Start in the background and retry on error,
 // it will never exit unless the context used to invoke is cancelled.
 // This will NOT stop the client, that is the responsibility of caller.
-func ExponentialStartStrategy(ctx context.Context, c *Client, opts ...StartOption) {
+func ExponentialStartStrategy(ctx context.Context, c interface{ Start() error }, opts ...StartOption) {
 	so := startOptions{maxInterval: 30 * time.Second}
 
 	for _, opt := range opts {

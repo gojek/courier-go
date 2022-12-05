@@ -1,6 +1,7 @@
 package courier
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -111,13 +112,30 @@ func (c *Client) Stop() {
 	})
 }
 
-func (c *Client) handleToken(t mqtt.Token, timeoutErr error) error {
-	if !t.WaitTimeout(c.options.writeTimeout) {
-		return timeoutErr
+func (c *Client) handleToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {
+	if err := c.waitForToken(ctx, t, timeoutErr); err != nil {
+		return err
 	}
 
 	if err := t.Error(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (c *Client) waitForToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {
+	if _, ok := ctx.Deadline(); ok {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.Done():
+			return t.Error()
+		}
+	}
+
+	if !t.WaitTimeout(c.options.writeTimeout) {
+		return timeoutErr
 	}
 
 	return nil

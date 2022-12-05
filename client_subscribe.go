@@ -42,7 +42,7 @@ func subscriberFuncs(c *Client) Subscriber {
 			o := composeOptions(opts)
 			c.execute(func(cc mqtt.Client) {
 				t := cc.Subscribe(topic, o.qos, callbackWrapper(c, callback))
-				err = c.handleToken(t, ErrSubscribeTimeout)
+				err = c.handleToken(ctx, t, ErrSubscribeTimeout)
 			})
 
 			return
@@ -50,7 +50,7 @@ func subscriberFuncs(c *Client) Subscriber {
 		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) (err error) {
 			c.execute(func(cc mqtt.Client) {
 				t := cc.SubscribeMultiple(routeFilters(topicsWithQos), callbackWrapper(c, callback))
-				err = c.handleToken(t, ErrSubscribeMultipleTimeout)
+				err = c.handleToken(ctx, t, ErrSubscribeMultipleTimeout)
 			})
 
 			return

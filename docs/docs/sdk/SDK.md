@@ -18,6 +18,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func NewClient(opts ...ClientOption) (*Client, error)](<#func-newclient>)
   - [func (c *Client) IsConnected() (online bool)](<#func-client-isconnected>)
   - [func (c *Client) Publish(ctx context.Context, topic string, message interface{}, opts ...Option) error](<#func-client-publish>)
+  - [func (c *Client) Run(ctx context.Context) error](<#func-client-run>)
   - [func (c *Client) Start() (err error)](<#func-client-start>)
   - [func (c *Client) Stop()](<#func-client-stop>)
   - [func (c *Client) Subscribe(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error](<#func-client-subscribe>)
@@ -217,6 +218,14 @@ func (c *Client) Publish(ctx context.Context, topic string, message interface{},
 ```
 
 Publish allows to publish messages to an MQTT broker
+
+### func \(\*Client\) [Run](<https://github.com/gojek/courier-go/blob/main/client.go#L117>)
+
+```go
+func (c *Client) Run(ctx context.Context) error
+```
+
+Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package. https://pkg.go.dev/github.com/gojekfarm/xrun
 
 ### func \(\*Client\) [Start](<https://github.com/gojek/courier-go/blob/main/client.go#L75>)
 

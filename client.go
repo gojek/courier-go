@@ -112,6 +112,17 @@ func (c *Client) Stop() {
 	})
 }
 
+// Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package.
+// https://pkg.go.dev/github.com/gojekfarm/xrun
+func (c *Client) Run(ctx context.Context) error {
+	if err := c.Start(); err != nil {
+		return err
+	}
+	<-ctx.Done()
+	c.Stop()
+	return nil
+}
+
 func (c *Client) handleToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {
 	if err := c.waitForToken(ctx, t, timeoutErr); err != nil {
 		return err

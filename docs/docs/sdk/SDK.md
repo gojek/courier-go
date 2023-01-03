@@ -203,7 +203,7 @@ NewClient creates the Client struct with the clientOptions provided, it can retu
 </p>
 </details>
 
-### func \(\*Client\) [IsConnected](<https://github.com/gojek/courier-go/blob/main/client.go#L66>)
+### func \(\*Client\) [IsConnected](<https://github.com/gojek/courier-go/blob/main/client.go#L59>)
 
 ```go
 func (c *Client) IsConnected() (online bool)
@@ -219,7 +219,7 @@ func (c *Client) Publish(ctx context.Context, topic string, message interface{},
 
 Publish allows to publish messages to an MQTT broker
 
-### func \(\*Client\) [Run](<https://github.com/gojek/courier-go/blob/main/client.go#L117>)
+### func \(\*Client\) [Run](<https://github.com/gojek/courier-go/blob/main/client.go#L110>)
 
 ```go
 func (c *Client) Run(ctx context.Context) error
@@ -227,7 +227,7 @@ func (c *Client) Run(ctx context.Context) error
 
 Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package. https://pkg.go.dev/github.com/gojekfarm/xrun
 
-### func \(\*Client\) [Start](<https://github.com/gojek/courier-go/blob/main/client.go#L75>)
+### func \(\*Client\) [Start](<https://github.com/gojek/courier-go/blob/main/client.go#L68>)
 
 ```go
 func (c *Client) Start() (err error)
@@ -235,7 +235,7 @@ func (c *Client) Start() (err error)
 
 Start will attempt to connect to the broker.
 
-### func \(\*Client\) [Stop](<https://github.com/gojek/courier-go/blob/main/client.go#L109>)
+### func \(\*Client\) [Stop](<https://github.com/gojek/courier-go/blob/main/client.go#L102>)
 
 ```go
 func (c *Client) Stop()

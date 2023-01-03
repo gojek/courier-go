@@ -55,13 +55,6 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) execute(f func(mqtt.Client)) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	f(c.mqttClient)
-}
-
 // IsConnected checks whether the client is connected to the broker
 func (c *Client) IsConnected() (online bool) {
 	c.execute(func(cc mqtt.Client) {
@@ -121,6 +114,13 @@ func (c *Client) Run(ctx context.Context) error {
 	<-ctx.Done()
 	c.Stop()
 	return nil
+}
+
+func (c *Client) execute(f func(mqtt.Client)) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	f(c.mqttClient)
 }
 
 func (c *Client) handleToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {

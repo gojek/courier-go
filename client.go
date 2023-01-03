@@ -111,8 +111,10 @@ func (c *Client) Run(ctx context.Context) error {
 	if err := c.Start(); err != nil {
 		return err
 	}
+
 	<-ctx.Done()
 	c.Stop()
+
 	return nil
 }
 

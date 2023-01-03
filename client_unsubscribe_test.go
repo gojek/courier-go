@@ -22,6 +22,7 @@ func (s *ClientUnsubscribeSuite) TestUnsubscribe() {
 	topics := []string{"topic1", "topic2"}
 	testcases := []struct {
 		name           string
+		ctxFn          func() (context.Context, context.CancelFunc)
 		pahoMock       func(*mock.Mock) *mockToken
 		wantErr        bool
 		useMiddlewares []UnsubscriberMiddlewareFunc
@@ -64,12 +65,51 @@ func (s *ClientUnsubscribeSuite) TestUnsubscribe() {
 			},
 		},
 		{
-			name: "WaitTimeout",
+			name: "DefaultWaitTimeout",
 			pahoMock: func(m *mock.Mock) *mockToken {
 				t := &mockToken{}
 				t.On("WaitTimeout", 10*time.Second).Return(false)
 				m.On("Unsubscribe", topics).
 					Return(t)
+				return t
+			},
+			wantErr: true,
+		},
+		{
+			name: "ContextDeadline",
+			ctxFn: func() (context.Context, context.CancelFunc) {
+				return context.WithTimeout(context.Background(), time.Second)
+			},
+			pahoMock: func(m *mock.Mock) *mockToken {
+				ch := make(<-chan struct{})
+				t := &mockToken{}
+				t.On("Done").Return(ch)
+
+				m.On("Unsubscribe", topics).Return(t)
+
+				return t
+			},
+			wantErr: true,
+		},
+		{
+			name: "TokenError",
+			ctxFn: func() (context.Context, context.CancelFunc) {
+				return context.WithTimeout(context.Background(), 10*time.Second)
+			},
+			pahoMock: func(m *mock.Mock) *mockToken {
+				ch := make(chan struct{})
+
+				go func() {
+					<-time.After(2 * time.Second)
+					ch <- struct{}{}
+				}()
+
+				t := &mockToken{}
+				t.On("Done").Return(readOnlyChannel(ch))
+				t.On("Error").Return(errors.New("token timed out"))
+
+				m.On("Unsubscribe", topics).Return(t)
+
 				return t
 			},
 			wantErr: true,
@@ -100,7 +140,14 @@ func (s *ClientUnsubscribeSuite) TestUnsubscribe() {
 			c.mqttClient = mc
 			tk := t.pahoMock(&mc.Mock)
 
-			err = c.Unsubscribe(context.Background(), topics...)
+			ctx := context.Background()
+			if t.ctxFn != nil {
+				_ctx, cancel := t.ctxFn()
+				ctx = _ctx
+				defer cancel()
+			}
+
+			err = c.Unsubscribe(ctx, topics...)
 
 			if !t.wantErr {
 				s.NoError(err)

@@ -2,6 +2,7 @@ package courier
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"os"
 	"strconv"
@@ -131,11 +132,10 @@ func (s *ClientSuite) TestStart() {
 			c, err := NewClient(t.opts...)
 			s.NoError(err)
 
-			if err := c.Start(); t.wantErr != nil {
-				s.Equal(t.wantErr, err)
-			} else {
-				s.NoError(err)
-			}
+			ctx, cancel := context.WithCancel(context.Background())
+			errCh := make(chan error, 1)
+
+			go func() { errCh <- c.Run(ctx) }()
 
 			if t.checkConnect {
 				s.Eventually(func() bool {
@@ -143,13 +143,18 @@ func (s *ClientSuite) TestStart() {
 				}, 10*time.Second, 250*time.Millisecond)
 			}
 
-			if t.wantErr == nil {
-				c.Stop()
+			cancel()
+
+			if err := <-errCh; t.wantErr != nil {
+				s.Equal(t.wantErr, err)
+			} else {
+				s.NoError(err)
 			}
 
 			mr.AssertExpectations(s.T())
 		})
 	}
+	newClientFunc.Store(mqtt.NewClient)
 }
 
 func TestNewClientWithResolverOption(t *testing.T) {
@@ -336,4 +341,33 @@ func (m *mockResolver) Done() <-chan struct{} {
 		return ch.(chan struct{})
 	}
 	return nil
+}
+
+func readOnlyChannel(ch chan struct{}) <-chan struct{} {
+	return ch
+}
+
+func Test_formatAddressWithProtocol(t *testing.T) {
+	tests := []struct {
+		name string
+		opts *clientOptions
+		want string
+	}{
+		{
+			name: "TLSConfigNotPresent",
+			opts: &clientOptions{brokerAddress: "localhost:1883"},
+			want: "tcp://localhost:1883",
+		},
+		{
+			name: "TLSConfigPresent",
+			opts: &clientOptions{tlsConfig: &tls.Config{}, brokerAddress: "localhost:1883"},
+			want: "tls://localhost:1883",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, formatAddressWithProtocol(tt.opts), "formatAddressWithProtocol(%v)", tt.opts)
+		})
+	}
 }

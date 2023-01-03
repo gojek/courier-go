@@ -23,6 +23,7 @@ func (s *ClientSubscribeSuite) TestSubscribe() {
 	callback := func(_ context.Context, _ PubSub, _ *Message) {}
 	testcases := []struct {
 		name           string
+		ctxFn          func() (context.Context, context.CancelFunc)
 		pahoMock       func(*mock.Mock) *mockToken
 		wantErr        bool
 		useMiddlewares []SubscriberMiddlewareFunc
@@ -74,12 +75,53 @@ func (s *ClientSubscribeSuite) TestSubscribe() {
 			},
 		},
 		{
-			name: "WaitTimeout",
+			name: "DefaultWaitTimeout",
 			pahoMock: func(m *mock.Mock) *mockToken {
 				t := &mockToken{}
 				t.On("WaitTimeout", 10*time.Second).Return(false)
 				m.On("Subscribe", "topic", byte(QOSOne), mock.AnythingOfType("mqtt.MessageHandler")).
 					Return(t)
+				return t
+			},
+			wantErr: true,
+		},
+		{
+			name: "ContextDeadline",
+			ctxFn: func() (context.Context, context.CancelFunc) {
+				return context.WithTimeout(context.Background(), time.Second)
+			},
+			pahoMock: func(m *mock.Mock) *mockToken {
+				ch := make(<-chan struct{})
+				t := &mockToken{}
+				t.On("Done").Return(ch)
+
+				m.On("Subscribe", "topic", byte(QOSOne), mock.AnythingOfType("mqtt.MessageHandler")).
+					Return(t)
+
+				return t
+			},
+			wantErr: true,
+		},
+		{
+			name: "TokenError",
+			ctxFn: func() (context.Context, context.CancelFunc) {
+				return context.WithTimeout(context.Background(), 10*time.Second)
+			},
+			pahoMock: func(m *mock.Mock) *mockToken {
+				ch := make(chan struct{})
+
+				go func() {
+					<-time.After(2 * time.Second)
+					ch <- struct{}{}
+				}()
+
+				t := &mockToken{}
+				t.On("Done").Return(readOnlyChannel(ch))
+				t.On("Error").Return(errors.New("token timed out"))
+
+				m.On("Subscribe", "topic", byte(QOSOne), mock.AnythingOfType("mqtt.MessageHandler")).
+					Return(t)
+
 				return t
 			},
 			wantErr: true,
@@ -110,7 +152,14 @@ func (s *ClientSubscribeSuite) TestSubscribe() {
 			c.mqttClient = mc
 			tk := t.pahoMock(&mc.Mock)
 
-			err = c.Subscribe(context.Background(), "topic", callback, QOSOne)
+			ctx := context.Background()
+			if t.ctxFn != nil {
+				_ctx, cancel := t.ctxFn()
+				ctx = _ctx
+				defer cancel()
+			}
+
+			err = c.Subscribe(ctx, "topic", callback, QOSOne)
 
 			if !t.wantErr {
 				s.NoError(err)

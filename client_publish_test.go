@@ -23,6 +23,7 @@ func TestClientPublishSuite(t *testing.T) {
 func (s *ClientPublishSuite) TestPublish() {
 	tests := []struct {
 		name           string
+		ctxFn          func() (context.Context, context.CancelFunc)
 		payload        interface{}
 		pahoMock       func(*mock.Mock, interface{}) *mockToken
 		wantErr        bool
@@ -77,13 +78,58 @@ func (s *ClientPublishSuite) TestPublish() {
 			},
 		},
 		{
-			name: "WaitTimeout",
+			name: "DefaultWaitTimeout",
 			pahoMock: func(m *mock.Mock, p interface{}) *mockToken {
 				t := &mockToken{}
 				t.On("WaitTimeout", 10*time.Second).Return(false)
 				buf := bytes.Buffer{}
 				_ = DefaultEncoderFunc(context.TODO(), &buf).Encode(p)
 				m.On("Publish", "topic", byte(QOSOne), false, buf.Bytes()).Return(t)
+				return t
+			},
+			payload: "payload",
+			wantErr: true,
+		},
+		{
+			name: "ContextDeadline",
+			ctxFn: func() (context.Context, context.CancelFunc) {
+				return context.WithTimeout(context.Background(), time.Second)
+			},
+			pahoMock: func(m *mock.Mock, p interface{}) *mockToken {
+				ch := make(<-chan struct{})
+				t := &mockToken{}
+				t.On("Done").Return(ch)
+
+				buf := bytes.Buffer{}
+				_ = DefaultEncoderFunc(context.TODO(), &buf).Encode(p)
+				m.On("Publish", "topic", byte(QOSOne), false, buf.Bytes()).Return(t)
+
+				return t
+			},
+			payload: "payload",
+			wantErr: true,
+		},
+		{
+			name: "TokenError",
+			ctxFn: func() (context.Context, context.CancelFunc) {
+				return context.WithTimeout(context.Background(), 10*time.Second)
+			},
+			pahoMock: func(m *mock.Mock, p interface{}) *mockToken {
+				ch := make(chan struct{})
+
+				go func() {
+					<-time.After(2 * time.Second)
+					ch <- struct{}{}
+				}()
+
+				t := &mockToken{}
+				t.On("Done").Return(readOnlyChannel(ch))
+				t.On("Error").Return(errors.New("token timed out"))
+
+				buf := bytes.Buffer{}
+				_ = DefaultEncoderFunc(context.TODO(), &buf).Encode(p)
+				m.On("Publish", "topic", byte(QOSOne), false, buf.Bytes()).Return(t)
+
 				return t
 			},
 			payload: "payload",
@@ -126,7 +172,14 @@ func (s *ClientPublishSuite) TestPublish() {
 			c.mqttClient = mc
 			tk := t.pahoMock(&mc.Mock, t.payload)
 
-			err = c.Publish(context.Background(), "topic", t.payload, QOSOne)
+			ctx := context.Background()
+			if t.ctxFn != nil {
+				_ctx, cancel := t.ctxFn()
+				ctx = _ctx
+				defer cancel()
+			}
+
+			err = c.Publish(ctx, "topic", t.payload, QOSOne)
 
 			if !t.wantErr {
 				s.NoError(err)

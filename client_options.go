@@ -137,7 +137,9 @@ func WithConnectTimeout(duration time.Duration) ClientOption {
 	})
 }
 
-// WithWriteTimeout limits how long the client will wait when trying to publish or subscribe on topic.
+// WithWriteTimeout limits how long the client will wait when trying to publish, subscribe or unsubscribe on topic
+// when a context deadline is not set while calling Publisher.Publish, Subscriber.Subscribe,
+// Subscriber.SubscribeMultiple or Unsubscriber.Unsubscribe.
 func WithWriteTimeout(duration time.Duration) ClientOption {
 	return optionFunc(func(o *clientOptions) {
 		o.writeTimeout = duration

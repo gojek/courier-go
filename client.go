@@ -1,6 +1,7 @@
 package courier
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -54,13 +55,6 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) execute(f func(mqtt.Client)) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	f(c.mqttClient)
-}
-
 // IsConnected checks whether the client is connected to the broker
 func (c *Client) IsConnected() (online bool) {
 	c.execute(func(cc mqtt.Client) {
@@ -111,13 +105,50 @@ func (c *Client) Stop() {
 	})
 }
 
-func (c *Client) handleToken(t mqtt.Token, timeoutErr error) error {
-	if !t.WaitTimeout(c.options.writeTimeout) {
-		return timeoutErr
+// Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package.
+// https://pkg.go.dev/github.com/gojekfarm/xrun
+func (c *Client) Run(ctx context.Context) error {
+	if err := c.Start(); err != nil {
+		return err
+	}
+
+	<-ctx.Done()
+	c.Stop()
+
+	return nil
+}
+
+func (c *Client) execute(f func(mqtt.Client)) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	f(c.mqttClient)
+}
+
+func (c *Client) handleToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {
+	if err := c.waitForToken(ctx, t, timeoutErr); err != nil {
+		return err
 	}
 
 	if err := t.Error(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (c *Client) waitForToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {
+	if _, ok := ctx.Deadline(); ok {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.Done():
+			return t.Error()
+		}
+	}
+
+	if !t.WaitTimeout(c.options.writeTimeout) {
+		return timeoutErr
 	}
 
 	return nil

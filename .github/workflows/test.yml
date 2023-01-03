@@ -31,6 +31,10 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      - uses: actions/cache@v2
+        with:
+          path: .bin
+          key: ${{ runner.os }}-${{ hashFiles('Makefile') }}
       - name: Install jq
         run: apt update && apt -y install jq
       - name: Test

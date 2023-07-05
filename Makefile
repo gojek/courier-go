@@ -16,7 +16,7 @@ lint: golangci-lint
 ci: test test-cov test-xml
 
 imports: gci
-	@$(call run-go-mod-dir,$(GCI_BIN) write --skip-generated -s standard -s default -s "prefix(github.com/gojek)" github.com/gojek . | { grep -v -e 'skip file .*' || true; },".bin/gci")
+	@$(call run-go-mod-dir,$(GCI_BIN) write --skip-generated -s standard -s default -s "prefix(github.com/gojek)" . | { grep -v -e 'skip file .*' || true; },".bin/gci")
 
 .PHONY: gomod.tidy
 gomod.tidy:

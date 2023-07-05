@@ -10,20 +10,20 @@ Package xds contains the client that can be used to interact with the management
 
 ## Index
 
-- [type Client](<#Client>)
-  - [func NewClient\(opts Options\) \*Client](<#NewClient>)
-  - [func \(c \*Client\) Done\(\) \<\-chan struct\{\}](<#Client.Done>)
-  - [func \(c \*Client\) Receive\(\) \<\-chan \[\]\*v3endpointpb.ClusterLoadAssignment](<#Client.Receive>)
-  - [func \(c \*Client\) Start\(ctx context.Context\) error](<#Client.Start>)
-- [type Options](<#Options>)
-- [type Resolver](<#Resolver>)
-  - [func NewResolver\(rc clusterUpdateReceiver\) \*Resolver](<#NewResolver>)
-  - [func \(r \*Resolver\) Done\(\) \<\-chan struct\{\}](<#Resolver.Done>)
-  - [func \(r \*Resolver\) UpdateChan\(\) \<\-chan \[\]courier.TCPAddress](<#Resolver.UpdateChan>)
+- [type Client](#Client)
+  - [func NewClient\(opts Options\) \*Client](#NewClient)
+  - [func \(c \*Client\) Done\(\) \<\-chan struct\{\}](#Client.Done)
+  - [func \(c \*Client\) Receive\(\) \<\-chan \[\]\*v3endpointpb.ClusterLoadAssignment](#Client.Receive)
+  - [func \(c \*Client\) Start\(ctx context.Context\) error](#Client.Start)
+- [type Options](#Options)
+- [type Resolver](#Resolver)
+  - [func NewResolver\(rc clusterUpdateReceiver\) \*Resolver](#NewResolver)
+  - [func \(r \*Resolver\) Done\(\) \<\-chan struct\{\}](#Resolver.Done)
+  - [func \(r \*Resolver\) UpdateChan\(\) \<\-chan \[\]courier.TCPAddress](#Resolver.UpdateChan)
 
 
 <a name="Client"></a>
-## type [Client](<https://github.com/gojek/courier-go/blob/main/xds/client.go#L69-L80>)
+## type [Client](https://github.com/gojek/courier-go/blob/main/xds/client.go#L69-L80)
 
 Client performs the actual ADS RPCs using the ADS v3 API. It creates an ADS stream on which the xdsTarget resources are received.
 
@@ -34,7 +34,7 @@ type Client struct {
 ```
 
 <a name="NewClient"></a>
-### func [NewClient](<https://github.com/gojek/courier-go/blob/main/xds/client.go#L40>)
+### func [NewClient](https://github.com/gojek/courier-go/blob/main/xds/client.go#L40)
 
 ```go
 func NewClient(opts Options) *Client
@@ -43,7 +43,7 @@ func NewClient(opts Options) *Client
 NewClient returns a new ADS client stream using the \*grpc.ClientConn provided.
 
 <a name="Client.Done"></a>
-### func \(\*Client\) [Done](<https://github.com/gojek/courier-go/blob/main/xds/client.go#L88>)
+### func \(\*Client\) [Done](https://github.com/gojek/courier-go/blob/main/xds/client.go#L88)
 
 ```go
 func (c *Client) Done() <-chan struct{}
@@ -52,7 +52,7 @@ func (c *Client) Done() <-chan struct{}
 Done returns a channel which is closed when the run loop stops due to context expiry
 
 <a name="Client.Receive"></a>
-### func \(\*Client\) [Receive](<https://github.com/gojek/courier-go/blob/main/xds/client.go#L83>)
+### func \(\*Client\) [Receive](https://github.com/gojek/courier-go/blob/main/xds/client.go#L83)
 
 ```go
 func (c *Client) Receive() <-chan []*v3endpointpb.ClusterLoadAssignment
@@ -61,7 +61,7 @@ func (c *Client) Receive() <-chan []*v3endpointpb.ClusterLoadAssignment
 Receive returns a channel where ClusterLoadAssignment resource updates can be received
 
 <a name="Client.Start"></a>
-### func \(\*Client\) [Start](<https://github.com/gojek/courier-go/blob/main/xds/client.go#L93>)
+### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/xds/client.go#L93)
 
 ```go
 func (c *Client) Start(ctx context.Context) error
@@ -70,7 +70,7 @@ func (c *Client) Start(ctx context.Context) error
 Start will wait updates from control plane, it is non\-blocking
 
 <a name="Options"></a>
-## type [Options](<https://github.com/gojek/courier-go/blob/main/xds/client.go#L31-L37>)
+## type [Options](https://github.com/gojek/courier-go/blob/main/xds/client.go#L31-L37)
 
 Options specifies options to be provided for initialising the xds client
 
@@ -85,7 +85,7 @@ type Options struct {
 ```
 
 <a name="Resolver"></a>
-## type [Resolver](<https://github.com/gojek/courier-go/blob/main/xds/resolver.go#L17-L20>)
+## type [Resolver](https://github.com/gojek/courier-go/blob/main/xds/resolver.go#L17-L20)
 
 Resolver sends updates to via the channel returned by UpdateChan\(\)
 
@@ -96,7 +96,7 @@ type Resolver struct {
 ```
 
 <a name="NewResolver"></a>
-### func [NewResolver](<https://github.com/gojek/courier-go/blob/main/xds/resolver.go#L23>)
+### func [NewResolver](https://github.com/gojek/courier-go/blob/main/xds/resolver.go#L23)
 
 ```go
 func NewResolver(rc clusterUpdateReceiver) *Resolver
@@ -167,7 +167,7 @@ if err := c.Start(); err != nil {
 </details>
 
 <a name="Resolver.Done"></a>
-### func \(\*Resolver\) [Done](<https://github.com/gojek/courier-go/blob/main/xds/resolver.go#L40>)
+### func \(\*Resolver\) [Done](https://github.com/gojek/courier-go/blob/main/xds/resolver.go#L40)
 
 ```go
 func (r *Resolver) Done() <-chan struct{}
@@ -176,7 +176,7 @@ func (r *Resolver) Done() <-chan struct{}
 Done returns a channel which is closed when the underlying clusterUpdateReceiver is marked as done
 
 <a name="Resolver.UpdateChan"></a>
-### func \(\*Resolver\) [UpdateChan](<https://github.com/gojek/courier-go/blob/main/xds/resolver.go#L35>)
+### func \(\*Resolver\) [UpdateChan](https://github.com/gojek/courier-go/blob/main/xds/resolver.go#L35)
 
 ```go
 func (r *Resolver) UpdateChan() <-chan []courier.TCPAddress
@@ -184,4 +184,4 @@ func (r *Resolver) UpdateChan() <-chan []courier.TCPAddress
 
 UpdateChan returns a channel where \[\]courier.TCPAddress can be received
 
-Generated by [gomarkdoc](<https://github.com/princjef/gomarkdoc>)
+Generated by [gomarkdoc](https://github.com/ajatprabha/gomarkdoc)

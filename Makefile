@@ -55,7 +55,7 @@ gci:
 	$(call install-if-needed,GCI_BIN,github.com/daixiang0/gci,v0.10.1)
 
 godoc:
-	$(call install-if-needed,GODOC,github.com/princjef/gomarkdoc/cmd/gomarkdoc,v1.1.0)
+	$(call install-if-needed,GODOC,github.com/ajatprabha/gomarkdoc/cmd/gomarkdoc,master)
 
 GOCOV = $(shell pwd)/.bin/gocov
 gocov:

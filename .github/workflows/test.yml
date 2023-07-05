@@ -2,8 +2,8 @@ name: build
 
 on:
   push:
-    tags: [ v\d+.\d+.\d+ ]
-    branches: [ main ]
+    tags: [v\d+.\d+.\d+]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -12,41 +12,43 @@ jobs:
     container: golang:1.20
     strategy:
       matrix:
-        go-version: [ 1.19.x, 1.20.x ]
+        go-version: [1.19.x, 1.20.x]
     services:
       mqtt:
         image: emqx/emqx:latest
         ports:
-          - 1883:1883
+        - 1883:1883
     steps:
-      - name: Install Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ matrix.go-version }}
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Go mod cache
-        uses: actions/cache@v3
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - name: Tools bin cache
-        uses: actions/cache@v3
-        with:
-          path: .bin
-          key: ${{ runner.os }}-${{ hashFiles('Makefile') }}
-      - name: Install jq
-        run: apt update && apt -y install jq
-      - name: Test
-        run: make ci
-        env:
-          BROKER_ADDRESS: 'mqtt:1883'
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          fail_ci_if_error: true
-          verbose: true
+    - name: Install Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Go mod cache
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    - name: Tools bin cache
+      uses: actions/cache@v3
+      with:
+        path: .bin
+        key: ${{ runner.os }}-${{ hashFiles('Makefile') }}
+    - name: Install jq
+      run: apt update && apt -y install jq
+    - name: Test
+      run: make ci
+      env:
+        BROKER_ADDRESS: 'mqtt:1883'
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage.xml
+        fail_ci_if_error: true
+        verbose: true

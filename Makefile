@@ -1,5 +1,7 @@
 ALL_GO_MOD_DIRS := $(shell find . -type f -name 'go.mod' -exec dirname {} \; | sort)
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+LOCAL_GO_BIN_DIR := $(PROJECT_DIR)/.bin
+BIN_DIR := $(if $(LOCAL_GO_BIN_DIR),$(LOCAL_GO_BIN_DIR),$(GOPATH)/bin)
 
 fmt:
 	@$(call run-go-mod-dir,go vet ./...,"go fmt")
@@ -14,7 +16,7 @@ lint: golangci-lint
 ci: test test-cov test-xml
 
 imports: gci
-	@$(call run-go-mod-dir,$(GCI) -w -local github.com/gojek ./ | { grep -v -e 'skip file .*' || true; },".bin/gci")
+	@$(call run-go-mod-dir,$(GCI_BIN) write --skip-generated -s standard -s default -s "prefix(github.com/gojek)" github.com/gojek . | { grep -v -e 'skip file .*' || true; },".bin/gci")
 
 .PHONY: gomod.tidy
 gomod.tidy:
@@ -46,37 +48,36 @@ docs: godoc
 
 # ========= Helpers ===========
 
-GOLANGCI_LINT = $(shell pwd)/.bin/golangci-lint
 golangci-lint:
-	$(call go-get-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.44.2)
+	$(call install-if-needed,GOLANGCI_LINT,github.com/golangci/golangci-lint/cmd/golangci-lint,v1.53.3)
 
-GCI = $(shell pwd)/.bin/gci
 gci:
-	$(call go-get-tool,$(GCI),github.com/daixiang0/gci@v0.2.9)
+	$(call install-if-needed,GCI_BIN,github.com/daixiang0/gci,v0.10.1)
 
-GODOC = $(shell pwd)/.bin/gomarkdoc
 godoc:
-	$(call go-get-tool,$(GODOC),github.com/princjef/gomarkdoc/cmd/gomarkdoc)
+	$(call install-if-needed,GODOC,github.com/princjef/gomarkdoc/cmd/gomarkdoc,v1.1.0)
 
 GOCOV = $(shell pwd)/.bin/gocov
 gocov:
-	$(call go-get-tool,$(GOCOV),github.com/axw/gocov/gocov@v1.0.0)
+	$(call install-if-needed,GOCOV,github.com/axw/gocov/gocov,v1.0.0)
 
-GOCOVXML = $(shell pwd)/.bin/gocov-xml
 gocov-xml:
-	$(call go-get-tool,$(GOCOVXML),github.com/AlekSi/gocov-xml@v1.0.0)
+	$(call install-if-needed,GOCOVXML,github.com/AlekSi/gocov-xml,v1.0.0)
 
-# go-get-tool will 'go get' any package $2 and install it to $1.
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/.bin go get $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
+is-available = $(if $(wildcard $(LOCAL_GO_BIN_DIR)/$(1)),$(LOCAL_GO_BIN_DIR)/$(1),$(if $(shell command -v $(1) 2> /dev/null),yes,no))
+
+define install-if-needed
+	@if [ ! -f "$(BIN_DIR)/$(notdir $(2))" ]; then \
+    	echo "Installing $(2)@$(3) in $(BIN_DIR)" ;\
+    	set -e ;\
+    	TMP_DIR=$$(mktemp -d) ;\
+    	cd $$TMP_DIR ;\
+    	go mod init tmp ;\
+    	go get $(2)@$(3) ;\
+    	go build -o $(BIN_DIR)/$(notdir $(2)) $(2);\
+    	rm -rf $$TMP_DIR ;\
+	fi
+	$(eval $1 := $(BIN_DIR)/$(notdir $(2)))
 endef
 
 # run-go-mod-dir runs the given $1 command in all the directories with

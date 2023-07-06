@@ -26,13 +26,6 @@ jobs:
     - name: Add .git to safe paths
       run: |
         git config --global --add safe.directory $GITHUB_WORKSPACE
-    - name: Debug .git
-      run: |
-        ls -al .
-        ls -al .git
-        git log -1
-        git status
-        git branch -vv
     - name: Install Go
       uses: actions/setup-go@v4
       with:

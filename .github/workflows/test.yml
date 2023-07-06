@@ -39,7 +39,7 @@ jobs:
         path: .bin
         key: ${{ runner.os }}-${{ hashFiles('Makefile') }}
     - name: Install jq
-      run: apt update && apt -y install jq
+      uses: dcarbone/install-jq-action@v1.0.1
     - name: Test
       run: make ci
       env:

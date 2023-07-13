@@ -37,16 +37,16 @@ test-xml: test-cov gocov-xml
 	@jq -n '{ Packages: [ inputs.Packages ] | add }' $(shell find . -type f -name 'coverage.json' | sort) | $(GOCOVXML) > coverage.xml
 
 .PHONY: check
-check: fmt vet lint imports gen-docs
+check: fmt vet lint imports docs
 	@git diff --quiet || test $$(git diff --name-only | grep -v -e 'go.mod$$' -e 'go.sum$$' | wc -l) -eq 0 || ( echo "The following changes (result of code generators and code checks) have been detected:" && git --no-pager diff && false ) # fail if Git working tree is dirty
 
-docs: godoc
+gen-docs: godoc
 	@$(GODOC) --repository.default-branch main --repository.path / \
 		--output './docs/docs/sdk/{{.ImportPath}}.md' ./...
 	@mv ./docs/docs/sdk/.md ./docs/docs/sdk/SDK.md
 	@mv ./docs/docs/sdk/xds.md ./docs/docs/sdk/xds/xDS.md
 
-gen-docs: docs fix-md-href
+docs: gen-docs fix-md-href
 
 fix-md-href:
 	@echo "Replacing pattern in .md files..."
@@ -63,7 +63,6 @@ gci:
 godoc:
 	$(call install-if-needed,GODOC,github.com/princjef/gomarkdoc/cmd/gomarkdoc,v1.1.0)
 
-GOCOV = $(shell pwd)/.bin/gocov
 gocov:
 	$(call install-if-needed,GOCOV,github.com/axw/gocov/gocov,v1.0.0)
 

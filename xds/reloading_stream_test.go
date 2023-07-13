@@ -235,7 +235,8 @@ func Test_reloadingStream_Recv(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	for _, s := range tests {
+		tt := s
 		t.Run(tt.name, func(t *testing.T) {
 			mads := newMockADSClient(t)
 			if tt.newStream != nil {

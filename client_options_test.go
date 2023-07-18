@@ -20,6 +20,7 @@ func TestClientOptionSuite(t *testing.T) {
 func (s *ClientOptionSuite) Test_apply() {
 	store := NewMemoryStore()
 	r := resolver{}
+	mc := newMockCredentialFetcher(s.T())
 
 	tests := []struct {
 		name   string
@@ -100,6 +101,11 @@ func (s *ClientOptionSuite) Test_apply() {
 			name:   "WithResolver",
 			option: WithResolver(r),
 			want:   &clientOptions{resolver: r},
+		},
+		{
+			name:   "WithCredentialFetcher",
+			option: WithCredentialFetcher(mc),
+			want:   &clientOptions{credentialFetcher: mc},
 		},
 		{
 			name:   "WithExponentialStartOptions",
@@ -192,6 +198,7 @@ func (s *ClientOptionSuite) Test_defaultOptions() {
 		maxReconnectInterval:   5 * time.Minute,
 		gracefulShutdownPeriod: 30 * time.Second,
 		keepAlive:              60 * time.Second,
+		credentialFetchTimeout: 10 * time.Second,
 		newEncoder:             DefaultEncoderFunc,
 		newDecoder:             DefaultDecoderFunc,
 		store:                  inMemoryPersistence,

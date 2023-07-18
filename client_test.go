@@ -196,6 +196,37 @@ func TestNewClientWithResolverOption(t *testing.T) {
 	mr.AssertExpectations(t)
 }
 
+func TestNewClientWithCredentialFetcher(t *testing.T) {
+	mcf := newMockCredentialFetcher(t)
+	mcf.On("Credentials", mock.Anything).Return(&Credential{
+		Username: "username",
+		Password: "password",
+	}, nil)
+
+	newClientFunc.Store(func(opts *mqtt.ClientOptions) mqtt.Client {
+		assert.Equal(t, "username", opts.Username)
+		assert.Equal(t, "password", opts.Password)
+		return mqtt.NewClient(opts)
+	})
+	defer func() {
+		newClientFunc.Store(mqtt.NewClient)
+	}()
+
+	c, err := NewClient(append(defOpts, WithCredentialFetcher(mcf))...)
+
+	assert.NoError(t, c.Start())
+	mcf.AssertExpectations(t)
+
+	assert.Eventually(t, func() bool {
+		return c.IsConnected()
+	}, 10*time.Second, 250*time.Millisecond)
+
+	c.Stop()
+
+	assert.NoError(t, err)
+	mcf.AssertExpectations(t)
+}
+
 func TestNewClientWithExponentialStartOptions(t *testing.T) {
 	c, err := NewClient(append(defOpts, WithExponentialStartOptions(WithMaxInterval(10*time.Second)))...)
 	assert.NoError(t, err)

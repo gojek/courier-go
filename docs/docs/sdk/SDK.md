@@ -33,6 +33,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func WithCleanSession\(cleanSession bool\) ClientOption](#WithCleanSession)
   - [func WithClientID\(clientID string\) ClientOption](#WithClientID)
   - [func WithConnectTimeout\(duration time.Duration\) ClientOption](#WithConnectTimeout)
+  - [func WithCredentialFetcher\(fetcher CredentialFetcher\) ClientOption](#WithCredentialFetcher)
   - [func WithCustomDecoder\(decoderFunc DecoderFunc\) ClientOption](#WithCustomDecoder)
   - [func WithCustomEncoder\(encoderFunc EncoderFunc\) ClientOption](#WithCustomEncoder)
   - [func WithExponentialStartOptions\(options ...StartOption\) ClientOption](#WithExponentialStartOptions)
@@ -52,6 +53,8 @@ Package courier contains the client that can be used to interact with the courie
   - [func WithUsername\(username string\) ClientOption](#WithUsername)
   - [func WithWriteTimeout\(duration time.Duration\) ClientOption](#WithWriteTimeout)
 - [type ConnectionInformer](#ConnectionInformer)
+- [type Credential](#Credential)
+- [type CredentialFetcher](#CredentialFetcher)
 - [type Decoder](#Decoder)
   - [func DefaultDecoderFunc\(\_ context.Context, r io.Reader\) Decoder](#DefaultDecoderFunc)
 - [type DecoderFunc](#DecoderFunc)
@@ -366,6 +369,15 @@ func WithConnectTimeout(duration time.Duration) ClientOption
 
 WithConnectTimeout limits how long the client will wait when trying to open a connection to an MQTT server before timing out. A duration of 0 never times out. Default 15 seconds.
 
+<a name="WithCredentialFetcher"></a>
+### func [WithCredentialFetcher](https://github.com/gojek/courier-go/blob/main/client_credentials.go#L17)
+
+```go
+func WithCredentialFetcher(fetcher CredentialFetcher) ClientOption
+```
+
+WithCredentialFetcher sets the specified CredentialFetcher.
+
 <a name="WithCustomDecoder"></a>
 ### func [WithCustomDecoder](https://github.com/gojek/courier-go/blob/main/client_options.go#L176)
 
@@ -539,6 +551,29 @@ ConnectionInformer can be used to get information about the connection
 type ConnectionInformer interface {
     // IsConnected checks whether the client is connected to the broker
     IsConnected() bool
+}
+```
+
+<a name="Credential"></a>
+## type [Credential](https://github.com/gojek/courier-go/blob/main/client_credentials.go#L6-L9)
+
+Credential is a \<username,password\> pair.
+
+```go
+type Credential struct {
+    Username string
+    Password string
+}
+```
+
+<a name="CredentialFetcher"></a>
+## type [CredentialFetcher](https://github.com/gojek/courier-go/blob/main/client_credentials.go#L12-L14)
+
+CredentialFetcher is an interface that allows to fetch credentials for a client.
+
+```go
+type CredentialFetcher interface {
+    Credentials(context.Context) (*Credential, error)
 }
 ```
 

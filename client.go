@@ -108,8 +108,12 @@ func (c *Client) Stop() {
 // Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package.
 // https://pkg.go.dev/github.com/gojekfarm/xrun
 func (c *Client) Run(ctx context.Context) error {
-	if err := c.Start(); err != nil {
-		return err
+	if c.options.startOptions != nil {
+		exponentialStartStrategy(ctx, c, c.options.startOptions)
+	} else {
+		if err := c.Start(); err != nil {
+			return err
+		}
 	}
 
 	<-ctx.Done()

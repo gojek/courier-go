@@ -5,11 +5,6 @@ import (
 	"time"
 )
 
-type startOptions struct {
-	onRetry     func(error)
-	maxInterval time.Duration
-}
-
 // StartOption can be used to customise behaviour of ExponentialStartStrategy
 type StartOption func(*startOptions)
 
@@ -35,13 +30,22 @@ func WithOnRetry(retryFunc func(error)) StartOption {
 // it will never exit unless the context used to invoke is cancelled.
 // This will NOT stop the client, that is the responsibility of caller.
 func ExponentialStartStrategy(ctx context.Context, c interface{ Start() error }, opts ...StartOption) {
-	so := startOptions{maxInterval: 30 * time.Second}
+	so := defaultStartOptions()
 
 	for _, opt := range opts {
-		opt(&so)
+		opt(so)
 	}
 
-	exponentialStartStrategy(ctx, c, &so)
+	exponentialStartStrategy(ctx, c, so)
+}
+
+type startOptions struct {
+	onRetry     func(error)
+	maxInterval time.Duration
+}
+
+func defaultStartOptions() *startOptions {
+	return &startOptions{maxInterval: 30 * time.Second}
 }
 
 func exponentialStartStrategy(ctx context.Context, c interface{ Start() error }, so *startOptions) {

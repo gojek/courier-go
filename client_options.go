@@ -187,7 +187,7 @@ func WithUseBase64Decoder() ClientOption {
 // along with the passed StartOption(s) when using the Client.Run method.
 func WithExponentialStartOptions(options ...StartOption) ClientOption {
 	return optionFunc(func(o *clientOptions) {
-		o.startOptions = &startOptions{}
+		o.startOptions = defaultStartOptions()
 		for _, opt := range options {
 			opt(o.startOptions)
 		}

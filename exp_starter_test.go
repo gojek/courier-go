@@ -2,12 +2,14 @@ package courier
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -149,4 +151,11 @@ func (s *ExponentialStartStrategySuite) TestReconnectAttemptOnFailureBeyondMaxTi
 
 	tk.AssertExpectations(s.T())
 	s.mockClient.AssertExpectations(s.T())
+}
+
+func Test_defaultStartOptions(t *testing.T) {
+	so := &startOptions{maxInterval: 30 * time.Second}
+	val1 := fmt.Sprintf("%v", so)
+	val2 := fmt.Sprintf("%v", defaultStartOptions())
+	assert.Equal(t, val2, val1)
 }

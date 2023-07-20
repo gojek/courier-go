@@ -115,7 +115,7 @@ var (
 ```
 
 <a name="ExponentialStartStrategy"></a>
-## func [ExponentialStartStrategy](https://github.com/gojek/courier-go/blob/main/exp_starter.go#L37)
+## func [ExponentialStartStrategy](https://github.com/gojek/courier-go/blob/main/exp_starter.go#L32)
 
 ```go
 func ExponentialStartStrategy(ctx context.Context, c interface{ Start() error }, opts ...StartOption)
@@ -791,7 +791,7 @@ type Retained bool
 ```
 
 <a name="StartOption"></a>
-## type [StartOption](https://github.com/gojek/courier-go/blob/main/exp_starter.go#L14)
+## type [StartOption](https://github.com/gojek/courier-go/blob/main/exp_starter.go#L9)
 
 StartOption can be used to customise behaviour of ExponentialStartStrategy
 
@@ -800,7 +800,7 @@ type StartOption func(*startOptions)
 ```
 
 <a name="WithMaxInterval"></a>
-### func [WithMaxInterval](https://github.com/gojek/courier-go/blob/main/exp_starter.go#L18)
+### func [WithMaxInterval](https://github.com/gojek/courier-go/blob/main/exp_starter.go#L13)
 
 ```go
 func WithMaxInterval(interval time.Duration) StartOption
@@ -809,7 +809,7 @@ func WithMaxInterval(interval time.Duration) StartOption
 WithMaxInterval sets the maximum interval the retry logic will wait before attempting another Client.Start, Default is 30 seconds
 
 <a name="WithOnRetry"></a>
-### func [WithOnRetry](https://github.com/gojek/courier-go/blob/main/exp_starter.go#L28)
+### func [WithOnRetry](https://github.com/gojek/courier-go/blob/main/exp_starter.go#L23)
 
 ```go
 func WithOnRetry(retryFunc func(error)) StartOption

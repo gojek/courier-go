@@ -41,6 +41,10 @@ func ExponentialStartStrategy(ctx context.Context, c interface{ Start() error },
 		opt(&so)
 	}
 
+	exponentialStartStrategy(ctx, c, &so)
+}
+
+func exponentialStartStrategy(ctx context.Context, c interface{ Start() error }, so *startOptions) {
 	nextRetryInterval := 100 * time.Millisecond
 	errCh := make(chan error, 1)
 

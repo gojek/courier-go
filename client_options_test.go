@@ -101,6 +101,11 @@ func (s *ClientOptionSuite) Test_apply() {
 			option: WithResolver(r),
 			want:   &clientOptions{resolver: r},
 		},
+		{
+			name:   "WithExponentialStartOptions",
+			option: WithExponentialStartOptions(WithMaxInterval(time.Second)),
+			want:   &clientOptions{startOptions: &startOptions{maxInterval: time.Second}},
+		},
 	}
 
 	for _, t := range tests {

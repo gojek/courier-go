@@ -35,6 +35,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func WithConnectTimeout\(duration time.Duration\) ClientOption](#WithConnectTimeout)
   - [func WithCustomDecoder\(decoderFunc DecoderFunc\) ClientOption](#WithCustomDecoder)
   - [func WithCustomEncoder\(encoderFunc EncoderFunc\) ClientOption](#WithCustomEncoder)
+  - [func WithExponentialStartOptions\(options ...StartOption\) ClientOption](#WithExponentialStartOptions)
   - [func WithGracefulShutdownPeriod\(duration time.Duration\) ClientOption](#WithGracefulShutdownPeriod)
   - [func WithKeepAlive\(duration time.Duration\) ClientOption](#WithKeepAlive)
   - [func WithMaintainOrder\(maintainOrder bool\) ClientOption](#WithMaintainOrder)
@@ -382,6 +383,15 @@ func WithCustomEncoder(encoderFunc EncoderFunc) ClientOption
 ```
 
 WithCustomEncoder allows to transform objects into the desired message bytes.
+
+<a name="WithExponentialStartOptions"></a>
+### func [WithExponentialStartOptions](https://github.com/gojek/courier-go/blob/main/client_options.go#L188)
+
+```go
+func WithExponentialStartOptions(options ...StartOption) ClientOption
+```
+
+WithExponentialStartOptions configures the client to use ExponentialStartStrategy along with the passed StartOption\(s\) when using the Client.Run method.
 
 <a name="WithGracefulShutdownPeriod"></a>
 ### func [WithGracefulShutdownPeriod](https://github.com/gojek/courier-go/blob/main/client_options.go#L158)

@@ -183,6 +183,17 @@ func WithUseBase64Decoder() ClientOption {
 	})
 }
 
+// WithExponentialStartOptions configures the client to use ExponentialStartStrategy
+// along with the passed StartOption(s) when using the Client.Run method.
+func WithExponentialStartOptions(options ...StartOption) ClientOption {
+	return optionFunc(func(o *clientOptions) {
+		o.startOptions = &startOptions{}
+		for _, opt := range options {
+			opt(o.startOptions)
+		}
+	})
+}
+
 type clientOptions struct {
 	username, clientID, password,
 	brokerAddress string
@@ -194,6 +205,8 @@ type clientOptions struct {
 
 	connectTimeout, writeTimeout, keepAlive,
 	maxReconnectInterval, gracefulShutdownPeriod time.Duration
+
+	startOptions *startOptions
 
 	onConnectHandler        OnConnectHandler
 	onConnectionLostHandler OnConnectionLostHandler

@@ -196,6 +196,22 @@ func TestNewClientWithResolverOption(t *testing.T) {
 	mr.AssertExpectations(t)
 }
 
+func TestNewClientWithExponentialStartOptions(t *testing.T) {
+	c, err := NewClient(append(defOpts, WithExponentialStartOptions(WithMaxInterval(10*time.Second)))...)
+	assert.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+
+	go func() { errCh <- c.Run(ctx) }()
+
+	assert.Eventually(t, func() bool { return c.IsConnected() }, 10*time.Second, 250*time.Millisecond)
+
+	cancel()
+
+	assert.NoError(t, <-errCh)
+}
+
 func TestNewClient(t *testing.T) {
 	cc, err := NewClient()
 	assert.EqualError(t, err, "at least WithAddress or WithResolver ClientOption should be used")

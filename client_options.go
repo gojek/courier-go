@@ -197,14 +197,16 @@ func WithExponentialStartOptions(options ...StartOption) ClientOption {
 type clientOptions struct {
 	username, clientID, password,
 	brokerAddress string
-	resolver Resolver
+	resolver          Resolver
+	credentialFetcher CredentialFetcher
 
 	tlsConfig *tls.Config
 
 	autoReconnect, maintainOrder, cleanSession bool
 
 	connectTimeout, writeTimeout, keepAlive,
-	maxReconnectInterval, gracefulShutdownPeriod time.Duration
+	maxReconnectInterval, gracefulShutdownPeriod,
+	credentialFetchTimeout time.Duration
 
 	startOptions *startOptions
 
@@ -230,6 +232,7 @@ func defaultClientOptions() *clientOptions {
 		maxReconnectInterval:   5 * time.Minute,
 		gracefulShutdownPeriod: 30 * time.Second,
 		keepAlive:              60 * time.Second,
+		credentialFetchTimeout: 10 * time.Second,
 		newEncoder:             DefaultEncoderFunc,
 		newDecoder:             DefaultDecoderFunc,
 		store:                  inMemoryPersistence,

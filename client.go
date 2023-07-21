@@ -167,9 +167,9 @@ func toClientOptions(c *Client, o *clientOptions) *mqtt.ClientOptions {
 		opts.SetClientID(o.clientID)
 	}
 
+	setCredentials(o, opts)
+
 	opts.AddBroker(formatAddressWithProtocol(o)).
-		SetUsername(o.username).
-		SetPassword(o.password).
 		SetTLSConfig(o.tlsConfig).
 		SetAutoReconnect(o.autoReconnect).
 		SetCleanSession(o.cleanSession).
@@ -182,6 +182,23 @@ func toClientOptions(c *Client, o *clientOptions) *mqtt.ClientOptions {
 		SetOnConnectHandler(onConnectHandler(c, o))
 
 	return opts
+}
+
+func setCredentials(o *clientOptions, opts *mqtt.ClientOptions) {
+	if o.credentialFetcher != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), o.credentialFetchTimeout)
+		defer cancel()
+
+		if c, err := o.credentialFetcher.Credentials(ctx); err == nil {
+			opts.SetUsername(c.Username)
+			opts.SetPassword(c.Password)
+
+			return
+		}
+	}
+
+	opts.SetUsername(o.username)
+	opts.SetPassword(o.password)
 }
 
 func formatAddressWithProtocol(opts *clientOptions) string {

@@ -62,6 +62,10 @@ func (c *Client) newClient(addrs []TCPAddress, attempt int) mqtt.Client {
 
 	if err := t.Error(); err != nil {
 		// TODO: add retry backoff or use ExponentialStartStrategy utility
+		if c.options.onConnectionLostHandler != nil {
+			c.options.onConnectionLostHandler(err)
+		}
+
 		return c.newClient(addrs, attempt+1)
 	}
 

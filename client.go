@@ -2,6 +2,7 @@ package courier
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -10,6 +11,9 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
+
+// ErrClientNotInitialized is returned when the client is not initialized
+var ErrClientNotInitialized = errors.New("courier: client not initialized")
 
 var newClientFunc = defaultNewClientFunc()
 
@@ -56,18 +60,19 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 }
 
 // IsConnected checks whether the client is connected to the broker
-func (c *Client) IsConnected() (online bool) {
-	c.execute(func(cc mqtt.Client) {
-		online = cc != nil && cc.IsConnectionOpen()
+func (c *Client) IsConnected() bool {
+	var online bool
+	err := c.execute(func(cc mqtt.Client) {
+		online = cc.IsConnectionOpen()
 	})
 
-	return
+	return err == nil && online
 }
 
 // Start will attempt to connect to the broker.
 func (c *Client) Start() (err error) {
 	if len(c.options.brokerAddress) != 0 {
-		c.execute(func(cc mqtt.Client) {
+		err = c.execute(func(cc mqtt.Client) {
 			t := cc.Connect()
 			if !t.WaitTimeout(c.options.connectTimeout) {
 				err = ErrConnectTimeout
@@ -100,7 +105,7 @@ func (c *Client) Start() (err error) {
 // communication workers. This can only block until the period configured with
 // the ClientOption WithGracefulShutdownPeriod.
 func (c *Client) Stop() {
-	c.execute(func(cc mqtt.Client) {
+	_ = c.execute(func(cc mqtt.Client) {
 		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 	})
 }
@@ -122,11 +127,17 @@ func (c *Client) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) execute(f func(mqtt.Client)) {
+func (c *Client) execute(f func(mqtt.Client)) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
+	if c.mqttClient == nil {
+		return ErrClientNotInitialized
+	}
+
 	f(c.mqttClient)
+
+	return nil
 }
 
 func (c *Client) handleToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {
@@ -167,9 +178,9 @@ func toClientOptions(c *Client, o *clientOptions) *mqtt.ClientOptions {
 		opts.SetClientID(o.clientID)
 	}
 
-	setCredentials(o, opts)
-
 	opts.AddBroker(formatAddressWithProtocol(o)).
+		SetUsername(o.username).
+		SetPassword(o.password).
 		SetTLSConfig(o.tlsConfig).
 		SetAutoReconnect(o.autoReconnect).
 		SetCleanSession(o.cleanSession).
@@ -182,23 +193,6 @@ func toClientOptions(c *Client, o *clientOptions) *mqtt.ClientOptions {
 		SetOnConnectHandler(onConnectHandler(c, o))
 
 	return opts
-}
-
-func setCredentials(o *clientOptions, opts *mqtt.ClientOptions) {
-	if o.credentialFetcher != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), o.credentialFetchTimeout)
-		defer cancel()
-
-		if c, err := o.credentialFetcher.Credentials(ctx); err == nil {
-			opts.SetUsername(c.Username)
-			opts.SetPassword(c.Password)
-
-			return
-		}
-	}
-
-	opts.SetUsername(o.username)
-	opts.SetPassword(o.password)
 }
 
 func formatAddressWithProtocol(opts *clientOptions) string {

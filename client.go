@@ -62,6 +62,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 // IsConnected checks whether the client is connected to the broker
 func (c *Client) IsConnected() bool {
 	var online bool
+
 	err := c.execute(func(cc mqtt.Client) {
 		online = cc.IsConnectionOpen()
 	})

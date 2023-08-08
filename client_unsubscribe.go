@@ -28,10 +28,12 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc) {
 
 func unsubscriberHandler(c *Client) Unsubscriber {
 	return UnsubscriberFunc(func(ctx context.Context, topics ...string) (err error) {
-		err = c.execute(func(cc mqtt.Client) {
+		if e := c.execute(func(cc mqtt.Client) {
 			t := cc.Unsubscribe(topics...)
 			err = c.handleToken(ctx, t, ErrUnsubscribeTimeout)
-		})
+		}); e != nil {
+			err = e
+		}
 
 		return
 	})

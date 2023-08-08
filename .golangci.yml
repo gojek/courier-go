@@ -1,24 +1,19 @@
 linters:
   disable-all: true
   enable:
-    - deadcode
     - errcheck
     - staticcheck
     - unused
     - gosimple
     - ineffassign
     - stylecheck
-    - structcheck
     - typecheck
-    - varcheck
     - unconvert
     - bodyclose
     - dupl
     - goconst
     - gocyclo
     - gofmt
-    - golint
-    - interfacer
     - lll
     - misspell
     - nakedret

@@ -190,6 +190,14 @@ func (s *ClientPublishSuite) TestPublish() {
 			tk.AssertExpectations(s.T())
 		})
 	}
+
+	s.Run("PublishOnUninitializedClient", func() {
+		c := &Client{
+			options: &clientOptions{newEncoder: DefaultEncoderFunc},
+		}
+		c.publisher = publishHandler(c)
+		s.True(errors.Is(c.Publish(context.Background(), "topic", "data"), ErrClientNotInitialized))
+	})
 }
 
 func (s *ClientPublishSuite) TestPublishMiddleware() {

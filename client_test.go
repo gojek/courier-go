@@ -115,6 +115,7 @@ func (s *ClientSuite) TestStart() {
 			wantErr: errConnect,
 		},
 	}
+
 	for _, t := range tests {
 		s.Run(t.name, func() {
 			if t.newClientFunc != nil {
@@ -155,6 +156,13 @@ func (s *ClientSuite) TestStart() {
 		})
 	}
 	newClientFunc.Store(mqtt.NewClient)
+
+	s.Run("WithUninitializedClient", func() {
+		c := &Client{
+			options: &clientOptions{brokerAddress: "localhost:1883"},
+		}
+		s.True(errors.Is(c.Run(context.Background()), ErrClientNotInitialized))
+	})
 }
 
 func TestNewClientWithResolverOption(t *testing.T) {

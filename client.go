@@ -71,16 +71,16 @@ func (c *Client) IsConnected() bool {
 }
 
 // Start will attempt to connect to the broker.
-func (c *Client) Start() (err error) {
+func (c *Client) Start() error {
 	if err := c.runConnect(); err != nil {
 		return err
 	}
 
 	if c.options.resolver != nil {
-		err = c.runResolver()
+		return c.runResolver()
 	}
 
-	return
+	return nil
 }
 
 // Stop will disconnect from the broker and finish up any pending work on internal

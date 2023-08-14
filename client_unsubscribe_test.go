@@ -127,6 +127,7 @@ func (s *ClientUnsubscribeSuite) TestUnsubscribe() {
 			wantErr: true,
 		},
 	}
+
 	for _, t := range testcases {
 		s.Run(t.name, func() {
 			c, err := NewClient(defOpts...)
@@ -158,6 +159,12 @@ func (s *ClientUnsubscribeSuite) TestUnsubscribe() {
 			tk.AssertExpectations(s.T())
 		})
 	}
+
+	s.Run("UnsubscribeOnUninitializedClient", func() {
+		c := &Client{}
+		c.unsubscriber = unsubscriberHandler(c)
+		s.True(errors.Is(c.Unsubscribe(context.Background(), topics...), ErrClientNotInitialized))
+	})
 }
 
 func (s *ClientUnsubscribeSuite) TestUnsubscribeMiddleware() {

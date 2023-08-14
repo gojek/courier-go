@@ -2,6 +2,7 @@ package courier
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -10,6 +11,9 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
+
+// ErrClientNotInitialized is returned when the client is not initialized
+var ErrClientNotInitialized = errors.New("courier: client not initialized")
 
 var newClientFunc = defaultNewClientFunc()
 
@@ -56,54 +60,33 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 }
 
 // IsConnected checks whether the client is connected to the broker
-func (c *Client) IsConnected() (online bool) {
-	c.execute(func(cc mqtt.Client) {
-		online = cc != nil && cc.IsConnectionOpen()
+func (c *Client) IsConnected() bool {
+	var online bool
+
+	err := c.execute(func(cc mqtt.Client) {
+		online = cc.IsConnectionOpen()
 	})
 
-	return
+	return err == nil && online
 }
 
 // Start will attempt to connect to the broker.
-func (c *Client) Start() (err error) {
-	if len(c.options.brokerAddress) != 0 {
-		c.execute(func(cc mqtt.Client) {
-			t := cc.Connect()
-			if !t.WaitTimeout(c.options.connectTimeout) {
-				err = ErrConnectTimeout
-
-				return
-			}
-
-			err = t.Error()
-		})
+func (c *Client) Start() error {
+	if err := c.runConnect(); err != nil {
+		return err
 	}
 
 	if c.options.resolver != nil {
-		// try first connect attempt on start, then start a watcher on channel
-		select {
-		case <-time.After(c.options.connectTimeout):
-			err = ErrConnectTimeout
-
-			return
-		case addrs := <-c.options.resolver.UpdateChan():
-			c.attemptConnection(addrs)
-		}
-
-		go c.watchAddressUpdates(c.options.resolver)
+		return c.runResolver()
 	}
 
-	return
+	return nil
 }
 
 // Stop will disconnect from the broker and finish up any pending work on internal
 // communication workers. This can only block until the period configured with
 // the ClientOption WithGracefulShutdownPeriod.
-func (c *Client) Stop() {
-	c.execute(func(cc mqtt.Client) {
-		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
-	})
-}
+func (c *Client) Stop() { _ = c.stop() }
 
 // Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package.
 // https://pkg.go.dev/github.com/gojekfarm/xrun
@@ -117,16 +100,27 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 
 	<-ctx.Done()
-	c.Stop()
 
-	return nil
+	return c.stop()
 }
 
-func (c *Client) execute(f func(mqtt.Client)) {
+func (c *Client) stop() error {
+	return c.execute(func(cc mqtt.Client) {
+		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+	})
+}
+
+func (c *Client) execute(f func(mqtt.Client)) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
+	if c.mqttClient == nil {
+		return ErrClientNotInitialized
+	}
+
 	f(c.mqttClient)
+
+	return nil
 }
 
 func (c *Client) handleToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {
@@ -156,6 +150,41 @@ func (c *Client) waitForToken(ctx context.Context, t mqtt.Token, timeoutErr erro
 	}
 
 	return nil
+}
+
+func (c *Client) runResolver() error {
+	// try first connect attempt on start, then start a watcher on channel
+	select {
+	case <-time.After(c.options.connectTimeout):
+		return ErrConnectTimeout
+	case addrs := <-c.options.resolver.UpdateChan():
+		c.attemptConnection(addrs)
+	}
+
+	go c.watchAddressUpdates(c.options.resolver)
+
+	return nil
+}
+
+func (c *Client) runConnect() (err error) {
+	if len(c.options.brokerAddress) == 0 {
+		return nil
+	}
+
+	if e := c.execute(func(cc mqtt.Client) {
+		t := cc.Connect()
+		if !t.WaitTimeout(c.options.connectTimeout) {
+			err = ErrConnectTimeout
+
+			return
+		}
+
+		err = t.Error()
+	}); e != nil {
+		err = e
+	}
+
+	return
 }
 
 func toClientOptions(c *Client, o *clientOptions) *mqtt.ClientOptions {

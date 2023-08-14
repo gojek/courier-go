@@ -40,18 +40,22 @@ func subscriberFuncs(c *Client) Subscriber {
 	return NewSubscriberFuncs(
 		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) (err error) {
 			o := composeOptions(opts)
-			c.execute(func(cc mqtt.Client) {
+			if e := c.execute(func(cc mqtt.Client) {
 				t := cc.Subscribe(topic, o.qos, callbackWrapper(c, callback))
 				err = c.handleToken(ctx, t, ErrSubscribeTimeout)
-			})
+			}); e != nil {
+				err = e
+			}
 
 			return
 		},
 		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) (err error) {
-			c.execute(func(cc mqtt.Client) {
+			if e := c.execute(func(cc mqtt.Client) {
 				t := cc.SubscribeMultiple(routeFilters(topicsWithQos), callbackWrapper(c, callback))
 				err = c.handleToken(ctx, t, ErrSubscribeMultipleTimeout)
-			})
+			}); e != nil {
+				err = e
+			}
 
 			return
 		},

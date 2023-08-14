@@ -16,10 +16,10 @@ Package courier contains the client that can be used to interact with the courie
 - [func WaitForConnection\(c ConnectionInformer, waitFor time.Duration, tick time.Duration\) bool](#WaitForConnection)
 - [type Client](#Client)
   - [func NewClient\(opts ...ClientOption\) \(\*Client, error\)](#NewClient)
-  - [func \(c \*Client\) IsConnected\(\) \(online bool\)](#Client.IsConnected)
+  - [func \(c \*Client\) IsConnected\(\) bool](#Client.IsConnected)
   - [func \(c \*Client\) Publish\(ctx context.Context, topic string, message interface\{\}, opts ...Option\) error](#Client.Publish)
   - [func \(c \*Client\) Run\(ctx context.Context\) error](#Client.Run)
-  - [func \(c \*Client\) Start\(\) \(err error\)](#Client.Start)
+  - [func \(c \*Client\) Start\(\) error](#Client.Start)
   - [func \(c \*Client\) Stop\(\)](#Client.Stop)
   - [func \(c \*Client\) Subscribe\(ctx context.Context, topic string, callback MessageHandler, opts ...Option\) error](#Client.Subscribe)
   - [func \(c \*Client\) SubscribeMultiple\(ctx context.Context, topicsWithQos map\[string\]QOSLevel, callback MessageHandler\) error](#Client.SubscribeMultiple)
@@ -117,6 +117,12 @@ var (
 )
 ```
 
+<a name="ErrClientNotInitialized"></a>ErrClientNotInitialized is returned when the client is not initialized
+
+```go
+var ErrClientNotInitialized = errors.New("courier: client not initialized")
+```
+
 <a name="ExponentialStartStrategy"></a>
 ## func [ExponentialStartStrategy](https://github.com/gojek/courier-go/blob/main/exp_starter.go#L32)
 
@@ -145,7 +151,7 @@ func WaitForConnection(c ConnectionInformer, waitFor time.Duration, tick time.Du
 WaitForConnection checks if the Client is connected, it calls ConnectionInformer.IsConnected after every tick and waitFor is the maximum duration it can block. Returns true only when ConnectionInformer.IsConnected returns true
 
 <a name="Client"></a>
-## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L17-L29)
+## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L21-L33)
 
 Client allows to communicate with an MQTT broker
 
@@ -156,7 +162,7 @@ type Client struct {
 ```
 
 <a name="NewClient"></a>
-### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L34)
+### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L38)
 
 ```go
 func NewClient(opts ...ClientOption) (*Client, error)
@@ -215,10 +221,10 @@ c.Stop()
 </details>
 
 <a name="Client.IsConnected"></a>
-### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L59)
+### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L63)
 
 ```go
-func (c *Client) IsConnected() (online bool)
+func (c *Client) IsConnected() bool
 ```
 
 IsConnected checks whether the client is connected to the broker
@@ -233,7 +239,7 @@ func (c *Client) Publish(ctx context.Context, topic string, message interface{},
 Publish allows to publish messages to an MQTT broker
 
 <a name="Client.Run"></a>
-### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L110)
+### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L93)
 
 ```go
 func (c *Client) Run(ctx context.Context) error
@@ -242,16 +248,16 @@ func (c *Client) Run(ctx context.Context) error
 Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package. https://pkg.go.dev/github.com/gojekfarm/xrun
 
 <a name="Client.Start"></a>
-### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L68)
+### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L74)
 
 ```go
-func (c *Client) Start() (err error)
+func (c *Client) Start() error
 ```
 
 Start will attempt to connect to the broker.
 
 <a name="Client.Stop"></a>
-### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L102)
+### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L89)
 
 ```go
 func (c *Client) Stop()

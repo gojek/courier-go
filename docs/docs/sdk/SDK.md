@@ -19,7 +19,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func \(c \*Client\) IsConnected\(\) bool](#Client.IsConnected)
   - [func \(c \*Client\) Publish\(ctx context.Context, topic string, message interface\{\}, opts ...Option\) error](#Client.Publish)
   - [func \(c \*Client\) Run\(ctx context.Context\) error](#Client.Run)
-  - [func \(c \*Client\) Start\(\) \(err error\)](#Client.Start)
+  - [func \(c \*Client\) Start\(\) error](#Client.Start)
   - [func \(c \*Client\) Stop\(\)](#Client.Stop)
   - [func \(c \*Client\) Subscribe\(ctx context.Context, topic string, callback MessageHandler, opts ...Option\) error](#Client.Subscribe)
   - [func \(c \*Client\) SubscribeMultiple\(ctx context.Context, topicsWithQos map\[string\]QOSLevel, callback MessageHandler\) error](#Client.SubscribeMultiple)
@@ -251,7 +251,7 @@ Run will start running the Client. This makes Client compatible with github.com/
 ### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L74)
 
 ```go
-func (c *Client) Start() (err error)
+func (c *Client) Start() error
 ```
 
 Start will attempt to connect to the broker.

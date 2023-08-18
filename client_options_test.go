@@ -126,6 +126,7 @@ func (s *ClientOptionSuite) Test_apply() {
 func (s *ClientOptionSuite) Test_function_based_apply() {
 	emptyErrFunc := func(error) {}
 	clientFunc := func(_ PubSub) {}
+	ssp := func(string) bool { return true }
 
 	tlsConfig := &tls.Config{
 		RootCAs:      nil,
@@ -173,6 +174,11 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 			name:   "WithTLS",
 			option: WithTLS(tlsConfig),
 			want:   &clientOptions{tlsConfig: tlsConfig},
+		},
+		{
+			name:   "SharedSubscriptionPredicate",
+			option: SharedSubscriptionPredicate(ssp),
+			want:   &clientOptions{sharedSubscriptionPredicate: ssp},
 		},
 	}
 

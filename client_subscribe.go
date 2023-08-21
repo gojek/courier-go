@@ -72,26 +72,20 @@ type subscriptionMeta struct {
 
 func subscriberFuncs(c *Client) Subscriber {
 	return NewSubscriberFuncs(
-		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) (err error) {
+		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
 			o := composeOptions(opts)
-			if e := c.execute(func(cc mqtt.Client) {
-				t := cc.Subscribe(topic, o.qos, callbackWrapper(c, callback))
-				err = c.handleToken(ctx, t, ErrSubscribeTimeout)
-			}); e != nil {
-				err = e
-			}
 
-			return
+			return c.execute(func(cc mqtt.Client) error {
+				return c.handleToken(ctx, cc.Subscribe(topic, o.qos, callbackWrapper(c, callback)), ErrSubscribeTimeout)
+			})
 		},
-		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) (err error) {
-			if e := c.execute(func(cc mqtt.Client) {
-				t := cc.SubscribeMultiple(routeFilters(topicsWithQos), callbackWrapper(c, callback))
-				err = c.handleToken(ctx, t, ErrSubscribeMultipleTimeout)
-			}); e != nil {
-				err = e
-			}
-
-			return
+		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error {
+			return c.execute(func(cc mqtt.Client) error {
+				return c.handleToken(ctx, cc.SubscribeMultiple(
+					routeFilters(topicsWithQos),
+					callbackWrapper(c, callback),
+				), ErrSubscribeMultipleTimeout)
+			})
 		},
 	)
 }

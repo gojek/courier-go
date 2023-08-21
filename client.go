@@ -71,13 +71,15 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 
 // IsConnected checks whether the client is connected to the broker
 func (c *Client) IsConnected() bool {
-	var online bool
+	val := &atomic.Bool{}
 
-	err := c.execute(func(cc mqtt.Client) {
-		online = cc.IsConnectionOpen()
-	})
+	return c.execute(func(cc mqtt.Client) error {
+		if cc.IsConnectionOpen() {
+			val.CompareAndSwap(false, true)
+		}
 
-	return err == nil && online
+		return nil
+	}) == nil && val.Load()
 }
 
 // Start will attempt to connect to the broker.
@@ -115,12 +117,14 @@ func (c *Client) Run(ctx context.Context) error {
 }
 
 func (c *Client) stop() error {
-	return c.execute(func(cc mqtt.Client) {
+	return c.execute(func(cc mqtt.Client) error {
 		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+
+		return nil
 	})
 }
 
-func (c *Client) execute(f func(mqtt.Client)) error {
+func (c *Client) execute(f func(mqtt.Client) error) error {
 	c.clientMu.RLock()
 	defer c.clientMu.RUnlock()
 
@@ -129,18 +133,12 @@ func (c *Client) execute(f func(mqtt.Client)) error {
 	}
 
 	if c.options.multiConnectionMode {
-		slice.MapConcurrent(xmap.Values(c.mqttClients), func(cc mqtt.Client) error {
-			f(cc)
-
-			return nil
-		})
-
-		return nil
+		return slice.Reduce(slice.MapConcurrent(xmap.Values(c.mqttClients), func(cc mqtt.Client) error {
+			return f(cc)
+		}), accumulateErrors)
 	}
 
-	f(c.mqttClient)
-
-	return nil
+	return f(c.mqttClient)
 }
 
 func (c *Client) handleToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {
@@ -188,25 +186,19 @@ func (c *Client) runResolver() error {
 	return nil
 }
 
-func (c *Client) runConnect() (err error) {
+func (c *Client) runConnect() error {
 	if len(c.options.brokerAddress) == 0 {
 		return nil
 	}
 
-	if e := c.execute(func(cc mqtt.Client) {
+	return c.execute(func(cc mqtt.Client) error {
 		t := cc.Connect()
 		if !t.WaitTimeout(c.options.connectTimeout) {
-			err = ErrConnectTimeout
-
-			return
+			return ErrConnectTimeout
 		}
 
-		err = t.Error()
-	}); e != nil {
-		err = e
-	}
-
-	return
+		return t.Error()
+	})
 }
 
 func (c *Client) attemptSingleConnection(addrs []TCPAddress) error {

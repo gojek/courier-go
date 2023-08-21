@@ -28,22 +28,17 @@ func (c *Client) UsePublisherMiddleware(mwf ...PublisherMiddlewareFunc) {
 }
 
 func publishHandler(c *Client) Publisher {
-	return PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...Option) (err error) {
+	return PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...Option) error {
 		buf := bytes.Buffer{}
 
-		err = c.options.newEncoder(ctx, &buf).Encode(message)
-		if err != nil {
-			return
+		if err := c.options.newEncoder(ctx, &buf).Encode(message); err != nil {
+			return err
 		}
 
 		o := composeOptions(opts)
-		if e := c.execute(func(cc mqtt.Client) {
-			t := cc.Publish(topic, o.qos, o.retained, buf.Bytes())
-			err = c.handleToken(ctx, t, ErrPublishTimeout)
-		}); e != nil {
-			err = e
-		}
 
-		return
+		return c.execute(func(cc mqtt.Client) error {
+			return c.handleToken(ctx, cc.Publish(topic, o.qos, o.retained, buf.Bytes()), ErrPublishTimeout)
+		})
 	})
 }

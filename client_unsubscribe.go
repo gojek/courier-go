@@ -37,14 +37,9 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc) {
 }
 
 func unsubscriberHandler(c *Client) Unsubscriber {
-	return UnsubscriberFunc(func(ctx context.Context, topics ...string) (err error) {
-		if e := c.execute(func(cc mqtt.Client) {
-			t := cc.Unsubscribe(topics...)
-			err = c.handleToken(ctx, t, ErrUnsubscribeTimeout)
-		}); e != nil {
-			err = e
-		}
-
-		return
+	return UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
+		return c.execute(func(cc mqtt.Client) error {
+			return c.handleToken(ctx, cc.Unsubscribe(topics...), ErrUnsubscribeTimeout)
+		})
 	})
 }

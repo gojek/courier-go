@@ -249,7 +249,7 @@ func (c *Client) Publish(ctx context.Context, topic string, message interface{},
 Publish allows to publish messages to an MQTT broker
 
 <a name="Client.Run"></a>
-### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L103)
+### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L105)
 
 ```go
 func (c *Client) Run(ctx context.Context) error
@@ -258,7 +258,7 @@ func (c *Client) Run(ctx context.Context) error
 Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package. https://pkg.go.dev/github.com/gojekfarm/xrun
 
 <a name="Client.Start"></a>
-### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L84)
+### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L86)
 
 ```go
 func (c *Client) Start() error
@@ -267,7 +267,7 @@ func (c *Client) Start() error
 Start will attempt to connect to the broker.
 
 <a name="Client.Stop"></a>
-### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L99)
+### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L101)
 
 ```go
 func (c *Client) Stop()

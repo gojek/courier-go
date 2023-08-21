@@ -130,10 +130,10 @@ func (c *Client) multipleClients(addrs []TCPAddress) (map[string]mqtt.Client, er
 	clients := &sync.Map{}
 
 	if err := slice.Reduce(slice.MapConcurrent(addrs, func(addr TCPAddress) error {
-		opts := c.options
+		opts := *c.options
 		opts.brokerAddress = fmt.Sprintf("%s:%d", addr.Host, addr.Port)
 
-		cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, opts))
+		cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, &opts))
 
 		t := cc.Connect()
 		if !t.WaitTimeout(c.options.connectTimeout) {
@@ -166,10 +166,10 @@ func (c *Client) multipleClients(addrs []TCPAddress) (map[string]mqtt.Client, er
 func (c *Client) newClient(addrs []TCPAddress, attempt int) mqtt.Client {
 	addr := addrs[attempt%len(addrs)]
 
-	opts := c.options
+	opts := *c.options
 	opts.brokerAddress = fmt.Sprintf("%s:%d", addr.Host, addr.Port)
 
-	cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, opts))
+	cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, &opts))
 
 	t := cc.Connect()
 	if !t.WaitTimeout(c.options.connectTimeout) {

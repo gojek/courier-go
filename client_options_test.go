@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -112,6 +113,11 @@ func (s *ClientOptionSuite) Test_apply() {
 			option: WithExponentialStartOptions(WithMaxInterval(time.Second)),
 			want:   &clientOptions{startOptions: &startOptions{maxInterval: time.Second}},
 		},
+		{
+			name:   "MultiConnectionMode",
+			option: MultiConnectionMode,
+			want:   &clientOptions{multiConnectionMode: true},
+		},
 	}
 
 	for _, t := range tests {
@@ -197,20 +203,26 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 
 func (s *ClientOptionSuite) Test_defaultOptions() {
 	o := &clientOptions{
-		autoReconnect:          true,
-		maintainOrder:          true,
-		connectTimeout:         15 * time.Second,
-		writeTimeout:           10 * time.Second,
-		maxReconnectInterval:   5 * time.Minute,
-		gracefulShutdownPeriod: 30 * time.Second,
-		keepAlive:              60 * time.Second,
-		credentialFetchTimeout: 10 * time.Second,
-		newEncoder:             DefaultEncoderFunc,
-		newDecoder:             DefaultDecoderFunc,
-		store:                  inMemoryPersistence,
+		autoReconnect:               true,
+		maintainOrder:               true,
+		connectTimeout:              15 * time.Second,
+		writeTimeout:                10 * time.Second,
+		maxReconnectInterval:        5 * time.Minute,
+		gracefulShutdownPeriod:      30 * time.Second,
+		keepAlive:                   60 * time.Second,
+		credentialFetchTimeout:      10 * time.Second,
+		newEncoder:                  DefaultEncoderFunc,
+		newDecoder:                  DefaultDecoderFunc,
+		store:                       inMemoryPersistence,
+		sharedSubscriptionPredicate: defaultSharedSubscriptionPredicate,
 	}
 
 	val1 := fmt.Sprintf("%v", o)
 	val2 := fmt.Sprintf("%v", defaultClientOptions())
 	s.Equal(val2, val1)
+}
+
+func Test_defaultSharedSubscriptionPredicate(t *testing.T) {
+	assert.True(t, defaultSharedSubscriptionPredicate("$share/group/topic"))
+	assert.False(t, defaultSharedSubscriptionPredicate("topic"))
 }

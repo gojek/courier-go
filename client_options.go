@@ -205,6 +205,16 @@ type SharedSubscriptionPredicate func(topic string) bool
 
 func (ssp SharedSubscriptionPredicate) apply(o *clientOptions) { o.sharedSubscriptionPredicate = ssp }
 
+// MultiConnectionMode allows to configure the client to use multiple connections when available.
+//
+// This is useful when working with shared subscriptions and multiple connections can be created
+// to subscribe on the same application.
+var MultiConnectionMode = multiConnMode{}
+
+type multiConnMode struct{}
+
+func (multiConnMode) apply(o *clientOptions) { o.multiConnectionMode = true }
+
 type clientOptions struct {
 	username, clientID, password,
 	brokerAddress string
@@ -213,7 +223,7 @@ type clientOptions struct {
 
 	tlsConfig *tls.Config
 
-	autoReconnect, maintainOrder, cleanSession bool
+	autoReconnect, maintainOrder, cleanSession, multiConnectionMode bool
 
 	connectTimeout, writeTimeout, keepAlive,
 	maxReconnectInterval, gracefulShutdownPeriod,

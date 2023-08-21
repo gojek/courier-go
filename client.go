@@ -10,6 +10,9 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+
+	"github.com/gojekfarm/xtools/generic/slice"
+	"github.com/gojekfarm/xtools/generic/xmap"
 )
 
 // ErrClientNotInitialized is returned when the client is not initialized
@@ -19,8 +22,11 @@ var newClientFunc = defaultNewClientFunc()
 
 // Client allows to communicate with an MQTT broker
 type Client struct {
-	options    *clientOptions
-	mqttClient mqtt.Client
+	options *clientOptions
+
+	subscriptions map[string]*subscriptionMeta
+	mqttClient    mqtt.Client
+	mqttClients   map[string]mqtt.Client
 
 	publisher     Publisher
 	subscriber    Subscriber
@@ -29,7 +35,8 @@ type Client struct {
 	sMiddlewares  []subscribeMiddleware
 	usMiddlewares []unsubscribeMiddleware
 
-	mu sync.RWMutex
+	clientMu sync.RWMutex
+	subMu    sync.RWMutex
 }
 
 // NewClient creates the Client struct with the clientOptions provided,
@@ -46,7 +53,10 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		return nil, fmt.Errorf("at least WithAddress or WithResolver ClientOption should be used")
 	}
 
-	c := &Client{options: co}
+	c := &Client{
+		options:       co,
+		subscriptions: map[string]*subscriptionMeta{},
+	}
 
 	if len(co.brokerAddress) != 0 {
 		c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options))
@@ -111,11 +121,21 @@ func (c *Client) stop() error {
 }
 
 func (c *Client) execute(f func(mqtt.Client)) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.clientMu.RLock()
+	defer c.clientMu.RUnlock()
 
-	if c.mqttClient == nil {
+	if c.mqttClient == nil && len(c.mqttClients) == 0 {
 		return ErrClientNotInitialized
+	}
+
+	if c.options.multiConnectionMode {
+		slice.MapConcurrent(xmap.Values(c.mqttClients), func(cc mqtt.Client) error {
+			f(cc)
+
+			return nil
+		})
+
+		return nil
 	}
 
 	f(c.mqttClient)
@@ -158,7 +178,9 @@ func (c *Client) runResolver() error {
 	case <-time.After(c.options.connectTimeout):
 		return ErrConnectTimeout
 	case addrs := <-c.options.resolver.UpdateChan():
-		c.attemptConnection(addrs)
+		if err := c.attemptConnections(addrs); err != nil {
+			return err
+		}
 	}
 
 	go c.watchAddressUpdates(c.options.resolver)
@@ -185,6 +207,13 @@ func (c *Client) runConnect() (err error) {
 	}
 
 	return
+}
+
+func (c *Client) attemptSingleConnection(addrs []TCPAddress) error {
+	cc := c.newClient(addrs, 0)
+	c.reloadClient(cc)
+
+	return nil
 }
 
 func toClientOptions(c *Client, o *clientOptions) *mqtt.ClientOptions {

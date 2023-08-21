@@ -1,10 +1,15 @@
 package courier
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+
+	"github.com/gojekfarm/xtools/generic/slice"
+	"github.com/gojekfarm/xtools/generic/xmap"
 )
 
 // TCPAddress specifies Host and Port for remote broker
@@ -12,6 +17,8 @@ type TCPAddress struct {
 	Host string
 	Port uint16
 }
+
+func (t TCPAddress) String() string { return fmt.Sprintf("%s:%d", t.Host, t.Port) }
 
 // Resolver sends TCPAddress updates on channel returned by UpdateChan() channel.
 type Resolver interface {
@@ -34,26 +41,135 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 		case <-r.Done():
 			return
 		case addrs := <-r.UpdateChan():
-			c.attemptConnection(addrs)
+			if err := c.attemptConnections(addrs); err != nil && c.options.onConnectionLostHandler != nil {
+				c.options.onConnectionLostHandler(err)
+			}
 		}
 	}
 }
 
-func (c *Client) attemptConnection(addrs []TCPAddress) {
+func (c *Client) attemptConnections(addrs []TCPAddress) error {
 	if len(addrs) == 0 {
-		return
+		return nil
 	}
 
-	// try to start new client first, iff it starts, replace current client
-	cc := c.newClient(addrs, 0)
-	c.reloadClient(cc)
+	if c.options.multiConnectionMode {
+		return c.attemptMultiConnections(addrs)
+	}
+
+	return c.attemptSingleConnection(addrs)
+}
+
+func (c *Client) attemptMultiConnections(addrs []TCPAddress) error {
+	clients, err := c.multipleClients(addrs)
+	if err != nil {
+		return err
+	}
+
+	if err := c.reloadClients(clients); err != nil {
+		return err
+	}
+
+	return c.resumeSubscriptions()
+}
+
+func (c *Client) resumeSubscriptions() error {
+	c.subMu.RLock()
+	defer c.subMu.RUnlock()
+
+	if len(c.subscriptions) == 0 {
+		return nil
+	}
+
+	if c.options.multiConnectionMode {
+		return c.resumeMultiSubscriptions()
+	}
+
+	// TODO: Handle single connection mode
+	return nil
+}
+
+func (c *Client) resumeMultiSubscriptions() error {
+	// TODO: Handle subscriptions other than shared subscriptions
+	tms := slice.Filter(xmap.Values(c.subscriptions), func(tm *subscriptionMeta) bool {
+		return c.options.sharedSubscriptionPredicate(tm.topic)
+	})
+
+	return slice.Reduce(slice.MapConcurrent(tms, func(tm *subscriptionMeta) error {
+		return c.Subscribe(context.Background(), tm.topic, tm.callback, tm.options...)
+	}), accumulateErrors)
+}
+
+func (c *Client) reloadClients(clients map[string]mqtt.Client) error {
+	c.clientMu.Lock()
+	defer c.clientMu.Unlock()
+
+	oldClients := xmap.Values(c.mqttClients)
+	c.mqttClients = clients
+
+	go func(oldClients []mqtt.Client) {
+		if len(oldClients) == 0 {
+			return
+		}
+
+		// TODO: Log errors
+		_ = slice.Reduce(
+			slice.MapConcurrent(oldClients, func(cc mqtt.Client) error {
+				cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+
+				return nil
+			}),
+			accumulateErrors,
+		)
+	}(oldClients)
+
+	return nil
+}
+
+func (c *Client) multipleClients(addrs []TCPAddress) (map[string]mqtt.Client, error) {
+	clients := &sync.Map{}
+
+	if err := slice.Reduce(slice.MapConcurrent(addrs, func(addr TCPAddress) error {
+		opts := c.options
+		opts.brokerAddress = fmt.Sprintf("%s:%d", addr.Host, addr.Port)
+
+		cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, opts))
+
+		t := cc.Connect()
+		if !t.WaitTimeout(c.options.connectTimeout) {
+			return ErrConnectTimeout
+		}
+
+		if err := t.Error(); err != nil {
+			return err
+		}
+
+		clients.Store(addr.String(), cc)
+
+		return nil
+	}), accumulateErrors); err != nil {
+		return nil, err
+	}
+
+	res := map[string]mqtt.Client{}
+
+	clients.Range(func(key, value interface{}) bool {
+		// nolint: errcheck
+		res[key.(string)] = value.(mqtt.Client)
+
+		return true
+	})
+
+	return res, nil
 }
 
 func (c *Client) newClient(addrs []TCPAddress, attempt int) mqtt.Client {
 	addr := addrs[attempt%len(addrs)]
 
-	c.options.brokerAddress = fmt.Sprintf("%s:%d", addr.Host, addr.Port)
-	cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options))
+	opts := c.options
+	opts.brokerAddress = fmt.Sprintf("%s:%d", addr.Host, addr.Port)
+
+	cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, opts))
 
 	t := cc.Connect()
 	if !t.WaitTimeout(c.options.connectTimeout) {
@@ -73,8 +189,8 @@ func (c *Client) newClient(addrs []TCPAddress, attempt int) mqtt.Client {
 }
 
 func (c *Client) reloadClient(cc mqtt.Client) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.clientMu.Lock()
+	defer c.clientMu.Unlock()
 
 	oldClient := c.mqttClient
 	c.mqttClient = cc
@@ -84,4 +200,12 @@ func (c *Client) reloadClient(cc mqtt.Client) {
 			oldClient.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 		}
 	}()
+}
+
+func accumulateErrors(prev error, curr error) error {
+	if prev != nil {
+		return prev
+	}
+
+	return curr
 }

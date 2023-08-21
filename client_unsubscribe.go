@@ -8,7 +8,17 @@ import (
 
 // Unsubscribe removes any subscription to messages from an MQTT broker
 func (c *Client) Unsubscribe(ctx context.Context, topics ...string) error {
-	return c.unsubscriber.Unsubscribe(ctx, topics...)
+	if err := c.unsubscriber.Unsubscribe(ctx, topics...); err != nil {
+		return err
+	}
+
+	c.subMu.Lock()
+	for _, topic := range topics {
+		delete(c.subscriptions, topic)
+	}
+	c.subMu.Unlock()
+
+	return nil
 }
 
 // UseUnsubscriberMiddleware appends a UnsubscriberMiddlewareFunc to the chain.

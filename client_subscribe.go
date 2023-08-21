@@ -9,7 +9,19 @@ import (
 
 // Subscribe allows to subscribe to messages from an MQTT broker
 func (c *Client) Subscribe(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
-	return c.subscriber.Subscribe(ctx, topic, callback, opts...)
+	if err := c.subscriber.Subscribe(ctx, topic, callback, opts...); err != nil {
+		return err
+	}
+
+	c.subMu.Lock()
+	c.subscriptions[topic] = &subscriptionMeta{
+		topic:    topic,
+		options:  opts,
+		callback: callback,
+	}
+	c.subMu.Unlock()
+
+	return nil
 }
 
 // SubscribeMultiple allows to subscribe to messages on multiple topics from an MQTT broker
@@ -18,7 +30,23 @@ func (c *Client) SubscribeMultiple(
 	topicsWithQos map[string]QOSLevel,
 	callback MessageHandler,
 ) error {
-	return c.subscriber.SubscribeMultiple(ctx, topicsWithQos, callback)
+	if err := c.subscriber.SubscribeMultiple(ctx, topicsWithQos, callback); err != nil {
+		return err
+	}
+
+	c.subMu.Lock()
+
+	for topic := range topicsWithQos {
+		c.subscriptions[topic] = &subscriptionMeta{
+			topic:    topic,
+			options:  []Option{topicsWithQos[topic]},
+			callback: callback,
+		}
+	}
+
+	c.subMu.Unlock()
+
+	return nil
 }
 
 // UseSubscriberMiddleware appends a SubscriberMiddlewareFunc to the chain.
@@ -34,6 +62,12 @@ func (c *Client) UseSubscriberMiddleware(mwf ...SubscriberMiddlewareFunc) {
 	for i := len(c.sMiddlewares) - 1; i >= 0; i-- {
 		c.subscriber = c.sMiddlewares[i].Middleware(c.subscriber)
 	}
+}
+
+type subscriptionMeta struct {
+	topic    string
+	options  []Option
+	callback MessageHandler
 }
 
 func subscriberFuncs(c *Client) Subscriber {

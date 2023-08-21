@@ -17,6 +17,7 @@ import (
 )
 
 var defOpts []ClientOption
+var testBrokerAddress TCPAddress
 
 func init() {
 	brokerAddress := os.Getenv("BROKER_ADDRESS") // host:port format
@@ -27,6 +28,7 @@ func init() {
 	list := strings.Split(brokerAddress, ":")
 	p, _ := strconv.Atoi(list[1])
 
+	testBrokerAddress = TCPAddress{Host: list[0], Port: uint16(p)}
 	defOpts = append(defOpts, WithAddress(list[0], uint16(p)), WithClientID("clientID"))
 }
 

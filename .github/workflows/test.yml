@@ -34,14 +34,14 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
         restore-keys: |
-          ${{ runner.os }}-go-
+          ${{ runner.os }}-go-${{ matrix.go-version }}-
     - name: Tools bin cache
       uses: actions/cache@v3
       with:
         path: .bin
-        key: ${{ runner.os }}-${{ hashFiles('Makefile') }}
+        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('Makefile') }}
     - name: Install jq
       uses: dcarbone/install-jq-action@v1.0.1
     - name: Test

@@ -3,6 +3,7 @@ package courier
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/hashicorp/go-multierror"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -371,4 +373,53 @@ func TestClient_AddressUpdates(t *testing.T) {
 
 		close(doneCh)
 	})
+}
+
+func Test_accumulateErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		prev    error
+		curr    error
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name:    "no_errors",
+			wantErr: assert.NoError,
+		},
+		{
+			name: "prev_error",
+			prev: errors.New("prev error"),
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.EqualError(t, err, `1 error occurred: [prev error]`)
+			},
+		},
+		{
+			name: "curr_error",
+			curr: errors.New("curr error"),
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.EqualError(t, err, `1 error occurred: [curr error]`)
+			},
+		},
+		{
+			name: "prev_and_curr_error",
+			prev: errors.New("prev error"),
+			curr: errors.New("curr error"),
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.EqualError(t, err, `2 errors occurred: [prev error] | [curr error]`)
+			},
+		},
+		{
+			name: "prev_multierrors",
+			prev: multierror.Append(errors.New("prev error"), errors.New("prev error 2")),
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.EqualError(t, err, `2 errors occurred: [prev error] | [prev error 2]`)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.wantErr(t, accumulateErrors(tt.prev, tt.curr), fmt.Sprintf("accumulateErrors(%v, %v)", tt.prev, tt.curr))
+		})
+	}
 }

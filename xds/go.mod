@@ -20,6 +20,8 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v1.0.1 // indirect
 	github.com/gojekfarm/xtools/generic v0.4.1-0.20230821083411-f611bb57c1b1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/hashicorp/errwrap v1.0.0 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/objx v0.5.1 // indirect

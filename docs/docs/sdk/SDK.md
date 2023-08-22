@@ -514,7 +514,7 @@ func WithPersistence(store Store) ClientOption
 WithPersistence allows to configure the store to be used by broker Default persistence is in\-memory persistence with mqtt.MemoryStore
 
 <a name="WithResolver"></a>
-### func [WithResolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L32)
+### func [WithResolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L35)
 
 ```go
 func WithResolver(resolver Resolver) ClientOption
@@ -842,7 +842,7 @@ const (
 ```
 
 <a name="Resolver"></a>
-## type [Resolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L24-L29)
+## type [Resolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L27-L32)
 
 Resolver sends TCPAddress updates on channel returned by UpdateChan\(\) channel.
 
@@ -992,7 +992,7 @@ func (smw SubscriberMiddlewareFunc) Middleware(subscriber Subscriber) Subscriber
 Middleware allows SubscriberMiddlewareFunc to implement the subscribeMiddleware interface.
 
 <a name="TCPAddress"></a>
-## type [TCPAddress](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L16-L19)
+## type [TCPAddress](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L19-L22)
 
 TCPAddress specifies Host and Port for remote broker
 
@@ -1004,7 +1004,7 @@ type TCPAddress struct {
 ```
 
 <a name="TCPAddress.String"></a>
-### func \(TCPAddress\) [String](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L21)
+### func \(TCPAddress\) [String](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L24)
 
 ```go
 func (t TCPAddress) String() string

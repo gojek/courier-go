@@ -2,11 +2,14 @@ package courier
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/hashicorp/go-multierror"
 
 	"github.com/gojekfarm/xtools/generic/slice"
 	"github.com/gojekfarm/xtools/generic/xmap"
@@ -207,9 +210,29 @@ func (c *Client) reloadClient(cc mqtt.Client) {
 }
 
 func accumulateErrors(prev error, curr error) error {
-	if prev != nil {
-		return prev
+	var err *multierror.Error
+
+	switch {
+	case errors.As(prev, &err):
+		err.ErrorFormat = singleLineFormatFunc
+
+		return multierror.Append(err, curr).ErrorOrNil()
+	default:
+		return multierror.Append(&multierror.Error{ErrorFormat: singleLineFormatFunc}, prev, curr).ErrorOrNil()
+	}
+}
+
+func singleLineFormatFunc(es []error) string {
+	if len(es) == 1 {
+		return fmt.Sprintf("1 error occurred: [%s]", es[0])
 	}
 
-	return curr
+	errorsList := make([]string, len(es))
+	for i, err := range es {
+		errorsList[i] = fmt.Sprintf("[%s]", err)
+	}
+
+	return fmt.Sprintf(
+		"%d errors occurred: %s",
+		len(es), strings.Join(errorsList, " | "))
 }

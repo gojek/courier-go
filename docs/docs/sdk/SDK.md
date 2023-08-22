@@ -39,6 +39,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func WithExponentialStartOptions\(options ...StartOption\) ClientOption](#WithExponentialStartOptions)
   - [func WithGracefulShutdownPeriod\(duration time.Duration\) ClientOption](#WithGracefulShutdownPeriod)
   - [func WithKeepAlive\(duration time.Duration\) ClientOption](#WithKeepAlive)
+  - [func WithLogger\(l Logger\) ClientOption](#WithLogger)
   - [func WithMaintainOrder\(maintainOrder bool\) ClientOption](#WithMaintainOrder)
   - [func WithMaxReconnectInterval\(duration time.Duration\) ClientOption](#WithMaxReconnectInterval)
   - [func WithOnConnect\(handler OnConnectHandler\) ClientOption](#WithOnConnect)
@@ -61,6 +62,7 @@ Package courier contains the client that can be used to interact with the courie
 - [type Encoder](#Encoder)
   - [func DefaultEncoderFunc\(\_ context.Context, w io.Writer\) Encoder](#DefaultEncoderFunc)
 - [type EncoderFunc](#EncoderFunc)
+- [type Logger](#Logger)
 - [type Message](#Message)
   - [func NewMessageWithDecoder\(payloadDecoder Decoder\) \*Message](#NewMessageWithDecoder)
   - [func \(m \*Message\) DecodePayload\(v interface\{\}\) error](#Message.DecodePayload)
@@ -439,6 +441,15 @@ func WithKeepAlive(duration time.Duration) ClientOption
 
 WithKeepAlive will set the amount of time \(in seconds\) that the client should wait before sending a PING request to the broker. This will allow the client to know that a connection has not been lost with the server.
 
+<a name="WithLogger"></a>
+### func [WithLogger](https://github.com/gojek/courier-go/blob/main/log.go#L6)
+
+```go
+func WithLogger(l Logger) ClientOption
+```
+
+WithLogger sets the Logger to use for the client.
+
 <a name="WithMaintainOrder"></a>
 ### func [WithMaintainOrder](https://github.com/gojek/courier-go/blob/main/client_options.go#L76)
 
@@ -651,6 +662,18 @@ EncoderFunc is used to create an Encoder from io.Writer; the context.Context val
 
 ```go
 type EncoderFunc func(context.Context, io.Writer) Encoder
+```
+
+<a name="Logger"></a>
+## type [Logger](https://github.com/gojek/courier-go/blob/main/log.go#L9-L12)
+
+Logger is the interface that wraps the Info and Error methods.
+
+```go
+type Logger interface {
+    Info(ctx context.Context, msg string, attrs map[string]any)
+    Error(ctx context.Context, err error, attrs map[string]any)
+}
 ```
 
 <a name="Message"></a>

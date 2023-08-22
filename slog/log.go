@@ -2,6 +2,7 @@ package slog
 
 import (
 	"context"
+
 	"log/slog"
 
 	"github.com/gojek/courier-go"

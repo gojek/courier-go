@@ -3,11 +3,13 @@ package slog
 import (
 	"bytes"
 	"context"
-	"github.com/gojek/courier-go"
-	"github.com/stretchr/testify/assert"
-	"log/slog"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"log/slog"
+
+	"github.com/gojek/courier-go"
 )
 
 func TestWithLogger(t *testing.T) {

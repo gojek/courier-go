@@ -99,7 +99,7 @@ func (c *Client) resumeMultiSubscriptions() error {
 	})
 
 	return slice.Reduce(slice.MapConcurrent(tms, func(tm *subscriptionMeta) error {
-		return c.Subscribe(context.Background(), tm.topic, tm.callback, tm.options...)
+		return c.subscriber.Subscribe(context.Background(), tm.topic, tm.callback, tm.options...)
 	}), accumulateErrors)
 }
 

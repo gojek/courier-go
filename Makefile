@@ -2,6 +2,8 @@ ALL_GO_MOD_DIRS := $(shell find . -type f -name 'go.mod' -exec dirname {} \; | s
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 LOCAL_GO_BIN_DIR := $(PROJECT_DIR)/.bin
 BIN_DIR := $(if $(LOCAL_GO_BIN_DIR),$(LOCAL_GO_BIN_DIR),$(GOPATH)/bin)
+GO_MINOR_VERSION := $(shell go version | cut -d' ' -f3 | cut -d'.' -f2)
+GO_BUILD_DIRS := $(foreach dir,$(ALL_GO_MOD_DIRS),$(shell GO_MOD_VERSION=$$(grep "go 1.[0-9]*" $(dir)/go.mod | cut -d' ' -f2 | cut -d'.' -f2) && [ -n "$$GO_MOD_VERSION" ] && [ $(GO_MINOR_VERSION) -ge $$GO_MOD_VERSION ] && echo $(dir)))
 
 fmt:
 	@$(call run-go-mod-dir,go vet ./...,"go fmt")
@@ -89,7 +91,7 @@ endef
 # a go.mod file
 define run-go-mod-dir
 set -e; \
-for dir in $(ALL_GO_MOD_DIRS); do \
+for dir in $(GO_BUILD_DIRS); do \
 	[ -z $(2) ] || echo "$(2) $${dir}/..."; \
 	cd "$(PROJECT_DIR)/$${dir}" && $(1); \
 done;

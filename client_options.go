@@ -235,6 +235,7 @@ type clientOptions struct {
 	onConnectionLostHandler     OnConnectionLostHandler
 	onReconnectHandler          OnReconnectHandler
 	sharedSubscriptionPredicate func(string) bool
+	logger                      Logger
 
 	newEncoder EncoderFunc
 	newDecoder DecoderFunc
@@ -259,5 +260,6 @@ func defaultClientOptions() *clientOptions {
 		newDecoder:                  DefaultDecoderFunc,
 		store:                       inMemoryPersistence,
 		sharedSubscriptionPredicate: defaultSharedSubscriptionPredicate,
+		logger:                      defaultLogger,
 	}
 }

@@ -214,6 +214,7 @@ func (s *ClientOptionSuite) Test_defaultOptions() {
 		newEncoder:                  DefaultEncoderFunc,
 		newDecoder:                  DefaultDecoderFunc,
 		store:                       inMemoryPersistence,
+		logger:                      defaultLogger,
 		sharedSubscriptionPredicate: defaultSharedSubscriptionPredicate,
 	}
 

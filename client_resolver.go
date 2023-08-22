@@ -41,8 +41,11 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 		case <-r.Done():
 			return
 		case addrs := <-r.UpdateChan():
-			if err := c.attemptConnections(addrs); err != nil && c.options.onConnectionLostHandler != nil {
-				c.options.onConnectionLostHandler(err)
+			if err := c.attemptConnections(addrs); err != nil {
+				c.options.logger.Error(context.Background(), err, map[string]any{
+					"action":    "attemptConnections",
+					"addresses": addrs,
+				})
 			}
 		}
 	}
@@ -178,9 +181,10 @@ func (c *Client) newClient(addrs []TCPAddress, attempt int) mqtt.Client {
 
 	if err := t.Error(); err != nil {
 		// TODO: add retry backoff or use ExponentialStartStrategy utility
-		if c.options.onConnectionLostHandler != nil {
-			c.options.onConnectionLostHandler(err)
-		}
+		c.options.logger.Error(context.Background(), err, map[string]any{
+			"action": "newClient",
+			"addr":   addr,
+		})
 
 		return c.newClient(addrs, attempt+1)
 	}

@@ -289,6 +289,11 @@ func TestClient_AddressUpdates(t *testing.T) {
 				"$share/group1/topic1": 1,
 				"$share/group1/topic2": 2,
 			}, mock.AnythingOfType("mqtt.MessageHandler")).Return(stk).Once()
+			m.On("Subscribe",
+				"$share/group1/topic3",
+				byte(1),
+				mock.AnythingOfType("mqtt.MessageHandler"),
+			).Return(stk).Once()
 
 			storeNewMocks(tkn, m, stk)
 
@@ -306,6 +311,7 @@ func TestClient_AddressUpdates(t *testing.T) {
 			"$share/group1/topic1": QOSOne,
 			"$share/group1/topic2": QOSTwo,
 		}, subscribeFunc))
+		assert.NoError(t, c.Subscribe(context.Background(), "$share/group1/topic3", subscribeFunc, QOSOne))
 
 		// when: the resolver updates the addresses
 
@@ -323,6 +329,11 @@ func TestClient_AddressUpdates(t *testing.T) {
 			m.On("Subscribe",
 				"$share/group1/topic2",
 				byte(QOSTwo),
+				mock.AnythingOfType("mqtt.MessageHandler"),
+			).Return(stk).Once()
+			m.On("Subscribe",
+				"$share/group1/topic3",
+				byte(QOSOne),
 				mock.AnythingOfType("mqtt.MessageHandler"),
 			).Return(stk).Once()
 

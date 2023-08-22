@@ -23,6 +23,7 @@ var newClientFunc = defaultNewClientFunc()
 // Client allows to communicate with an MQTT broker
 type Client struct {
 	options *clientOptions
+	l       Logger
 
 	subscriptions map[string]*subscriptionMeta
 	mqttClient    mqtt.Client

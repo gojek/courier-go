@@ -1,6 +1,9 @@
 package courier
 
 import (
+	"math/rand"
+	"sync/atomic"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
 	"github.com/gojekfarm/xtools/generic/slice"
@@ -14,6 +17,17 @@ const (
 	execOneRandom
 	execOneRoundRobin
 )
+
+type atomicCounter struct {
+	value uint64
+}
+
+func (ac *atomicCounter) next() uint64 {
+	current := atomic.LoadUint64(&ac.value)
+	atomic.AddUint64(&ac.value, 1)
+
+	return current
+}
 
 func (c *Client) execute(f func(mqtt.Client) error, eo execOpt) error {
 	c.clientMu.RLock()
@@ -31,15 +45,21 @@ func (c *Client) execute(f func(mqtt.Client) error, eo execOpt) error {
 }
 
 func (c *Client) execMultiConn(f func(mqtt.Client) error, eo execOpt) error {
+	ccs := xmap.Values(c.mqttClients)
+
 	if eo == execOneRandom {
-		return f(xmap.Values(c.mqttClients)[c.rnd.Intn(len(c.mqttClients))])
+		// nolint:errcheck
+		p := c.rndPool.Get().(*rand.Rand)
+		defer c.rndPool.Put(p)
+
+		return f(ccs[p.Intn(len(ccs))])
 	}
 
-	// TODO: Choose client in round robin fashion and execute
-	// if eo == execOneRoundRobin {
-	// }
+	if eo == execOneRoundRobin {
+		return f(ccs[int(c.rrCounter.next())%len(ccs)])
+	}
 
-	return slice.Reduce(slice.MapConcurrent(xmap.Values(c.mqttClients), func(cc mqtt.Client) error {
+	return slice.Reduce(slice.MapConcurrent(ccs, func(cc mqtt.Client) error {
 		return f(cc)
 	}), accumulateErrors)
 }

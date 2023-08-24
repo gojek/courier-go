@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -243,13 +242,15 @@ func (r resolver) Done() <-chan struct{} {
 func TestClient_AddressUpdates(t *testing.T) {
 	gsp := defaultClientOptions().gracefulShutdownPeriod
 
-	newMockClientTokenWithDisconnect := func(o *mqtt.ClientOptions) (*mockClient, *mockToken) {
-		m := &mockClient{}
-		tkn := &mockToken{}
+	newMockClientTokenWithDisconnect := func(t *testing.T, o *mqtt.ClientOptions) (*mockClient, *mockToken) {
+		m := newMockClient(t)
+		tkn := newMockToken(t)
+
 		tkn.On("WaitTimeout", o.ConnectTimeout).Return(true)
 		tkn.On("Error").Return(nil)
 		m.On("Connect").Return(tkn).Once()
 		m.On("Disconnect", uint(gsp/time.Millisecond)).Return().Once()
+
 		return m, tkn
 	}
 
@@ -260,13 +261,11 @@ func TestClient_AddressUpdates(t *testing.T) {
 		ch := make(chan []TCPAddress)
 		r.On("UpdateChan").Return(ch)
 
-		mp := atomic.Pointer[[]any]{}
-		mp.Store(&[]any{})
-
+		mckCh := make(chan any, 12)
 		storeNewMocks := func(mocks ...any) {
-			sp := *mp.Load()
-			sp = append(sp, mocks...)
-			mp.Store(&sp)
+			for _, mck := range mocks {
+				mckCh <- mck
+			}
 		}
 
 		testBrokerAddress2 := TCPAddress{
@@ -282,11 +281,12 @@ func TestClient_AddressUpdates(t *testing.T) {
 		assert.NoError(t, err)
 
 		newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
-			m, tkn := newMockClientTokenWithDisconnect(o)
+			m, tkn := newMockClientTokenWithDisconnect(t, o)
+			stk := newMockToken(t)
 
-			stk := &mockToken{}
 			stk.On("WaitTimeout", 10*time.Second).Return(true)
 			stk.On("Error").Return(nil)
+
 			m.On("SubscribeMultiple", map[string]byte{
 				"$share/group1/topic1": 1,
 				"$share/group1/topic2": 2,
@@ -318,11 +318,12 @@ func TestClient_AddressUpdates(t *testing.T) {
 		// when: the resolver updates the addresses
 
 		newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
-			m, tkn := newMockClientTokenWithDisconnect(o)
+			m, tkn := newMockClientTokenWithDisconnect(t, o)
+			stk := newMockToken(t)
 
-			stk := &mockToken{}
 			stk.On("WaitTimeout", 10*time.Second).Return(true)
 			stk.On("Error").Return(nil)
+
 			m.On("Subscribe",
 				"$share/group1/topic1",
 				byte(QOSOne),
@@ -359,15 +360,22 @@ func TestClient_AddressUpdates(t *testing.T) {
 			return assert.ElementsMatch(t, wantAddrs, actual)
 		}, time.Second, 100*time.Millisecond)
 
-		mcksOld := (*mp.Load())[:4] // 2 tokens and 2 clients from the initial subscription
-		assert.Eventually(t, func() bool {
-			return mock.AssertExpectationsForObjects(t, mcksOld...)
-		}, time.Second, 100*time.Millisecond)
+		wg := &sync.WaitGroup{}
+		var mcks []any
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			close(mckCh)
+
+			for mck := range mckCh {
+				mcks = append(mcks, mck)
+			}
+		}()
 
 		// then: the client that has the address change should resubscribe to the shared subscriptions
 		assert.NoError(t, c.stop())
 
-		mcks := *mp.Load()
+		wg.Wait()
 		require.Len(t, mcks, 12)
 		mock.AssertExpectationsForObjects(t, mcks...)
 
@@ -380,13 +388,11 @@ func TestClient_AddressUpdates(t *testing.T) {
 		ch := make(chan []TCPAddress)
 		r.On("UpdateChan").Return(ch)
 
-		mp := atomic.Pointer[[]any]{}
-		mp.Store(&[]any{})
-
+		mckCh := make(chan any, 12)
 		storeNewMocks := func(mocks ...any) {
-			sp := *mp.Load()
-			sp = append(sp, mocks...)
-			mp.Store(&sp)
+			for _, mck := range mocks {
+				mckCh <- mck
+			}
 		}
 
 		testBrokerAddress2 := TCPAddress{
@@ -405,9 +411,9 @@ func TestClient_AddressUpdates(t *testing.T) {
 		topicSubscribed := make([]string, 0, 4)
 
 		newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
-			m, tkn := newMockClientTokenWithDisconnect(o)
+			m, tkn := newMockClientTokenWithDisconnect(t, o)
+			stk := newMockToken(t)
 
-			stk := &mockToken{}
 			stk.On("WaitTimeout", 10*time.Second).Maybe().Return(true)
 			stk.On("Error").Maybe().Return(nil)
 			m.On("Subscribe",
@@ -443,9 +449,9 @@ func TestClient_AddressUpdates(t *testing.T) {
 		// when: the resolver updates the addresses
 
 		newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
-			m, tkn := newMockClientTokenWithDisconnect(o)
+			m, tkn := newMockClientTokenWithDisconnect(t, o)
+			stk := newMockToken(t)
 
-			stk := &mockToken{}
 			stk.On("WaitTimeout", 10*time.Second).Maybe().Return(true)
 			stk.On("Error").Maybe().Return(nil)
 			m.On("Subscribe",
@@ -492,11 +498,6 @@ func TestClient_AddressUpdates(t *testing.T) {
 			}
 		}
 
-		mcksOld := (*mp.Load())[:4] // 2 tokens and 2 clients from the initial subscription
-		assert.Eventually(t, func() bool {
-			return mock.AssertExpectationsForObjects(t, mcksOld...)
-		}, time.Second, 100*time.Millisecond)
-
 		// then: the client that has the address change should resubscribe to the shared subscriptions
 
 		for i := 0; i < 2; i++ {
@@ -508,12 +509,24 @@ func TestClient_AddressUpdates(t *testing.T) {
 			}
 		}
 
+		wg := &sync.WaitGroup{}
+		var mcks []any
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			close(mckCh)
+
+			for mck := range mckCh {
+				mcks = append(mcks, mck)
+			}
+		}()
+
 		assert.NoError(t, c.stop())
 
 		require.Len(t, topicSubscribed, 4)
 		assert.ElementsMatch(t, []string{"topic1-client1", "topic2-client1", "topic1-client2", "topic2-client2"}, topicSubscribed)
 
-		mcks := *mp.Load()
+		wg.Wait()
 		require.Len(t, mcks, 12)
 		mock.AssertExpectationsForObjects(t, mcks...)
 

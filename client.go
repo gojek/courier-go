@@ -33,9 +33,10 @@ type Client struct {
 	sMiddlewares  []subscribeMiddleware
 	usMiddlewares []unsubscribeMiddleware
 
-	rnd      *rand.Rand
-	clientMu sync.RWMutex
-	subMu    sync.RWMutex
+	rrCounter *atomicCounter
+	rndPool   *sync.Pool
+	clientMu  sync.RWMutex
+	subMu     sync.RWMutex
 }
 
 // NewClient creates the Client struct with the clientOptions provided,
@@ -55,7 +56,10 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	c := &Client{
 		options:       co,
 		subscriptions: map[string]*subscriptionMeta{},
-		rnd:           rand.New(rand.NewSource(time.Now().UnixNano())),
+		rrCounter:     &atomicCounter{value: 0},
+		rndPool: &sync.Pool{New: func() any {
+			return rand.New(rand.NewSource(time.Now().UnixNano()))
+		}},
 	}
 
 	if len(co.brokerAddress) != 0 {

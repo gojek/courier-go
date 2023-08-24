@@ -96,12 +96,7 @@ func (c *Client) resumeSubscriptions() error {
 }
 
 func (c *Client) resumeMultiSubscriptions() error {
-	// TODO: Handle subscriptions other than shared subscriptions
-	tms := slice.Filter(xmap.Values(c.subscriptions), func(tm *subscriptionMeta) bool {
-		return c.options.sharedSubscriptionPredicate(tm.topic)
-	})
-
-	return slice.Reduce(slice.MapConcurrent(tms, func(tm *subscriptionMeta) error {
+	return slice.Reduce(slice.MapConcurrent(xmap.Values(c.subscriptions), func(tm *subscriptionMeta) error {
 		return c.subscriber.Subscribe(context.Background(), tm.topic, tm.callback, tm.options...)
 	}), accumulateErrors)
 }

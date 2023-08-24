@@ -192,9 +192,7 @@ func (s *ClientPublishSuite) TestPublish() {
 	}
 
 	s.Run("PublishOnUninitializedClient", func() {
-		c := &Client{
-			options: &clientOptions{newEncoder: DefaultEncoderFunc},
-		}
+		c := &Client{options: defaultClientOptions()}
 		c.publisher = publishHandler(c)
 		s.True(errors.Is(c.Publish(context.Background(), "topic", "data"), ErrClientNotInitialized))
 	})

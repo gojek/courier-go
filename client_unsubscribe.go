@@ -40,6 +40,6 @@ func unsubscriberHandler(c *Client) Unsubscriber {
 	return UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
 		return c.execute(func(cc mqtt.Client) error {
 			return c.handleToken(ctx, cc.Unsubscribe(topics...), ErrUnsubscribeTimeout)
-		})
+		}, execAll)
 	})
 }

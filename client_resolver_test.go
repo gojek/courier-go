@@ -241,19 +241,19 @@ func (r resolver) Done() <-chan struct{} {
 }
 
 func TestClient_AddressUpdates(t *testing.T) {
+	gsp := defaultClientOptions().gracefulShutdownPeriod
+
+	newMockClientTokenWithDisconnect := func(o *mqtt.ClientOptions) (*mockClient, *mockToken) {
+		m := &mockClient{}
+		tkn := &mockToken{}
+		tkn.On("WaitTimeout", o.ConnectTimeout).Return(true)
+		tkn.On("Error").Return(nil)
+		m.On("Connect").Return(tkn).Once()
+		m.On("Disconnect", uint(gsp/time.Millisecond)).Return().Once()
+		return m, tkn
+	}
+
 	t.Run("ReSubscribesToSharedSubscriptionsWhenUpdateHappens", func(t *testing.T) {
-		gsp := defaultClientOptions().gracefulShutdownPeriod
-
-		newMockClientTokenWithDisconnect := func(o *mqtt.ClientOptions) (*mockClient, *mockToken) {
-			m := &mockClient{}
-			tkn := &mockToken{}
-			tkn.On("WaitTimeout", o.ConnectTimeout).Return(true)
-			tkn.On("Error").Return(nil)
-			m.On("Connect").Return(tkn).Once()
-			m.On("Disconnect", uint(gsp/time.Millisecond)).Return().Once()
-			return m, tkn
-		}
-
 		// given: 2 shared subscriptions are created, 2 clients are created and subscribed
 		// to the same shared subscriptions initially
 		r := newMockResolver(t)
@@ -366,6 +366,152 @@ func TestClient_AddressUpdates(t *testing.T) {
 
 		// then: the client that has the address change should resubscribe to the shared subscriptions
 		assert.NoError(t, c.stop())
+
+		mcks := *mp.Load()
+		require.Len(t, mcks, 12)
+		mock.AssertExpectationsForObjects(t, mcks...)
+
+		close(doneCh)
+	})
+
+	t.Run("ReSubscribesToNormalSubscriptionsRandomlyWhenUpdateHappens", func(t *testing.T) {
+		// given 2 normal subscriptions are created, 2 clients are created and subscribed
+		r := newMockResolver(t)
+		ch := make(chan []TCPAddress)
+		r.On("UpdateChan").Return(ch)
+
+		mp := atomic.Pointer[[]any]{}
+		mp.Store(&[]any{})
+
+		storeNewMocks := func(mocks ...any) {
+			sp := *mp.Load()
+			sp = append(sp, mocks...)
+			mp.Store(&sp)
+		}
+
+		testBrokerAddress2 := TCPAddress{
+			Host: testBrokerAddress.Host,
+			Port: testBrokerAddress.Port + 1,
+		}
+		go func() { ch <- []TCPAddress{testBrokerAddress, testBrokerAddress2} }()
+
+		doneCh := make(chan struct{})
+		r.On("Done").Return(doneCh)
+
+		c, err := NewClient(WithResolver(r), MultiConnectionMode)
+		assert.NoError(t, err)
+
+		subCallCh := make(chan string, 4)
+		topicSubscribed := make([]string, 0, 4)
+
+		newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
+			m, tkn := newMockClientTokenWithDisconnect(o)
+
+			stk := &mockToken{}
+			stk.On("WaitTimeout", 10*time.Second).Maybe().Return(true)
+			stk.On("Error").Maybe().Return(nil)
+			m.On("Subscribe",
+				"topic1",
+				byte(1),
+				mock.AnythingOfType("mqtt.MessageHandler"),
+			).Return(stk).Maybe().Run(func(args mock.Arguments) {
+				subCallCh <- "topic1-client1"
+			})
+			m.On("Subscribe",
+				"topic2",
+				byte(2),
+				mock.AnythingOfType("mqtt.MessageHandler"),
+			).Return(stk).Maybe().Run(func(args mock.Arguments) {
+				subCallCh <- "topic2-client1"
+			})
+
+			storeNewMocks(tkn, m, stk)
+
+			return m
+		})
+		defer newClientFunc.Store(mqtt.NewClient)
+
+		assert.NoError(t, c.Start())
+
+		subscribeFunc := func(ctx context.Context, _ PubSub, msg *Message) {
+			// do nothing
+		}
+
+		assert.NoError(t, c.Subscribe(context.Background(), "topic1", subscribeFunc, QOSOne))
+		assert.NoError(t, c.Subscribe(context.Background(), "topic2", subscribeFunc, QOSTwo))
+
+		// when: the resolver updates the addresses
+
+		newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
+			m, tkn := newMockClientTokenWithDisconnect(o)
+
+			stk := &mockToken{}
+			stk.On("WaitTimeout", 10*time.Second).Maybe().Return(true)
+			stk.On("Error").Maybe().Return(nil)
+			m.On("Subscribe",
+				"topic1",
+				byte(1),
+				mock.AnythingOfType("mqtt.MessageHandler"),
+			).Return(stk).Maybe().Run(func(args mock.Arguments) {
+				subCallCh <- "topic1-client2"
+			})
+			m.On("Subscribe",
+				"topic2",
+				byte(2),
+				mock.AnythingOfType("mqtt.MessageHandler"),
+			).Return(stk).Maybe().Run(func(args mock.Arguments) {
+				subCallCh <- "topic2-client2"
+			})
+
+			storeNewMocks(tkn, m, stk)
+
+			return m
+		})
+
+		go func() { ch <- []TCPAddress{testBrokerAddress, testBrokerAddress2} }()
+
+		wantAddrs := []string{testBrokerAddress.String(), testBrokerAddress2.String()}
+		assert.Eventually(t, func() bool {
+			c.clientMu.RLock()
+			defer c.clientMu.RUnlock()
+
+			var actual []string
+			for addr := range c.mqttClients {
+				actual = append(actual, addr)
+			}
+
+			return assert.ElementsMatch(t, wantAddrs, actual)
+		}, time.Second, 100*time.Millisecond)
+
+		for i := 0; i < 2; i++ {
+			select {
+			case <-time.After(time.Second):
+				t.Fatal("timeout")
+			case topic := <-subCallCh:
+				topicSubscribed = append(topicSubscribed, topic)
+			}
+		}
+
+		mcksOld := (*mp.Load())[:4] // 2 tokens and 2 clients from the initial subscription
+		assert.Eventually(t, func() bool {
+			return mock.AssertExpectationsForObjects(t, mcksOld...)
+		}, time.Second, 100*time.Millisecond)
+
+		// then: the client that has the address change should resubscribe to the shared subscriptions
+
+		for i := 0; i < 2; i++ {
+			select {
+			case <-time.After(time.Second):
+				t.Fatal("timeout")
+			case topic := <-subCallCh:
+				topicSubscribed = append(topicSubscribed, topic)
+			}
+		}
+
+		assert.NoError(t, c.stop())
+
+		require.Len(t, topicSubscribed, 4)
+		assert.ElementsMatch(t, []string{"topic1-client1", "topic2-client1", "topic1-client2", "topic2-client2"}, topicSubscribed)
 
 		mcks := *mp.Load()
 		require.Len(t, mcks, 12)

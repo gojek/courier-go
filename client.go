@@ -4,15 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-
-	"github.com/gojekfarm/xtools/generic/slice"
-	"github.com/gojekfarm/xtools/generic/xmap"
 )
 
 // ErrClientNotInitialized is returned when the client is not initialized
@@ -35,6 +33,7 @@ type Client struct {
 	sMiddlewares  []subscribeMiddleware
 	usMiddlewares []unsubscribeMiddleware
 
+	rnd      *rand.Rand
 	clientMu sync.RWMutex
 	subMu    sync.RWMutex
 }
@@ -56,6 +55,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	c := &Client{
 		options:       co,
 		subscriptions: map[string]*subscriptionMeta{},
+		rnd:           rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 
 	if len(co.brokerAddress) != 0 {
@@ -79,7 +79,7 @@ func (c *Client) IsConnected() bool {
 		}
 
 		return nil
-	}) == nil && val.Load()
+	}, execAll) == nil && val.Load()
 }
 
 // Start will attempt to connect to the broker.
@@ -121,24 +121,7 @@ func (c *Client) stop() error {
 		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 
 		return nil
-	})
-}
-
-func (c *Client) execute(f func(mqtt.Client) error) error {
-	c.clientMu.RLock()
-	defer c.clientMu.RUnlock()
-
-	if c.mqttClient == nil && len(c.mqttClients) == 0 {
-		return ErrClientNotInitialized
-	}
-
-	if c.options.multiConnectionMode {
-		return slice.Reduce(slice.MapConcurrent(xmap.Values(c.mqttClients), func(cc mqtt.Client) error {
-			return f(cc)
-		}), accumulateErrors)
-	}
-
-	return f(c.mqttClient)
+	}, execAll)
 }
 
 func (c *Client) handleToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {
@@ -198,7 +181,7 @@ func (c *Client) runConnect() error {
 		}
 
 		return t.Error()
-	})
+	}, execAll)
 }
 
 func (c *Client) attemptSingleConnection(addrs []TCPAddress) error {

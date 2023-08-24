@@ -163,7 +163,7 @@ func WaitForConnection(c ConnectionInformer, waitFor time.Duration, tick time.Du
 WaitForConnection checks if the Client is connected, it calls ConnectionInformer.IsConnected after every tick and waitFor is the maximum duration it can block. Returns true only when ConnectionInformer.IsConnected returns true
 
 <a name="Client"></a>
-## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L24-L40)
+## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L22-L39)
 
 Client allows to communicate with an MQTT broker
 
@@ -174,7 +174,7 @@ type Client struct {
 ```
 
 <a name="NewClient"></a>
-### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L45)
+### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L44)
 
 ```go
 func NewClient(opts ...ClientOption) (*Client, error)
@@ -278,7 +278,7 @@ func (c *Client) Stop()
 Stop will disconnect from the broker and finish up any pending work on internal communication workers. This can only block until the period configured with the ClientOption WithGracefulShutdownPeriod.
 
 <a name="Client.Subscribe"></a>
-### func \(\*Client\) [Subscribe](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L11)
+### func \(\*Client\) [Subscribe](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L13)
 
 ```go
 func (c *Client) Subscribe(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error
@@ -287,7 +287,7 @@ func (c *Client) Subscribe(ctx context.Context, topic string, callback MessageHa
 Subscribe allows to subscribe to messages from an MQTT broker
 
 <a name="Client.SubscribeMultiple"></a>
-### func \(\*Client\) [SubscribeMultiple](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L28-L32)
+### func \(\*Client\) [SubscribeMultiple](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L30-L34)
 
 ```go
 func (c *Client) SubscribeMultiple(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error
@@ -314,7 +314,7 @@ func (c *Client) UsePublisherMiddleware(mwf ...PublisherMiddlewareFunc)
 UsePublisherMiddleware appends a PublisherMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip messages. They are executed in the order that they are applied to the Client.
 
 <a name="Client.UseSubscriberMiddleware"></a>
-### func \(\*Client\) [UseSubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L55)
+### func \(\*Client\) [UseSubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L57)
 
 ```go
 func (c *Client) UseSubscriberMiddleware(mwf ...SubscriberMiddlewareFunc)

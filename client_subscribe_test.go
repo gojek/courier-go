@@ -172,7 +172,7 @@ func (s *ClientSubscribeSuite) TestSubscribe() {
 	}
 
 	s.Run("SubscribeOnUninitializedClient", func() {
-		c := &Client{}
+		c := &Client{options: defaultClientOptions()}
 		c.subscriber = subscriberFuncs(c)
 		s.True(errors.Is(c.Subscribe(context.Background(), "topic", callback), ErrClientNotInitialized))
 		s.True(errors.Is(c.SubscribeMultiple(context.Background(), map[string]QOSLevel{"topic": QOSOne}, callback), ErrClientNotInitialized))

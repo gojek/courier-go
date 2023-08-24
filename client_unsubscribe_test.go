@@ -161,7 +161,7 @@ func (s *ClientUnsubscribeSuite) TestUnsubscribe() {
 	}
 
 	s.Run("UnsubscribeOnUninitializedClient", func() {
-		c := &Client{}
+		c := &Client{options: defaultClientOptions()}
 		c.unsubscriber = unsubscriberHandler(c)
 		s.True(errors.Is(c.Unsubscribe(context.Background(), topics...), ErrClientNotInitialized))
 	})

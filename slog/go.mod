@@ -10,7 +10,7 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eclipse/paho.mqtt.golang v1.4.3 // indirect
-	github.com/gojekfarm/xtools/generic v0.4.1-0.20230821083411-f611bb57c1b1 // indirect
+	github.com/gojekfarm/xtools/generic v0.4.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect

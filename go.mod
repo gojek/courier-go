@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.4.3
-	github.com/gojekfarm/xtools/generic v0.4.1-0.20230821083411-f611bb57c1b1
+	github.com/gojekfarm/xtools/generic v0.4.1
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/stretchr/testify v1.8.4
 )

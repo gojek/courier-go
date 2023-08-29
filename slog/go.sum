@@ -3,8 +3,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/eclipse/paho.mqtt.golang v1.4.3 h1:2kwcUGn8seMUfWndX0hGbvH8r7crgcJguQNCyp70xik=
 github.com/eclipse/paho.mqtt.golang v1.4.3/go.mod h1:CSYvoAlsMkhYOXh/oKyxa8EcBci6dVkLCbo5tTC1RIE=
-github.com/gojekfarm/xtools/generic v0.4.1-0.20230821083411-f611bb57c1b1 h1:7pP0yODEmdtc6olN3uxgb30EhL3tUHZg3SoXW82Fz5k=
-github.com/gojekfarm/xtools/generic v0.4.1-0.20230821083411-f611bb57c1b1/go.mod h1:VA3++MjvoK19kunt2IWa+xICcazkM21WZUVfllAovWs=
+github.com/gojekfarm/xtools/generic v0.4.1 h1:hOR1Tc8ZZYNg+twjRy7yJdF9NDTd6mjNAbEiI2H39CU=
+github.com/gojekfarm/xtools/generic v0.4.1/go.mod h1:VA3++MjvoK19kunt2IWa+xICcazkM21WZUVfllAovWs=
 github.com/gorilla/websocket v1.5.0 h1:PPwGk2jz7EePpoHN/+ClbZu8SPxiqlu12wZP/3sWmnc=
 github.com/gorilla/websocket v1.5.0/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=

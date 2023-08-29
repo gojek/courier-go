@@ -15,7 +15,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.4.3 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/gojekfarm/xtools/generic v0.4.1-0.20230821083411-f611bb57c1b1 // indirect
+	github.com/gojekfarm/xtools/generic v0.4.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect

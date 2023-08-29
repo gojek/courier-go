@@ -18,8 +18,8 @@ github.com/envoyproxy/go-control-plane v0.11.1/go.mod h1:uhMcXKCQMEJHiAb0w+YGefQ
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/envoyproxy/protoc-gen-validate v1.0.1 h1:kt9FtLiooDc0vbwTLhdg3dyNX1K9Qwa1EK9LcD4jVUQ=
 github.com/envoyproxy/protoc-gen-validate v1.0.1/go.mod h1:0vj8bNkYbSTNS2PIyH87KZaeN4x9zpL9Qt8fQC7d+vs=
-github.com/gojekfarm/xtools/generic v0.4.1-0.20230821083411-f611bb57c1b1 h1:7pP0yODEmdtc6olN3uxgb30EhL3tUHZg3SoXW82Fz5k=
-github.com/gojekfarm/xtools/generic v0.4.1-0.20230821083411-f611bb57c1b1/go.mod h1:VA3++MjvoK19kunt2IWa+xICcazkM21WZUVfllAovWs=
+github.com/gojekfarm/xtools/generic v0.4.1 h1:hOR1Tc8ZZYNg+twjRy7yJdF9NDTd6mjNAbEiI2H39CU=
+github.com/gojekfarm/xtools/generic v0.4.1/go.mod h1:VA3++MjvoK19kunt2IWa+xICcazkM21WZUVfllAovWs=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/mock v1.1.1/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
 github.com/golang/protobuf v1.2.0/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=

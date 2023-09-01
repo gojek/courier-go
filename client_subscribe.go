@@ -137,7 +137,10 @@ func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 	}
 }
 
-func filterSubs(topicsWithQos map[string]QOSLevel, predicate func(string) bool) (map[string]byte, map[string]byte) {
+func filterSubs(
+	topicsWithQos map[string]QOSLevel,
+	predicate SharedSubscriptionPredicate,
+) (map[string]byte, map[string]byte) {
 	sharedSubs, normalSubs := make(map[string]byte), make(map[string]byte)
 
 	for topic, qosLevel := range topicsWithQos {

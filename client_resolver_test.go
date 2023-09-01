@@ -298,8 +298,6 @@ func TestClient_AddressUpdates(t *testing.T) {
 		assert.NoError(t, err)
 
 		newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
-			fmt.Println("newClientFunc")
-
 			m, tkn := newMockClientTokenWithDisconnect(t, o)
 			stk := newMockToken(t)
 

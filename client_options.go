@@ -234,7 +234,7 @@ type clientOptions struct {
 	onConnectHandler            OnConnectHandler
 	onConnectionLostHandler     OnConnectionLostHandler
 	onReconnectHandler          OnReconnectHandler
-	sharedSubscriptionPredicate func(string) bool
+	sharedSubscriptionPredicate SharedSubscriptionPredicate
 	logger                      Logger
 
 	newEncoder EncoderFunc

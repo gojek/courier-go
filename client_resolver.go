@@ -104,15 +104,16 @@ func (c *Client) reloadClients(clients map[string]mqtt.Client) error {
 			return
 		}
 
-		// TODO: Log errors
-		_ = slice.Reduce(
+		if err := slice.Reduce(
 			slice.MapConcurrent(oldClients, func(cc mqtt.Client) error {
 				cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 
 				return nil
 			}),
 			accumulateErrors,
-		)
+		); err != nil {
+			c.options.logger.Error(context.Background(), err, map[string]any{"action": "reloadClients"})
+		}
 	}(oldClients)
 
 	return nil

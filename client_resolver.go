@@ -87,15 +87,6 @@ func (c *Client) resumeSubscriptions() error {
 		return nil
 	}
 
-	if c.options.multiConnectionMode {
-		return c.resumeMultiSubscriptions()
-	}
-
-	// TODO: Handle single connection mode
-	return nil
-}
-
-func (c *Client) resumeMultiSubscriptions() error {
 	return slice.Reduce(slice.MapConcurrent(xmap.Values(c.subscriptions), func(tm *subscriptionMeta) error {
 		return c.subscriber.Subscribe(context.Background(), tm.topic, tm.callback, tm.options...)
 	}), accumulateErrors)

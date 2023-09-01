@@ -240,6 +240,13 @@ func (r resolver) Done() <-chan struct{} {
 }
 
 func TestClient_AddressUpdates(t *testing.T) {
+	testBrokerAddress2 := TCPAddress{
+		Host: testBrokerAddress.Host,
+		Port: testBrokerAddress.Port + 1,
+	}
+	subscribeFunc := func(ctx context.Context, _ PubSub, msg *Message) {
+		// do nothing
+	}
 	gsp := defaultClientOptions().gracefulShutdownPeriod
 
 	newMockClientTokenWithDisconnect := func(t *testing.T, o *mqtt.ClientOptions) (*mockClient, *mockToken) {
@@ -253,6 +260,84 @@ func TestClient_AddressUpdates(t *testing.T) {
 
 		return m, tkn
 	}
+	storeNewMocks := func(mckCh chan any, mocks ...any) {
+		for _, mck := range mocks {
+			mckCh <- mck
+		}
+	}
+	aggregateMocks := func(mckCh chan any) []any {
+		wg := &sync.WaitGroup{}
+		var mcks []any
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			close(mckCh)
+
+			for mck := range mckCh {
+				mcks = append(mcks, mck)
+			}
+		}()
+
+		wg.Wait()
+
+		return mcks
+	}
+
+	t.Run("ResubscribesWhenAddressUpdateHappensInSingleConnectionMode", func(t *testing.T) {
+		r := newMockResolver(t)
+		ch := make(chan []TCPAddress)
+		r.On("UpdateChan").Return(ch)
+		doneCh := make(chan struct{})
+		r.On("Done").Return(doneCh)
+
+		go func() { ch <- []TCPAddress{testBrokerAddress, testBrokerAddress2} }()
+
+		mckCh := make(chan any, 6)
+
+		c, err := NewClient(WithResolver(r))
+		assert.NoError(t, err)
+
+		newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
+			fmt.Println("newClientFunc")
+
+			m, tkn := newMockClientTokenWithDisconnect(t, o)
+			stk := newMockToken(t)
+
+			stk.On("WaitTimeout", 10*time.Second).Return(true)
+			stk.On("Error").Return(nil)
+
+			m.On("Subscribe", "topic1", byte(1), mock.AnythingOfType("mqtt.MessageHandler")).
+				Return(stk).
+				Once()
+
+			storeNewMocks(mckCh, tkn, m, stk)
+
+			return m
+		})
+		defer newClientFunc.Store(mqtt.NewClient)
+
+		assert.NoError(t, c.Start())
+
+		assert.NoError(t, c.Subscribe(context.Background(), "topic1", subscribeFunc, QOSOne))
+
+		prevAddr := fmt.Sprintf("%p", c.mqttClient.(*mockClient))
+
+		go func() { ch <- []TCPAddress{testBrokerAddress, testBrokerAddress2} }()
+
+		assert.Eventually(t, func() bool {
+			c.clientMu.RLock()
+			defer c.clientMu.RUnlock()
+
+			return prevAddr != fmt.Sprintf("%p", c.mqttClient.(*mockClient))
+		}, time.Second, 100*time.Millisecond)
+
+		mcks := aggregateMocks(mckCh)
+		assert.NoError(t, c.stop())
+		require.Len(t, mcks, 6)
+		mock.AssertExpectationsForObjects(t, mcks...)
+
+		close(doneCh)
+	})
 
 	t.Run("ReSubscribesToSharedSubscriptionsWhenUpdateHappens", func(t *testing.T) {
 		// given: 2 shared subscriptions are created, 2 clients are created and subscribed
@@ -262,16 +347,7 @@ func TestClient_AddressUpdates(t *testing.T) {
 		r.On("UpdateChan").Return(ch)
 
 		mckCh := make(chan any, 12)
-		storeNewMocks := func(mocks ...any) {
-			for _, mck := range mocks {
-				mckCh <- mck
-			}
-		}
 
-		testBrokerAddress2 := TCPAddress{
-			Host: testBrokerAddress.Host,
-			Port: testBrokerAddress.Port + 1,
-		}
 		go func() { ch <- []TCPAddress{testBrokerAddress, testBrokerAddress2} }()
 
 		doneCh := make(chan struct{})
@@ -297,17 +373,13 @@ func TestClient_AddressUpdates(t *testing.T) {
 				mock.AnythingOfType("mqtt.MessageHandler"),
 			).Return(stk).Once()
 
-			storeNewMocks(tkn, m, stk)
+			storeNewMocks(mckCh, tkn, m, stk)
 
 			return m
 		})
 		defer newClientFunc.Store(mqtt.NewClient)
 
 		assert.NoError(t, c.Start())
-
-		subscribeFunc := func(ctx context.Context, _ PubSub, msg *Message) {
-			// do nothing
-		}
 
 		assert.NoError(t, c.SubscribeMultiple(context.Background(), map[string]QOSLevel{
 			"$share/group1/topic1": QOSOne,
@@ -340,7 +412,7 @@ func TestClient_AddressUpdates(t *testing.T) {
 				mock.AnythingOfType("mqtt.MessageHandler"),
 			).Return(stk).Once()
 
-			storeNewMocks(tkn, m, stk)
+			storeNewMocks(mckCh, tkn, m, stk)
 
 			return m
 		})
@@ -360,22 +432,10 @@ func TestClient_AddressUpdates(t *testing.T) {
 			return assert.ElementsMatch(t, wantAddrs, actual)
 		}, time.Second, 100*time.Millisecond)
 
-		wg := &sync.WaitGroup{}
-		var mcks []any
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			close(mckCh)
-
-			for mck := range mckCh {
-				mcks = append(mcks, mck)
-			}
-		}()
+		mcks := aggregateMocks(mckCh)
 
 		// then: the client that has the address change should resubscribe to the shared subscriptions
 		assert.NoError(t, c.stop())
-
-		wg.Wait()
 		require.Len(t, mcks, 12)
 		mock.AssertExpectationsForObjects(t, mcks...)
 
@@ -389,16 +449,7 @@ func TestClient_AddressUpdates(t *testing.T) {
 		r.On("UpdateChan").Return(ch)
 
 		mckCh := make(chan any, 12)
-		storeNewMocks := func(mocks ...any) {
-			for _, mck := range mocks {
-				mckCh <- mck
-			}
-		}
 
-		testBrokerAddress2 := TCPAddress{
-			Host: testBrokerAddress.Host,
-			Port: testBrokerAddress.Port + 1,
-		}
 		go func() { ch <- []TCPAddress{testBrokerAddress, testBrokerAddress2} }()
 
 		doneCh := make(chan struct{})
@@ -431,17 +482,13 @@ func TestClient_AddressUpdates(t *testing.T) {
 				subCallCh <- "topic2-client1"
 			})
 
-			storeNewMocks(tkn, m, stk)
+			storeNewMocks(mckCh, tkn, m, stk)
 
 			return m
 		})
 		defer newClientFunc.Store(mqtt.NewClient)
 
 		assert.NoError(t, c.Start())
-
-		subscribeFunc := func(ctx context.Context, _ PubSub, msg *Message) {
-			// do nothing
-		}
 
 		assert.NoError(t, c.Subscribe(context.Background(), "topic1", subscribeFunc, QOSOne))
 		assert.NoError(t, c.Subscribe(context.Background(), "topic2", subscribeFunc, QOSTwo))
@@ -469,7 +516,7 @@ func TestClient_AddressUpdates(t *testing.T) {
 				subCallCh <- "topic2-client2"
 			})
 
-			storeNewMocks(tkn, m, stk)
+			storeNewMocks(mckCh, tkn, m, stk)
 
 			return m
 		})
@@ -509,24 +556,10 @@ func TestClient_AddressUpdates(t *testing.T) {
 			}
 		}
 
-		wg := &sync.WaitGroup{}
-		var mcks []any
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			close(mckCh)
-
-			for mck := range mckCh {
-				mcks = append(mcks, mck)
-			}
-		}()
-
 		assert.NoError(t, c.stop())
-
+		mcks := aggregateMocks(mckCh)
 		require.Len(t, topicSubscribed, 4)
 		assert.ElementsMatch(t, []string{"topic1-client1", "topic2-client1", "topic1-client2", "topic2-client2"}, topicSubscribed)
-
-		wg.Wait()
 		require.Len(t, mcks, 12)
 		mock.AssertExpectationsForObjects(t, mcks...)
 

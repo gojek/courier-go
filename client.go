@@ -192,7 +192,7 @@ func (c *Client) attemptSingleConnection(addrs []TCPAddress) error {
 	cc := c.newClient(addrs, 0)
 	c.reloadClient(cc)
 
-	return nil
+	return c.resumeSubscriptions()
 }
 
 func toClientOptions(c *Client, o *clientOptions) *mqtt.ClientOptions {

@@ -229,7 +229,7 @@ func (s *ClientPublishSuite) TestPublishWithMultiConnectionMode() {
 		{ID: 7},
 	}
 
-	c, err := NewClient(append(defOpts, WithResolver(r), MultiConnectionMode)...)
+	c, err := NewClient(append(defOpts, WithResolver(r), UseMultiConnectionMode)...)
 	s.NoError(err)
 
 	var mcks []interface{}

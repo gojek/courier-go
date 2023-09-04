@@ -119,12 +119,24 @@ func (c *Client) reloadClients(clients map[string]mqtt.Client) error {
 	return nil
 }
 
+type indexAddress struct {
+	index int
+	addr  TCPAddress
+}
+
 func (c *Client) multipleClients(addrs []TCPAddress) (map[string]mqtt.Client, error) {
 	clients := &sync.Map{}
 
-	if err := slice.Reduce(slice.MapConcurrent(addrs, func(addr TCPAddress) error {
+	i := &atomicCounter{}
+	iaddrs := slice.Map(addrs, func(a TCPAddress) indexAddress { return indexAddress{index: int(i.next()), addr: a} })
+
+	if err := slice.Reduce(slice.MapConcurrent(iaddrs, func(ia indexAddress) error {
 		opts := *c.options
-		opts.brokerAddress = fmt.Sprintf("%s:%d", addr.Host, addr.Port)
+		opts.brokerAddress = ia.addr.String()
+
+		if !c.options.useSameClientID {
+			opts.clientID = fmt.Sprintf("%s-%d", opts.clientID, ia.index)
+		}
 
 		cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, &opts))
 
@@ -137,7 +149,7 @@ func (c *Client) multipleClients(addrs []TCPAddress) (map[string]mqtt.Client, er
 			return err
 		}
 
-		clients.Store(addr.String(), cc)
+		clients.Store(ia.addr.String(), cc)
 
 		return nil
 	}), accumulateErrors); err != nil {

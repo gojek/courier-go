@@ -115,7 +115,12 @@ func (s *ClientOptionSuite) Test_apply() {
 		},
 		{
 			name:   "MultiConnectionMode",
-			option: MultiConnectionMode,
+			option: MultiConnectionMode(true),
+			want:   &clientOptions{multiConnectionMode: true, useSameClientID: true},
+		},
+		{
+			name:   "UseMultiConnectionMode",
+			option: UseMultiConnectionMode,
 			want:   &clientOptions{multiConnectionMode: true},
 		},
 	}

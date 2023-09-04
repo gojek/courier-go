@@ -205,15 +205,30 @@ type SharedSubscriptionPredicate func(topic string) bool
 
 func (ssp SharedSubscriptionPredicate) apply(o *clientOptions) { o.sharedSubscriptionPredicate = ssp }
 
+// UseMultiConnectionMode is the multiConnectionMode with useSameClientID unset
+// to use different clientID on each connection.
+//
+// See MultiConnectionMode for more details.
+var UseMultiConnectionMode = MultiConnectionMode(false)
+
 // MultiConnectionMode allows to configure the client to use multiple connections when available.
+// `useSameClientID` allows to configure the client to use the same clientID for all connections.
 //
 // This is useful when working with shared subscriptions and multiple connections can be created
 // to subscribe on the same application.
-var MultiConnectionMode = multiConnMode{}
+func MultiConnectionMode(useSameClientID bool) ClientOption {
+	return multiConnectionMode{useSameClientID: useSameClientID}
+}
 
-type multiConnMode struct{}
+type multiConnectionMode struct {
+	// useSameClientID allows to configure the client to use the same clientID for all connections.
+	useSameClientID bool
+}
 
-func (multiConnMode) apply(o *clientOptions) { o.multiConnectionMode = true }
+func (mcm multiConnectionMode) apply(o *clientOptions) {
+	o.multiConnectionMode = true
+	o.useSameClientID = mcm.useSameClientID
+}
 
 type clientOptions struct {
 	username, clientID, password,
@@ -223,7 +238,7 @@ type clientOptions struct {
 
 	tlsConfig *tls.Config
 
-	autoReconnect, maintainOrder, cleanSession, multiConnectionMode bool
+	autoReconnect, maintainOrder, cleanSession, multiConnectionMode, useSameClientID bool
 
 	connectTimeout, writeTimeout, keepAlive,
 	maxReconnectInterval, gracefulShutdownPeriod,

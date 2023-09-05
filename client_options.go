@@ -223,7 +223,7 @@ type clientOptions struct {
 
 	tlsConfig *tls.Config
 
-	autoReconnect, maintainOrder, cleanSession, multiConnectionMode, useSameClientID bool
+	autoReconnect, maintainOrder, cleanSession, multiConnectionMode bool
 
 	connectTimeout, writeTimeout, keepAlive,
 	maxReconnectInterval, gracefulShutdownPeriod,

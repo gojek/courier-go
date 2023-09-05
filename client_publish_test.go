@@ -267,7 +267,7 @@ func (s *ClientPublishSuite) TestPublishWithMultiConnectionMode() {
 
 	s.Len(clients, 3)
 
-	s.NoError(c.reloadClients(clients))
+	c.reloadClients(clients)
 
 	invokes := slice.MapConcurrentWithContext(context.Background(), messages,
 		func(ctx context.Context, tp testPayload) error {

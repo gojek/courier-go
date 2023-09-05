@@ -72,9 +72,7 @@ func (c *Client) attemptMultiConnections(addrs []TCPAddress) error {
 		return err
 	}
 
-	if err := c.reloadClients(clients); err != nil {
-		return err
-	}
+	c.reloadClients(clients)
 
 	return c.resumeSubscriptions()
 }
@@ -92,7 +90,7 @@ func (c *Client) resumeSubscriptions() error {
 	}), accumulateErrors)
 }
 
-func (c *Client) reloadClients(clients map[string]mqtt.Client) error {
+func (c *Client) reloadClients(clients map[string]mqtt.Client) {
 	c.clientMu.Lock()
 	defer c.clientMu.Unlock()
 
@@ -104,19 +102,12 @@ func (c *Client) reloadClients(clients map[string]mqtt.Client) error {
 			return
 		}
 
-		if err := slice.Reduce(
-			slice.MapConcurrent(oldClients, func(cc mqtt.Client) error {
-				cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+		slice.MapConcurrent(oldClients, func(cc mqtt.Client) error {
+			cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 
-				return nil
-			}),
-			accumulateErrors,
-		); err != nil {
-			c.options.logger.Error(context.Background(), err, map[string]any{"action": "reloadClients"})
-		}
+			return nil
+		})
 	}(oldClients)
-
-	return nil
 }
 
 type indexAddress struct {
@@ -133,10 +124,7 @@ func (c *Client) multipleClients(addrs []TCPAddress) (map[string]mqtt.Client, er
 	if err := slice.Reduce(slice.MapConcurrent(iaddrs, func(ia indexAddress) error {
 		opts := *c.options
 		opts.brokerAddress = ia.addr.String()
-
-		if !c.options.useSameClientID {
-			opts.clientID = fmt.Sprintf("%s-%d", opts.clientID, ia.index)
-		}
+		opts.clientID = fmt.Sprintf("%s-%d", opts.clientID, ia.index)
 
 		cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, &opts))
 

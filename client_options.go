@@ -205,30 +205,15 @@ type SharedSubscriptionPredicate func(topic string) bool
 
 func (ssp SharedSubscriptionPredicate) apply(o *clientOptions) { o.sharedSubscriptionPredicate = ssp }
 
-// UseMultiConnectionMode is the multiConnectionMode with useSameClientID unset
-// to use different clientID on each connection.
-//
-// See MultiConnectionMode for more details.
-var UseMultiConnectionMode = MultiConnectionMode(false)
-
-// MultiConnectionMode allows to configure the client to use multiple connections when available.
-// `useSameClientID` allows to configure the client to use the same clientID for all connections.
+// UseMultiConnectionMode allows to configure the client to use multiple connections when available.
 //
 // This is useful when working with shared subscriptions and multiple connections can be created
 // to subscribe on the same application.
-func MultiConnectionMode(useSameClientID bool) ClientOption {
-	return multiConnectionMode{useSameClientID: useSameClientID}
-}
+var UseMultiConnectionMode = multiConnMode{}
 
-type multiConnectionMode struct {
-	// useSameClientID allows to configure the client to use the same clientID for all connections.
-	useSameClientID bool
-}
+type multiConnMode struct{}
 
-func (mcm multiConnectionMode) apply(o *clientOptions) {
-	o.multiConnectionMode = true
-	o.useSameClientID = mcm.useSameClientID
-}
+func (mcm multiConnMode) apply(o *clientOptions) { o.multiConnectionMode = true }
 
 type clientOptions struct {
 	username, clientID, password,

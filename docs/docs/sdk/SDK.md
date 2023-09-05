@@ -28,7 +28,6 @@ Package courier contains the client that can be used to interact with the courie
   - [func \(c \*Client\) UseSubscriberMiddleware\(mwf ...SubscriberMiddlewareFunc\)](#Client.UseSubscriberMiddleware)
   - [func \(c \*Client\) UseUnsubscriberMiddleware\(mwf ...UnsubscriberMiddlewareFunc\)](#Client.UseUnsubscriberMiddleware)
 - [type ClientOption](#ClientOption)
-  - [func MultiConnectionMode\(useSameClientID bool\) ClientOption](#MultiConnectionMode)
   - [func WithAddress\(host string, port uint16\) ClientOption](#WithAddress)
   - [func WithAutoReconnect\(autoReconnect bool\) ClientOption](#WithAutoReconnect)
   - [func WithCleanSession\(cleanSession bool\) ClientOption](#WithCleanSession)
@@ -128,12 +127,12 @@ var (
 var ErrClientNotInitialized = errors.New("courier: client not initialized")
 ```
 
-<a name="UseMultiConnectionMode"></a>UseMultiConnectionMode is the multiConnectionMode with useSameClientID unset to use different clientID on each connection.
+<a name="UseMultiConnectionMode"></a>UseMultiConnectionMode allows to configure the client to use multiple connections when available.
 
-See MultiConnectionMode for more details.
+This is useful when working with shared subscriptions and multiple connections can be created to subscribe on the same application.
 
 ```go
-var UseMultiConnectionMode = MultiConnectionMode(false)
+var UseMultiConnectionMode = multiConnMode{}
 ```
 
 <a name="ExponentialStartStrategy"></a>
@@ -342,17 +341,6 @@ type ClientOption interface {
     // contains filtered or unexported methods
 }
 ```
-
-<a name="MultiConnectionMode"></a>
-### func [MultiConnectionMode](https://github.com/gojek/courier-go/blob/main/client_options.go#L219)
-
-```go
-func MultiConnectionMode(useSameClientID bool) ClientOption
-```
-
-MultiConnectionMode allows to configure the client to use multiple connections when available. \`useSameClientID\` allows to configure the client to use the same clientID for all connections.
-
-This is useful when working with shared subscriptions and multiple connections can be created to subscribe on the same application.
 
 <a name="WithAddress"></a>
 ### func [WithAddress](https://github.com/gojek/courier-go/blob/main/client_options.go#L120)

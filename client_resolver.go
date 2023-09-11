@@ -67,6 +67,17 @@ func (c *Client) attemptConnections(addrs []TCPAddress) error {
 }
 
 func (c *Client) attemptMultiConnections(addrs []TCPAddress) error {
+	if err := c.refreshClients(addrs); err != nil {
+		return err
+	}
+
+	return c.resumeSubscriptions()
+}
+
+func (c *Client) refreshClients(addrs []TCPAddress) error {
+	c.clientMu.Lock()
+	defer c.clientMu.Unlock()
+
 	clients, err := c.multipleClients(addrs)
 	if err != nil {
 		return err
@@ -74,7 +85,7 @@ func (c *Client) attemptMultiConnections(addrs []TCPAddress) error {
 
 	c.reloadClients(clients)
 
-	return c.resumeSubscriptions()
+	return nil
 }
 
 func (c *Client) resumeSubscriptions() error {
@@ -91,9 +102,6 @@ func (c *Client) resumeSubscriptions() error {
 }
 
 func (c *Client) reloadClients(clients map[string]mqtt.Client) {
-	c.clientMu.Lock()
-	defer c.clientMu.Unlock()
-
 	oldClients := xmap.Values(c.mqttClients)
 	c.mqttClients = clients
 

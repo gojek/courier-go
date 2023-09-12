@@ -63,7 +63,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	}
 
 	if len(co.brokerAddress) != 0 {
-		c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options))
+		c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options, ""))
 	}
 
 	c.publisher = publishHandler(c)
@@ -195,13 +195,13 @@ func (c *Client) attemptSingleConnection(addrs []TCPAddress) error {
 	return c.resumeSubscriptions()
 }
 
-func toClientOptions(c *Client, o *clientOptions) *mqtt.ClientOptions {
+func toClientOptions(c *Client, o *clientOptions, idSuffix string) *mqtt.ClientOptions {
 	opts := mqtt.NewClientOptions()
 
 	if hostname, err := os.Hostname(); o.clientID == "" && err == nil {
-		opts.SetClientID(hostname)
+		opts.SetClientID(fmt.Sprintf("%s%s", hostname, idSuffix))
 	} else {
-		opts.SetClientID(o.clientID)
+		opts.SetClientID(fmt.Sprintf("%s%s", o.clientID, idSuffix))
 	}
 
 	setCredentials(o, opts)

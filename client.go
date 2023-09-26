@@ -223,19 +223,28 @@ func toClientOptions(c *Client, o *clientOptions, idSuffix string) *mqtt.ClientO
 
 func setCredentials(o *clientOptions, opts *mqtt.ClientOptions) {
 	if o.credentialFetcher != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), o.credentialFetchTimeout)
-		defer cancel()
+		refreshCredentialsWithFetcher(o, opts)
 
-		if c, err := o.credentialFetcher.Credentials(ctx); err == nil {
-			opts.SetUsername(c.Username)
-			opts.SetPassword(c.Password)
-
-			return
-		}
+		return
 	}
 
 	opts.SetUsername(o.username)
 	opts.SetPassword(o.password)
+}
+
+func refreshCredentialsWithFetcher(o *clientOptions, opts *mqtt.ClientOptions) {
+	ctx, cancel := context.WithTimeout(context.Background(), o.credentialFetchTimeout)
+	defer cancel()
+
+	c, err := o.credentialFetcher.Credentials(ctx)
+	if err != nil {
+		o.logger.Error(ctx, err, map[string]any{"message": "failed to fetch credentials"})
+
+		return
+	}
+
+	opts.SetUsername(c.Username)
+	opts.SetPassword(c.Password)
 }
 
 func formatAddressWithProtocol(opts *clientOptions) string {

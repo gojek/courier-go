@@ -17,6 +17,7 @@ import (
 )
 
 var defOpts []ClientOption
+var testBrokerAddress TCPAddress
 
 func init() {
 	brokerAddress := os.Getenv("BROKER_ADDRESS") // host:port format
@@ -27,6 +28,7 @@ func init() {
 	list := strings.Split(brokerAddress, ":")
 	p, _ := strconv.Atoi(list[1])
 
+	testBrokerAddress = TCPAddress{Host: list[0], Port: uint16(p)}
 	defOpts = append(defOpts, WithAddress(list[0], uint16(p)), WithClientID("clientID"))
 }
 
@@ -205,34 +207,58 @@ func TestNewClientWithResolverOption(t *testing.T) {
 }
 
 func TestNewClientWithCredentialFetcher(t *testing.T) {
-	mcf := newMockCredentialFetcher(t)
-	mcf.On("Credentials", mock.Anything).Return(&Credential{
-		Username: "username",
-		Password: "password",
-	}, nil)
+	t.Run("Success", func(t *testing.T) {
+		mcf := newMockCredentialFetcher(t)
+		mcf.On("Credentials", mock.Anything).Return(&Credential{
+			Username: "username",
+			Password: "password",
+		}, nil)
 
-	newClientFunc.Store(func(opts *mqtt.ClientOptions) mqtt.Client {
-		assert.Equal(t, "username", opts.Username)
-		assert.Equal(t, "password", opts.Password)
-		return mqtt.NewClient(opts)
+		newClientFunc.Store(func(opts *mqtt.ClientOptions) mqtt.Client {
+			assert.Equal(t, "username", opts.Username)
+			assert.Equal(t, "password", opts.Password)
+			return mqtt.NewClient(opts)
+		})
+		defer func() {
+			newClientFunc.Store(mqtt.NewClient)
+		}()
+
+		c, err := NewClient(append(defOpts, WithCredentialFetcher(mcf))...)
+
+		assert.NoError(t, c.Start())
+		mcf.AssertExpectations(t)
+
+		assert.Eventually(t, func() bool {
+			return c.IsConnected()
+		}, 10*time.Second, 250*time.Millisecond)
+
+		c.Stop()
+
+		assert.NoError(t, err)
+		mcf.AssertExpectations(t)
 	})
-	defer func() {
-		newClientFunc.Store(mqtt.NewClient)
-	}()
 
-	c, err := NewClient(append(defOpts, WithCredentialFetcher(mcf))...)
+	t.Run("Error", func(t *testing.T) {
+		mcf := newMockCredentialFetcher(t)
+		ml := newMockLogger(t)
 
-	assert.NoError(t, c.Start())
-	mcf.AssertExpectations(t)
+		credErr := errors.New("error")
+		mcf.On("Credentials", mock.Anything).Return(nil, credErr)
+		ml.On("Error", mock.Anything, credErr, map[string]any{"message": "failed to fetch credentials"})
 
-	assert.Eventually(t, func() bool {
-		return c.IsConnected()
-	}, 10*time.Second, 250*time.Millisecond)
+		c, err := NewClient(append(defOpts, WithCredentialFetcher(mcf), WithLogger(ml))...)
+		assert.NoError(t, err)
 
-	c.Stop()
+		assert.NoError(t, c.Start())
 
-	assert.NoError(t, err)
-	mcf.AssertExpectations(t)
+		assert.Eventually(t, func() bool {
+			return ml.AssertExpectations(t)
+		}, 10*time.Second, 250*time.Millisecond)
+
+		c.Stop()
+
+		mcf.AssertExpectations(t)
+	})
 }
 
 func TestNewClientWithExponentialStartOptions(t *testing.T) {

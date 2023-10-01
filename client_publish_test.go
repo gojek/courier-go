@@ -3,13 +3,19 @@ package courier
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"math"
+	"sync"
 	"testing"
 	"time"
 
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/gojekfarm/xtools/generic/slice"
 )
 
 type ClientPublishSuite struct {
@@ -168,7 +174,7 @@ func (s *ClientPublishSuite) TestPublish() {
 				c.UsePublisherMiddleware(t.useMiddlewares...)
 			}
 
-			mc := &mockClient{}
+			mc := newMockClient(s.T())
 			c.mqttClient = mc
 			tk := t.pahoMock(&mc.Mock, t.payload)
 
@@ -192,12 +198,103 @@ func (s *ClientPublishSuite) TestPublish() {
 	}
 
 	s.Run("PublishOnUninitializedClient", func() {
-		c := &Client{
-			options: &clientOptions{newEncoder: DefaultEncoderFunc},
-		}
+		c := &Client{options: defaultClientOptions()}
 		c.publisher = publishHandler(c)
 		s.True(errors.Is(c.Publish(context.Background(), "topic", "data"), ErrClientNotInitialized))
 	})
+}
+
+func (s *ClientPublishSuite) TestPublishWithMultiConnectionMode() {
+	type testPayload struct {
+		ID int `json:"id"`
+	}
+
+	r := newMockResolver(s.T())
+	ch := make(chan []TCPAddress)
+	doneCh := make(chan struct{})
+
+	r.On("UpdateChan").Return(ch)
+	r.On("Done").Return(doneCh)
+
+	go func() { ch <- []TCPAddress{testBrokerAddress, testBrokerAddress} }()
+
+	// 7 distinct message to publish
+	messages := []testPayload{
+		{ID: 1},
+		{ID: 2},
+		{ID: 3},
+		{ID: 4},
+		{ID: 5},
+		{ID: 6},
+		{ID: 7},
+	}
+
+	c, err := NewClient(append(defOpts, WithResolver(r), UseMultiConnectionMode)...)
+	s.NoError(err)
+
+	var mcks []interface{}
+	idCh := make(chan int, 7)
+
+	clients := map[string]mqtt.Client{}
+
+	for i := 0; i < 3; i++ {
+		mc := newMockClient(s.T())
+		mt := newMockToken(s.T())
+
+		mt.On("WaitTimeout", 10*time.Second).Return(true)
+		mt.On("Error").Return(nil)
+
+		// round-robin messages on each client
+		ii := i
+
+		for j := ii; j < len(messages); j += 3 {
+			mc.On("Publish", "topic", byte(QOSZero), false, mock.Anything).
+				Return(mt).
+				Run(func(args mock.Arguments) {
+					tp := testPayload{}
+					s.NoError(json.NewDecoder(bytes.NewReader(args.Get(3).([]byte))).Decode(&tp))
+					idCh <- tp.ID
+				})
+		}
+
+		tba := testBrokerAddress
+		tba.Port = uint16(1883 + i)
+
+		clients[tba.String()] = mc
+
+		mcks = append(mcks, mc, mt)
+	}
+
+	s.Len(clients, 3)
+
+	c.reloadClients(clients)
+
+	invokes := slice.MapConcurrentWithContext(context.Background(), messages,
+		func(ctx context.Context, tp testPayload) error {
+			return c.Publish(ctx, "topic", &tp)
+		},
+	)
+
+	var actualIDs []int
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		close(idCh)
+
+		for i := range idCh {
+			actualIDs = append(actualIDs, i)
+		}
+	}()
+	wg.Wait()
+
+	s.ElementsMatch([]int{1, 4, 7, 2, 5, 3, 6}, actualIDs)
+
+	require.Len(s.T(), invokes, 7)
+	s.NoError(slice.Reduce(invokes, accumulateErrors))
+
+	require.Len(s.T(), mcks, 6)
+	mock.AssertExpectationsForObjects(s.T(), mcks...)
 }
 
 func (s *ClientPublishSuite) TestPublishMiddleware() {

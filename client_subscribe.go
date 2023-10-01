@@ -5,11 +5,25 @@ import (
 	"context"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+
+	"github.com/gojekfarm/xtools/generic/slice"
 )
 
 // Subscribe allows to subscribe to messages from an MQTT broker
 func (c *Client) Subscribe(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
-	return c.subscriber.Subscribe(ctx, topic, callback, opts...)
+	if err := c.subscriber.Subscribe(ctx, topic, callback, opts...); err != nil {
+		return err
+	}
+
+	c.subMu.Lock()
+	c.subscriptions[topic] = &subscriptionMeta{
+		topic:    topic,
+		options:  opts,
+		callback: callback,
+	}
+	c.subMu.Unlock()
+
+	return nil
 }
 
 // SubscribeMultiple allows to subscribe to messages on multiple topics from an MQTT broker
@@ -18,7 +32,23 @@ func (c *Client) SubscribeMultiple(
 	topicsWithQos map[string]QOSLevel,
 	callback MessageHandler,
 ) error {
-	return c.subscriber.SubscribeMultiple(ctx, topicsWithQos, callback)
+	if err := c.subscriber.SubscribeMultiple(ctx, topicsWithQos, callback); err != nil {
+		return err
+	}
+
+	c.subMu.Lock()
+
+	for topic := range topicsWithQos {
+		c.subscriptions[topic] = &subscriptionMeta{
+			topic:    topic,
+			options:  []Option{topicsWithQos[topic]},
+			callback: callback,
+		}
+	}
+
+	c.subMu.Unlock()
+
+	return nil
 }
 
 // UseSubscriberMiddleware appends a SubscriberMiddlewareFunc to the chain.
@@ -36,28 +66,56 @@ func (c *Client) UseSubscriberMiddleware(mwf ...SubscriberMiddlewareFunc) {
 	}
 }
 
+type subscriptionMeta struct {
+	topic    string
+	options  []Option
+	callback MessageHandler
+}
+
 func subscriberFuncs(c *Client) Subscriber {
 	return NewSubscriberFuncs(
-		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) (err error) {
+		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
 			o := composeOptions(opts)
-			if e := c.execute(func(cc mqtt.Client) {
-				t := cc.Subscribe(topic, o.qos, callbackWrapper(c, callback))
-				err = c.handleToken(ctx, t, ErrSubscribeTimeout)
-			}); e != nil {
-				err = e
+
+			eo := execOneRandom
+			if c.options.sharedSubscriptionPredicate(topic) {
+				eo = execAll
 			}
 
-			return
+			return c.execute(func(cc mqtt.Client) error {
+				return c.handleToken(ctx, cc.Subscribe(topic, o.qos, callbackWrapper(c, callback)), ErrSubscribeTimeout)
+			}, eo)
 		},
-		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) (err error) {
-			if e := c.execute(func(cc mqtt.Client) {
-				t := cc.SubscribeMultiple(routeFilters(topicsWithQos), callbackWrapper(c, callback))
-				err = c.handleToken(ctx, t, ErrSubscribeMultipleTimeout)
-			}); e != nil {
-				err = e
+		func(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error {
+			sharedSubs, normalSubs := filterSubs(topicsWithQos, c.options.sharedSubscriptionPredicate)
+
+			execs := make([]func(context.Context) error, 0, 2)
+
+			if len(sharedSubs) > 0 {
+				execs = append(execs, func(ctx context.Context) error {
+					return c.execute(func(cc mqtt.Client) error {
+						return c.handleToken(ctx, cc.SubscribeMultiple(
+							sharedSubs,
+							callbackWrapper(c, callback),
+						), ErrSubscribeMultipleTimeout)
+					}, execAll)
+				})
 			}
 
-			return
+			if len(normalSubs) > 0 {
+				execs = append(execs, func(ctx context.Context) error {
+					return c.execute(func(cc mqtt.Client) error {
+						return c.handleToken(ctx, cc.SubscribeMultiple(
+							normalSubs,
+							callbackWrapper(c, callback),
+						), ErrSubscribeMultipleTimeout)
+					}, execOneRandom)
+				})
+			}
+
+			return slice.Reduce(slice.MapConcurrentWithContext(ctx, execs,
+				func(ctx context.Context, f func(context.Context) error) error { return f(ctx) },
+			), accumulateErrors)
 		},
 	)
 }
@@ -79,8 +137,28 @@ func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 	}
 }
 
+func filterSubs(
+	topicsWithQos map[string]QOSLevel,
+	predicate SharedSubscriptionPredicate,
+) (map[string]byte, map[string]byte) {
+	sharedSubs, normalSubs := make(map[string]byte), make(map[string]byte)
+
+	for topic, qosLevel := range topicsWithQos {
+		if predicate(topic) {
+			sharedSubs[topic] = byte(qosLevel)
+
+			continue
+		}
+
+		normalSubs[topic] = byte(qosLevel)
+	}
+
+	return sharedSubs, normalSubs
+}
+
 func routeFilters(topicsWithQos map[string]QOSLevel) map[string]byte {
 	m := make(map[string]byte)
+
 	for topic, q := range topicsWithQos {
 		m[topic] = byte(q)
 	}

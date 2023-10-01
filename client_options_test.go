@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -112,6 +113,11 @@ func (s *ClientOptionSuite) Test_apply() {
 			option: WithExponentialStartOptions(WithMaxInterval(time.Second)),
 			want:   &clientOptions{startOptions: &startOptions{maxInterval: time.Second}},
 		},
+		{
+			name:   "UseMultiConnectionMode",
+			option: UseMultiConnectionMode,
+			want:   &clientOptions{multiConnectionMode: true},
+		},
 	}
 
 	for _, t := range tests {
@@ -126,6 +132,7 @@ func (s *ClientOptionSuite) Test_apply() {
 func (s *ClientOptionSuite) Test_function_based_apply() {
 	emptyErrFunc := func(error) {}
 	clientFunc := func(_ PubSub) {}
+	ssp := func(string) bool { return true }
 
 	tlsConfig := &tls.Config{
 		RootCAs:      nil,
@@ -174,6 +181,11 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 			option: WithTLS(tlsConfig),
 			want:   &clientOptions{tlsConfig: tlsConfig},
 		},
+		{
+			name:   "SharedSubscriptionPredicate",
+			option: SharedSubscriptionPredicate(ssp),
+			want:   &clientOptions{sharedSubscriptionPredicate: ssp},
+		},
 	}
 
 	for _, t := range tests {
@@ -191,20 +203,27 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 
 func (s *ClientOptionSuite) Test_defaultOptions() {
 	o := &clientOptions{
-		autoReconnect:          true,
-		maintainOrder:          true,
-		connectTimeout:         15 * time.Second,
-		writeTimeout:           10 * time.Second,
-		maxReconnectInterval:   5 * time.Minute,
-		gracefulShutdownPeriod: 30 * time.Second,
-		keepAlive:              60 * time.Second,
-		credentialFetchTimeout: 10 * time.Second,
-		newEncoder:             DefaultEncoderFunc,
-		newDecoder:             DefaultDecoderFunc,
-		store:                  inMemoryPersistence,
+		autoReconnect:               true,
+		maintainOrder:               true,
+		connectTimeout:              15 * time.Second,
+		writeTimeout:                10 * time.Second,
+		maxReconnectInterval:        5 * time.Minute,
+		gracefulShutdownPeriod:      30 * time.Second,
+		keepAlive:                   60 * time.Second,
+		credentialFetchTimeout:      10 * time.Second,
+		newEncoder:                  DefaultEncoderFunc,
+		newDecoder:                  DefaultDecoderFunc,
+		store:                       inMemoryPersistence,
+		logger:                      defaultLogger,
+		sharedSubscriptionPredicate: defaultSharedSubscriptionPredicate,
 	}
 
 	val1 := fmt.Sprintf("%v", o)
 	val2 := fmt.Sprintf("%v", defaultClientOptions())
 	s.Equal(val2, val1)
+}
+
+func Test_defaultSharedSubscriptionPredicate(t *testing.T) {
+	assert.True(t, defaultSharedSubscriptionPredicate("$share/group/topic"))
+	assert.False(t, defaultSharedSubscriptionPredicate("topic"))
 }

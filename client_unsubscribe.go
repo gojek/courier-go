@@ -8,7 +8,17 @@ import (
 
 // Unsubscribe removes any subscription to messages from an MQTT broker
 func (c *Client) Unsubscribe(ctx context.Context, topics ...string) error {
-	return c.unsubscriber.Unsubscribe(ctx, topics...)
+	if err := c.unsubscriber.Unsubscribe(ctx, topics...); err != nil {
+		return err
+	}
+
+	c.subMu.Lock()
+	for _, topic := range topics {
+		delete(c.subscriptions, topic)
+	}
+	c.subMu.Unlock()
+
+	return nil
 }
 
 // UseUnsubscriberMiddleware appends a UnsubscriberMiddlewareFunc to the chain.
@@ -27,14 +37,9 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc) {
 }
 
 func unsubscriberHandler(c *Client) Unsubscriber {
-	return UnsubscriberFunc(func(ctx context.Context, topics ...string) (err error) {
-		if e := c.execute(func(cc mqtt.Client) {
-			t := cc.Unsubscribe(topics...)
-			err = c.handleToken(ctx, t, ErrUnsubscribeTimeout)
-		}); e != nil {
-			err = e
-		}
-
-		return
+	return UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
+		return c.execute(func(cc mqtt.Client) error {
+			return c.handleToken(ctx, cc.Unsubscribe(topics...), ErrUnsubscribeTimeout)
+		}, execAll)
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -19,8 +20,11 @@ var newClientFunc = defaultNewClientFunc()
 
 // Client allows to communicate with an MQTT broker
 type Client struct {
-	options    *clientOptions
-	mqttClient mqtt.Client
+	options *clientOptions
+
+	subscriptions map[string]*subscriptionMeta
+	mqttClient    mqtt.Client
+	mqttClients   map[string]mqtt.Client
 
 	publisher     Publisher
 	subscriber    Subscriber
@@ -29,7 +33,10 @@ type Client struct {
 	sMiddlewares  []subscribeMiddleware
 	usMiddlewares []unsubscribeMiddleware
 
-	mu sync.RWMutex
+	rrCounter *atomicCounter
+	rndPool   *sync.Pool
+	clientMu  sync.RWMutex
+	subMu     sync.RWMutex
 }
 
 // NewClient creates the Client struct with the clientOptions provided,
@@ -46,10 +53,17 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		return nil, fmt.Errorf("at least WithAddress or WithResolver ClientOption should be used")
 	}
 
-	c := &Client{options: co}
+	c := &Client{
+		options:       co,
+		subscriptions: map[string]*subscriptionMeta{},
+		rrCounter:     &atomicCounter{value: 0},
+		rndPool: &sync.Pool{New: func() any {
+			return rand.New(rand.NewSource(time.Now().UnixNano()))
+		}},
+	}
 
 	if len(co.brokerAddress) != 0 {
-		c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options))
+		c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options, ""))
 	}
 
 	c.publisher = publishHandler(c)
@@ -61,13 +75,15 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 
 // IsConnected checks whether the client is connected to the broker
 func (c *Client) IsConnected() bool {
-	var online bool
+	val := &atomic.Bool{}
 
-	err := c.execute(func(cc mqtt.Client) {
-		online = cc.IsConnectionOpen()
-	})
+	return c.execute(func(cc mqtt.Client) error {
+		if cc.IsConnectionOpen() {
+			val.CompareAndSwap(false, true)
+		}
 
-	return err == nil && online
+		return nil
+	}, execAll) == nil && val.Load()
 }
 
 // Start will attempt to connect to the broker.
@@ -105,22 +121,11 @@ func (c *Client) Run(ctx context.Context) error {
 }
 
 func (c *Client) stop() error {
-	return c.execute(func(cc mqtt.Client) {
+	return c.execute(func(cc mqtt.Client) error {
 		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
-	})
-}
 
-func (c *Client) execute(f func(mqtt.Client)) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if c.mqttClient == nil {
-		return ErrClientNotInitialized
-	}
-
-	f(c.mqttClient)
-
-	return nil
+		return nil
+	}, execAll)
 }
 
 func (c *Client) handleToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {
@@ -158,7 +163,9 @@ func (c *Client) runResolver() error {
 	case <-time.After(c.options.connectTimeout):
 		return ErrConnectTimeout
 	case addrs := <-c.options.resolver.UpdateChan():
-		c.attemptConnection(addrs)
+		if err := c.attemptConnections(addrs); err != nil {
+			return err
+		}
 	}
 
 	go c.watchAddressUpdates(c.options.resolver)
@@ -166,34 +173,35 @@ func (c *Client) runResolver() error {
 	return nil
 }
 
-func (c *Client) runConnect() (err error) {
+func (c *Client) runConnect() error {
 	if len(c.options.brokerAddress) == 0 {
 		return nil
 	}
 
-	if e := c.execute(func(cc mqtt.Client) {
+	return c.execute(func(cc mqtt.Client) error {
 		t := cc.Connect()
 		if !t.WaitTimeout(c.options.connectTimeout) {
-			err = ErrConnectTimeout
-
-			return
+			return ErrConnectTimeout
 		}
 
-		err = t.Error()
-	}); e != nil {
-		err = e
-	}
-
-	return
+		return t.Error()
+	}, execAll)
 }
 
-func toClientOptions(c *Client, o *clientOptions) *mqtt.ClientOptions {
+func (c *Client) attemptSingleConnection(addrs []TCPAddress) error {
+	cc := c.newClient(addrs, 0)
+	c.reloadClient(cc)
+
+	return c.resumeSubscriptions()
+}
+
+func toClientOptions(c *Client, o *clientOptions, idSuffix string) *mqtt.ClientOptions {
 	opts := mqtt.NewClientOptions()
 
 	if hostname, err := os.Hostname(); o.clientID == "" && err == nil {
-		opts.SetClientID(hostname)
+		opts.SetClientID(fmt.Sprintf("%s%s", hostname, idSuffix))
 	} else {
-		opts.SetClientID(o.clientID)
+		opts.SetClientID(fmt.Sprintf("%s%s", o.clientID, idSuffix))
 	}
 
 	setCredentials(o, opts)
@@ -215,19 +223,28 @@ func toClientOptions(c *Client, o *clientOptions) *mqtt.ClientOptions {
 
 func setCredentials(o *clientOptions, opts *mqtt.ClientOptions) {
 	if o.credentialFetcher != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), o.credentialFetchTimeout)
-		defer cancel()
+		refreshCredentialsWithFetcher(o, opts)
 
-		if c, err := o.credentialFetcher.Credentials(ctx); err == nil {
-			opts.SetUsername(c.Username)
-			opts.SetPassword(c.Password)
-
-			return
-		}
+		return
 	}
 
 	opts.SetUsername(o.username)
 	opts.SetPassword(o.password)
+}
+
+func refreshCredentialsWithFetcher(o *clientOptions, opts *mqtt.ClientOptions) {
+	ctx, cancel := context.WithTimeout(context.Background(), o.credentialFetchTimeout)
+	defer cancel()
+
+	c, err := o.credentialFetcher.Credentials(ctx)
+	if err != nil {
+		o.logger.Error(ctx, err, map[string]any{"message": "failed to fetch credentials"})
+
+		return
+	}
+
+	opts.SetUsername(c.Username)
+	opts.SetPassword(c.Password)
 }
 
 func formatAddressWithProtocol(opts *clientOptions) string {

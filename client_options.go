@@ -3,10 +3,15 @@ package courier
 import (
 	"crypto/tls"
 	"fmt"
+	"strings"
 	"time"
 )
 
 var inMemoryPersistence = NewMemoryStore()
+
+func defaultSharedSubscriptionPredicate(topic string) bool {
+	return strings.HasPrefix(topic, "$share/")
+}
 
 // ClientOption allows to configure the behaviour of a Client.
 type ClientOption interface{ apply(*clientOptions) }
@@ -194,6 +199,22 @@ func WithExponentialStartOptions(options ...StartOption) ClientOption {
 	})
 }
 
+// SharedSubscriptionPredicate allows to configure the predicate function that determines
+// whether a topic is a shared subscription topic.
+type SharedSubscriptionPredicate func(topic string) bool
+
+func (ssp SharedSubscriptionPredicate) apply(o *clientOptions) { o.sharedSubscriptionPredicate = ssp }
+
+// UseMultiConnectionMode allows to configure the client to use multiple connections when available.
+//
+// This is useful when working with shared subscriptions and multiple connections can be created
+// to subscribe on the same application.
+var UseMultiConnectionMode = multiConnMode{}
+
+type multiConnMode struct{}
+
+func (mcm multiConnMode) apply(o *clientOptions) { o.multiConnectionMode = true }
+
 type clientOptions struct {
 	username, clientID, password,
 	brokerAddress string
@@ -202,7 +223,7 @@ type clientOptions struct {
 
 	tlsConfig *tls.Config
 
-	autoReconnect, maintainOrder, cleanSession bool
+	autoReconnect, maintainOrder, cleanSession, multiConnectionMode bool
 
 	connectTimeout, writeTimeout, keepAlive,
 	maxReconnectInterval, gracefulShutdownPeriod,
@@ -210,9 +231,11 @@ type clientOptions struct {
 
 	startOptions *startOptions
 
-	onConnectHandler        OnConnectHandler
-	onConnectionLostHandler OnConnectionLostHandler
-	onReconnectHandler      OnReconnectHandler
+	onConnectHandler            OnConnectHandler
+	onConnectionLostHandler     OnConnectionLostHandler
+	onReconnectHandler          OnReconnectHandler
+	sharedSubscriptionPredicate SharedSubscriptionPredicate
+	logger                      Logger
 
 	newEncoder EncoderFunc
 	newDecoder DecoderFunc
@@ -225,16 +248,18 @@ func (f optionFunc) apply(o *clientOptions) { f(o) }
 
 func defaultClientOptions() *clientOptions {
 	return &clientOptions{
-		autoReconnect:          true,
-		maintainOrder:          true,
-		connectTimeout:         15 * time.Second,
-		writeTimeout:           10 * time.Second,
-		maxReconnectInterval:   5 * time.Minute,
-		gracefulShutdownPeriod: 30 * time.Second,
-		keepAlive:              60 * time.Second,
-		credentialFetchTimeout: 10 * time.Second,
-		newEncoder:             DefaultEncoderFunc,
-		newDecoder:             DefaultDecoderFunc,
-		store:                  inMemoryPersistence,
+		autoReconnect:               true,
+		maintainOrder:               true,
+		connectTimeout:              15 * time.Second,
+		writeTimeout:                10 * time.Second,
+		maxReconnectInterval:        5 * time.Minute,
+		gracefulShutdownPeriod:      30 * time.Second,
+		keepAlive:                   60 * time.Second,
+		credentialFetchTimeout:      10 * time.Second,
+		newEncoder:                  DefaultEncoderFunc,
+		newDecoder:                  DefaultDecoderFunc,
+		store:                       inMemoryPersistence,
+		sharedSubscriptionPredicate: defaultSharedSubscriptionPredicate,
+		logger:                      defaultLogger,
 	}
 }

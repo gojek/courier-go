@@ -55,10 +55,6 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 }
 
 func (c *Client) attemptConnections(addrs []TCPAddress) error {
-	if len(addrs) == 0 {
-		return nil
-	}
-
 	if c.options.multiConnectionMode {
 		return c.attemptMultiConnections(addrs)
 	}
@@ -134,7 +130,7 @@ func (c *Client) multipleClients(addrs []TCPAddress) (map[string]mqtt.Client, er
 		opts.brokerAddress = ia.addr.String()
 
 		cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(
-			toClientOptions(c, &opts, fmt.Sprintf("-%d", ia.index)),
+			toClientOptions(c, &opts, fmt.Sprintf("-%d-%d", ia.index, c.multiConnRevision+1)),
 		)
 
 		t := cc.Connect()
@@ -152,6 +148,8 @@ func (c *Client) multipleClients(addrs []TCPAddress) (map[string]mqtt.Client, er
 	}), accumulateErrors); err != nil {
 		return nil, err
 	}
+
+	c.multiConnRevision++
 
 	res := map[string]mqtt.Client{}
 

@@ -33,10 +33,11 @@ type Client struct {
 	sMiddlewares  []subscribeMiddleware
 	usMiddlewares []unsubscribeMiddleware
 
-	rrCounter *atomicCounter
-	rndPool   *sync.Pool
-	clientMu  sync.RWMutex
-	subMu     sync.RWMutex
+	rrCounter         *atomicCounter
+	multiConnRevision uint64
+	rndPool           *sync.Pool
+	clientMu          sync.RWMutex
+	subMu             sync.RWMutex
 }
 
 // NewClient creates the Client struct with the clientOptions provided,
@@ -189,6 +190,11 @@ func (c *Client) runConnect() error {
 }
 
 func (c *Client) attemptSingleConnection(addrs []TCPAddress) error {
+	if len(addrs) == 0 {
+		// TODO: Reload client to nil, for consistency
+		return nil
+	}
+
 	cc := c.newClient(addrs, 0)
 	c.reloadClient(cc)
 

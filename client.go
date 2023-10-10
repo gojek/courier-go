@@ -191,7 +191,8 @@ func (c *Client) runConnect() error {
 
 func (c *Client) attemptSingleConnection(addrs []TCPAddress) error {
 	if len(addrs) == 0 {
-		// TODO: Reload client to nil, for consistency
+		c.reloadClient(nil)
+
 		return nil
 	}
 

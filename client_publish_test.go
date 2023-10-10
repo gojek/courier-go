@@ -232,7 +232,7 @@ func (s *ClientPublishSuite) TestPublishWithMultiConnectionMode() {
 	c, err := NewClient(append(defOpts, WithResolver(r), UseMultiConnectionMode)...)
 	s.NoError(err)
 
-	var mcks []interface{}
+	var mcks []any
 	idCh := make(chan int, 7)
 
 	clients := map[string]mqtt.Client{}

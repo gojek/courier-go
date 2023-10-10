@@ -149,7 +149,9 @@ func (c *Client) multipleClients(addrs []TCPAddress) (map[string]mqtt.Client, er
 		return nil, err
 	}
 
-	c.multiConnRevision++
+	if len(iaddrs) > 0 {
+		c.multiConnRevision++
+	}
 
 	res := map[string]mqtt.Client{}
 

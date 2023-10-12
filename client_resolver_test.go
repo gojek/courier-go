@@ -265,8 +265,8 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 			{
 				name: "close_on_done_chan",
 				sender: func(c chan []TCPAddress, c2 chan struct{}, wg *sync.WaitGroup) {
-					wg.Done()
 					close(c2)
+					wg.Done()
 				},
 				closeDoneChan: true,
 			},
@@ -291,10 +291,14 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				newClient := &mockClient{}
+				oldClient := newMockClient(t)
 
-				oldClient := &mockClient{}
-				oldClient.On("Disconnect", uint(defaultClientOptions().gracefulShutdownPeriod/time.Millisecond)).Return()
+				if !tt.closeDoneChan {
+					oldClient.
+						On("Disconnect", uint(defaultClientOptions().
+							gracefulShutdownPeriod/time.Millisecond)).
+						Return()
+				}
 
 				c := &Client{
 					options:    defaultClientOptions(),
@@ -312,22 +316,28 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 				go tt.sender(uc, dc, wg)
 
 				newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
-					tkn1 := &mockToken{}
+					nc := newMockClient(t)
+					tkn1 := newMockToken(t)
 					tkn1.On("WaitTimeout", o.ConnectTimeout).Return(true)
 					tkn1.On("Error").Return(nil)
-					newClient.On("Connect").Return(tkn1).Once()
-					return newClient
+					nc.On("Connect").Return(tkn1).Once()
+
+					return nc
 				})
+				defer newClientFunc.Store(mqtt.NewClient)
 
 				go c.watchAddressUpdates(r)
 
 				wg.Wait()
+
+				assert.Eventually(t, func() bool {
+					return oldClient.AssertExpectations(t)
+				}, time.Second, 100*time.Millisecond)
+
 				if !tt.closeDoneChan {
 					close(dc)
 					close(uc)
 				}
-
-				newClient.AssertExpectations(t)
 			})
 		}
 	})
@@ -402,6 +412,7 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 
 				newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
 					m := newMockClient(t)
+
 					tkn := newMockToken(t)
 					tkn.On("WaitTimeout", o.ConnectTimeout).Return(true)
 					tkn.On("Error").Return(errors.New("some error"))

@@ -1,4 +1,5 @@
 .idea/
 .bin/
 
+**/.DS_Store
 **/coverage.*

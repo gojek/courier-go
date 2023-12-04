@@ -5,8 +5,8 @@ import (
 	"net/http"
 )
 
-// TelemetryHandler returns a http.Handler that exposes the connected clients information
-func (c *Client) TelemetryHandler() http.Handler {
+// InfoHandler returns a http.Handler that exposes the connected clients information
+func (c *Client) InfoHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cl := c.allClientInfo()
 

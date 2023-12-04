@@ -69,7 +69,7 @@ func TestClient_TelemetryHandler(t *testing.T) {
 				_ = c.Run(ctx)
 			}()
 
-			h := c.TelemetryHandler()
+			h := c.InfoHandler()
 
 			assert.True(t, WaitForConnection(c, 2*time.Second, 100*time.Millisecond))
 

@@ -16,6 +16,7 @@ Package courier contains the client that can be used to interact with the courie
 - [func WaitForConnection\(c ConnectionInformer, waitFor time.Duration, tick time.Duration\) bool](#WaitForConnection)
 - [type Client](#Client)
   - [func NewClient\(opts ...ClientOption\) \(\*Client, error\)](#NewClient)
+  - [func \(c \*Client\) InfoHandler\(\) http.Handler](#Client.InfoHandler)
   - [func \(c \*Client\) IsConnected\(\) bool](#Client.IsConnected)
   - [func \(c \*Client\) Publish\(ctx context.Context, topic string, message interface\{\}, opts ...Option\) error](#Client.Publish)
   - [func \(c \*Client\) Run\(ctx context.Context\) error](#Client.Run)
@@ -23,7 +24,6 @@ Package courier contains the client that can be used to interact with the courie
   - [func \(c \*Client\) Stop\(\)](#Client.Stop)
   - [func \(c \*Client\) Subscribe\(ctx context.Context, topic string, callback MessageHandler, opts ...Option\) error](#Client.Subscribe)
   - [func \(c \*Client\) SubscribeMultiple\(ctx context.Context, topicsWithQos map\[string\]QOSLevel, callback MessageHandler\) error](#Client.SubscribeMultiple)
-  - [func \(c \*Client\) TelemetryHandler\(\) http.Handler](#Client.TelemetryHandler)
   - [func \(c \*Client\) Unsubscribe\(ctx context.Context, topics ...string\) error](#Client.Unsubscribe)
   - [func \(c \*Client\) UsePublisherMiddleware\(mwf ...PublisherMiddlewareFunc\)](#Client.UsePublisherMiddleware)
   - [func \(c \*Client\) UseSubscriberMiddleware\(mwf ...SubscriberMiddlewareFunc\)](#Client.UseSubscriberMiddleware)
@@ -244,6 +244,15 @@ c.Stop()
 </p>
 </details>
 
+<a name="Client.InfoHandler"></a>
+### func \(\*Client\) [InfoHandler](https://github.com/gojek/courier-go/blob/main/http.go#L9)
+
+```go
+func (c *Client) InfoHandler() http.Handler
+```
+
+InfoHandler returns a http.Handler that exposes the connected clients information
+
 <a name="Client.IsConnected"></a>
 ### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L84)
 
@@ -306,15 +315,6 @@ func (c *Client) SubscribeMultiple(ctx context.Context, topicsWithQos map[string
 ```
 
 SubscribeMultiple allows to subscribe to messages on multiple topics from an MQTT broker
-
-<a name="Client.TelemetryHandler"></a>
-### func \(\*Client\) [TelemetryHandler](https://github.com/gojek/courier-go/blob/main/http.go#L9)
-
-```go
-func (c *Client) TelemetryHandler() http.Handler
-```
-
-TelemetryHandler returns a http.Handler that exposes the connected clients information
 
 <a name="Client.Unsubscribe"></a>
 ### func \(\*Client\) [Unsubscribe](https://github.com/gojek/courier-go/blob/main/client_unsubscribe.go#L10)

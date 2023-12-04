@@ -267,6 +267,7 @@ type clientOptions struct {
 	onReconnectHandler          OnReconnectHandler
 	sharedSubscriptionPredicate SharedSubscriptionPredicate
 	logger                      Logger
+	infoEmitterCfg              *ClientInfoEmitterConfig
 
 	newEncoder EncoderFunc
 	newDecoder DecoderFunc

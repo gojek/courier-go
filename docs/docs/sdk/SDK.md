@@ -28,6 +28,8 @@ Package courier contains the client that can be used to interact with the courie
   - [func \(c \*Client\) UsePublisherMiddleware\(mwf ...PublisherMiddlewareFunc\)](#Client.UsePublisherMiddleware)
   - [func \(c \*Client\) UseSubscriberMiddleware\(mwf ...SubscriberMiddlewareFunc\)](#Client.UseSubscriberMiddleware)
   - [func \(c \*Client\) UseUnsubscriberMiddleware\(mwf ...UnsubscriberMiddlewareFunc\)](#Client.UseUnsubscriberMiddleware)
+- [type ClientInfoEmitter](#ClientInfoEmitter)
+- [type ClientInfoEmitterConfig](#ClientInfoEmitterConfig)
 - [type ClientOption](#ClientOption)
   - [func WithAddress\(host string, port uint16\) ClientOption](#WithAddress)
   - [func WithAutoReconnect\(autoReconnect bool\) ClientOption](#WithAutoReconnect)
@@ -66,6 +68,7 @@ Package courier contains the client that can be used to interact with the courie
 - [type EncoderFunc](#EncoderFunc)
 - [type KeepAlive](#KeepAlive)
 - [type Logger](#Logger)
+- [type MQTTClientInfo](#MQTTClientInfo)
 - [type Message](#Message)
   - [func NewMessageWithDecoder\(payloadDecoder Decoder\) \*Message](#NewMessageWithDecoder)
   - [func \(m \*Message\) DecodePayload\(v interface\{\}\) error](#Message.DecodePayload)
@@ -172,7 +175,7 @@ func WaitForConnection(c ConnectionInformer, waitFor time.Duration, tick time.Du
 WaitForConnection checks if the Client is connected, it calls ConnectionInformer.IsConnected after every tick and waitFor is the maximum duration it can block. Returns true only when ConnectionInformer.IsConnected returns true
 
 <a name="Client"></a>
-## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L22-L41)
+## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L22-L43)
 
 Client allows to communicate with an MQTT broker
 
@@ -183,7 +186,7 @@ type Client struct {
 ```
 
 <a name="NewClient"></a>
-### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L46)
+### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L48)
 
 ```go
 func NewClient(opts ...ClientOption) (*Client, error)
@@ -242,7 +245,7 @@ c.Stop()
 </details>
 
 <a name="Client.IsConnected"></a>
-### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L78)
+### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L84)
 
 ```go
 func (c *Client) IsConnected() bool
@@ -260,7 +263,7 @@ func (c *Client) Publish(ctx context.Context, topic string, message interface{},
 Publish allows to publish messages to an MQTT broker
 
 <a name="Client.Run"></a>
-### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L110)
+### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L118)
 
 ```go
 func (c *Client) Run(ctx context.Context) error
@@ -269,7 +272,7 @@ func (c *Client) Run(ctx context.Context) error
 Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package. https://pkg.go.dev/github.com/gojekfarm/xrun
 
 <a name="Client.Start"></a>
-### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L91)
+### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L97)
 
 ```go
 func (c *Client) Start() error
@@ -278,7 +281,7 @@ func (c *Client) Start() error
 Start will attempt to connect to the broker.
 
 <a name="Client.Stop"></a>
-### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L106)
+### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L114)
 
 ```go
 func (c *Client) Stop()
@@ -305,13 +308,13 @@ func (c *Client) SubscribeMultiple(ctx context.Context, topicsWithQos map[string
 SubscribeMultiple allows to subscribe to messages on multiple topics from an MQTT broker
 
 <a name="Client.TelemetryHandler"></a>
-### func \(\*Client\) [TelemetryHandler](https://github.com/gojek/courier-go/blob/main/http.go#L29)
+### func \(\*Client\) [TelemetryHandler](https://github.com/gojek/courier-go/blob/main/http.go#L9)
 
 ```go
 func (c *Client) TelemetryHandler() http.Handler
 ```
 
-TelemetryHandler returns a http.Handler that exposes the connected brokers information
+TelemetryHandler returns a http.Handler that exposes the connected clients information
 
 <a name="Client.Unsubscribe"></a>
 ### func \(\*Client\) [Unsubscribe](https://github.com/gojek/courier-go/blob/main/client_unsubscribe.go#L10)
@@ -348,6 +351,30 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc)
 ```
 
 UseUnsubscriberMiddleware appends a UnsubscriberMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip subscriptions. They are executed in the order that they are applied to the Client.
+
+<a name="ClientInfoEmitter"></a>
+## type [ClientInfoEmitter](https://github.com/gojek/courier-go/blob/main/metrics.go#L10-L12)
+
+ClientInfoEmitter emits broker info. This can be called concurrently, implementations should be concurrency safe.
+
+```go
+type ClientInfoEmitter interface {
+    Emit(ctx context.Context, info MQTTClientInfo)
+}
+```
+
+<a name="ClientInfoEmitterConfig"></a>
+## type [ClientInfoEmitterConfig](https://github.com/gojek/courier-go/blob/main/metrics.go#L15-L19)
+
+ClientInfoEmitterConfig is used to configure the broker info emitter.
+
+```go
+type ClientInfoEmitterConfig struct {
+    // Interval is the interval at which the broker info emitter emits broker info.
+    Interval time.Duration
+    Emitter  ClientInfoEmitter
+}
+```
 
 <a name="ClientOption"></a>
 ## type [ClientOption](https://github.com/gojek/courier-go/blob/main/client_options.go#L17)
@@ -709,6 +736,23 @@ Logger is the interface that wraps the Info and Error methods.
 type Logger interface {
     Info(ctx context.Context, msg string, attrs map[string]any)
     Error(ctx context.Context, err error, attrs map[string]any)
+}
+```
+
+<a name="MQTTClientInfo"></a>
+## type [MQTTClientInfo](https://github.com/gojek/courier-go/blob/main/client_telemetry.go#L14-L22)
+
+MQTTClientInfo contains information about the internal MQTT client
+
+```go
+type MQTTClientInfo struct {
+    Addresses     []TCPAddress `json:"addresses"`
+    ClientID      string       `json:"client_id"`
+    Username      string       `json:"username"`
+    ResumeSubs    bool         `json:"resume_subs"`
+    CleanSession  bool         `json:"clean_session"`
+    AutoReconnect bool         `json:"auto_reconnect"`
+    Connected     bool         `json:"connected"`
 }
 ```
 

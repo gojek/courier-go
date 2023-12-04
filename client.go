@@ -38,6 +38,8 @@ type Client struct {
 	rndPool           *sync.Pool
 	clientMu          sync.RWMutex
 	subMu             sync.RWMutex
+
+	stopInfoEmitter context.CancelFunc
 }
 
 // NewClient creates the Client struct with the clientOptions provided,
@@ -52,6 +54,10 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 
 	if len(co.brokerAddress) == 0 && co.resolver == nil {
 		return nil, fmt.Errorf("at least WithAddress or WithResolver ClientOption should be used")
+	}
+
+	if co.infoEmitterCfg != nil && co.infoEmitterCfg.Emitter != nil && co.infoEmitterCfg.Interval.Seconds() < 1 {
+		return nil, fmt.Errorf("client info emitter interval must be greater than or equal to 1s")
 	}
 
 	c := &Client{
@@ -97,6 +103,8 @@ func (c *Client) Start() error {
 		return c.runResolver()
 	}
 
+	c.handleInfoEmitter()
+
 	return nil
 }
 
@@ -128,6 +136,10 @@ func (c *Client) stop() error {
 		return nil
 	}, execAll)
 
+	if c.stopInfoEmitter != nil {
+		c.stopInfoEmitter()
+	}
+
 	if err == nil {
 		c.clientMu.Lock()
 		defer c.clientMu.Unlock()
@@ -137,6 +149,15 @@ func (c *Client) stop() error {
 	}
 
 	return err
+}
+
+func (c *Client) handleInfoEmitter() {
+	if c.options.infoEmitterCfg != nil && c.options.infoEmitterCfg.Emitter != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		c.stopInfoEmitter = cancel
+
+		go c.runBrokerInfoEmitter(ctx)
+	}
 }
 
 func (c *Client) handleToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {
@@ -178,6 +199,8 @@ func (c *Client) runResolver() error {
 			return err
 		}
 	}
+
+	c.handleInfoEmitter()
 
 	go c.watchAddressUpdates(c.options.resolver)
 

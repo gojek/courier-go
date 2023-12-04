@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"testing"
@@ -260,7 +261,7 @@ func (s *ClientPublishSuite) TestPublishWithMultiConnectionMode() {
 		tba := testBrokerAddress
 		tba.Port = uint16(1883 + i)
 
-		clients[tba.String()] = mc
+		clients[fmt.Sprintf("%s-%d", tba.String(), ii)] = mc
 
 		mcks = append(mcks, mc, mt)
 	}

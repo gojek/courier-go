@@ -8,6 +8,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.1]
+
+### Added
+
+- Add a typed `KeepAlive` Option.
+
+### Changed
+
+- Add logging inside `OnConnectionLostHandler` & `OnReconnectHandler` Handlers.
+
 ## [0.5.0]
 
 ### Added
@@ -73,6 +83,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Initial Release
 
+[0.5.1]: https://github.com/gojek/courier-go/releases/tag/v0.5.1
 [0.5.0]: https://github.com/gojek/courier-go/releases/tag/v0.5.0
 [0.4.0]: https://github.com/gojek/courier-go/releases/tag/v0.4.0
 [0.3.1]: https://github.com/gojek/courier-go/releases/tag/v0.3.1

@@ -74,6 +74,11 @@ func (s *ClientOptionSuite) Test_apply() {
 			want:   &clientOptions{keepAlive: time.Second},
 		},
 		{
+			name:   "KeepAlive",
+			option: KeepAlive(time.Second),
+			want:   &clientOptions{keepAlive: time.Second},
+		},
+		{
 			name:   "WithConnectTimeout",
 			option: WithConnectTimeout(time.Second),
 			want:   &clientOptions{connectTimeout: time.Second},

@@ -263,7 +263,14 @@ func formatAddressWithProtocol(opts *clientOptions) string {
 }
 
 func reconnectHandler(client PubSub, o *clientOptions) mqtt.ReconnectHandler {
-	return func(_ mqtt.Client, _ *mqtt.ClientOptions) {
+	return func(_ mqtt.Client, opts *mqtt.ClientOptions) {
+		if o.logger != nil {
+			o.logger.Info(context.Background(), "reconnecting", map[string]any{
+				"message":   "reconnecting",
+				"client_id": opts.ClientID,
+			})
+		}
+
 		if o.onReconnectHandler != nil {
 			o.onReconnectHandler(client)
 		}
@@ -271,7 +278,15 @@ func reconnectHandler(client PubSub, o *clientOptions) mqtt.ReconnectHandler {
 }
 
 func connectionLostHandler(o *clientOptions) mqtt.ConnectionLostHandler {
-	return func(_ mqtt.Client, err error) {
+	return func(cc mqtt.Client, err error) {
+		if o.logger != nil {
+			or := cc.OptionsReader()
+			o.logger.Error(context.Background(), err, map[string]any{
+				"message":   "connection lost",
+				"client_id": or.ClientID(),
+			})
+		}
+
 		if o.onConnectionLostHandler != nil {
 			o.onConnectionLostHandler(err)
 		}

@@ -62,6 +62,7 @@ Package courier contains the client that can be used to interact with the courie
 - [type Encoder](#Encoder)
   - [func DefaultEncoderFunc\(\_ context.Context, w io.Writer\) Encoder](#DefaultEncoderFunc)
 - [type EncoderFunc](#EncoderFunc)
+- [type KeepAlive](#KeepAlive)
 - [type Logger](#Logger)
 - [type Message](#Message)
   - [func NewMessageWithDecoder\(payloadDecoder Decoder\) \*Message](#NewMessageWithDecoder)
@@ -379,7 +380,7 @@ func WithClientID(clientID string) ClientOption
 WithClientID sets the clientID to be used while connecting to an MQTT broker. According to the MQTT v3.1 specification, a client id must be no longer than 23 characters.
 
 <a name="WithConnectTimeout"></a>
-### func [WithConnectTimeout](https://github.com/gojek/courier-go/blob/main/client_options.go#L139)
+### func [WithConnectTimeout](https://github.com/gojek/courier-go/blob/main/client_options.go#L151)
 
 ```go
 func WithConnectTimeout(duration time.Duration) ClientOption
@@ -397,7 +398,7 @@ func WithCredentialFetcher(fetcher CredentialFetcher) ClientOption
 WithCredentialFetcher sets the specified CredentialFetcher.
 
 <a name="WithCustomDecoder"></a>
-### func [WithCustomDecoder](https://github.com/gojek/courier-go/blob/main/client_options.go#L181)
+### func [WithCustomDecoder](https://github.com/gojek/courier-go/blob/main/client_options.go#L193)
 
 ```go
 func WithCustomDecoder(decoderFunc DecoderFunc) ClientOption
@@ -406,7 +407,7 @@ func WithCustomDecoder(decoderFunc DecoderFunc) ClientOption
 WithCustomDecoder allows to decode message bytes into the desired object.
 
 <a name="WithCustomEncoder"></a>
-### func [WithCustomEncoder](https://github.com/gojek/courier-go/blob/main/client_options.go#L178)
+### func [WithCustomEncoder](https://github.com/gojek/courier-go/blob/main/client_options.go#L190)
 
 ```go
 func WithCustomEncoder(encoderFunc EncoderFunc) ClientOption
@@ -415,7 +416,7 @@ func WithCustomEncoder(encoderFunc EncoderFunc) ClientOption
 WithCustomEncoder allows to transform objects into the desired message bytes.
 
 <a name="WithExponentialStartOptions"></a>
-### func [WithExponentialStartOptions](https://github.com/gojek/courier-go/blob/main/client_options.go#L193)
+### func [WithExponentialStartOptions](https://github.com/gojek/courier-go/blob/main/client_options.go#L205)
 
 ```go
 func WithExponentialStartOptions(options ...StartOption) ClientOption
@@ -424,7 +425,7 @@ func WithExponentialStartOptions(options ...StartOption) ClientOption
 WithExponentialStartOptions configures the client to use ExponentialStartStrategy along with the passed StartOption\(s\) when using the Client.Run method.
 
 <a name="WithGracefulShutdownPeriod"></a>
-### func [WithGracefulShutdownPeriod](https://github.com/gojek/courier-go/blob/main/client_options.go#L163)
+### func [WithGracefulShutdownPeriod](https://github.com/gojek/courier-go/blob/main/client_options.go#L175)
 
 ```go
 func WithGracefulShutdownPeriod(duration time.Duration) ClientOption
@@ -433,13 +434,13 @@ func WithGracefulShutdownPeriod(duration time.Duration) ClientOption
 WithGracefulShutdownPeriod sets the limit that is allowed for existing work to be completed.
 
 <a name="WithKeepAlive"></a>
-### func [WithKeepAlive](https://github.com/gojek/courier-go/blob/main/client_options.go#L130)
+### func [WithKeepAlive](https://github.com/gojek/courier-go/blob/main/client_options.go#L142)
 
 ```go
 func WithKeepAlive(duration time.Duration) ClientOption
 ```
 
-WithKeepAlive will set the amount of time \(in seconds\) that the client should wait before sending a PING request to the broker. This will allow the client to know that a connection has not been lost with the server.
+WithKeepAlive will set the amount of time \(in seconds\) that the client should wait before sending a PING request to the broker. This will allow the client to know that a connection has not been lost with the server. Deprecated: Use KeepAlive instead.
 
 <a name="WithLogger"></a>
 ### func [WithLogger](https://github.com/gojek/courier-go/blob/main/log.go#L6)
@@ -460,7 +461,7 @@ func WithMaintainOrder(maintainOrder bool) ClientOption
 WithMaintainOrder will set the message routing to guarantee order within each QoS level. By default, this value is true. If set to false \(recommended\), this flag indicates that messages can be delivered asynchronously from the client to the application and possibly arrive out of order. Specifically, the message handler is called in its own go routine. Note that setting this to true does not guarantee in\-order delivery \(this is subject to broker settings like "max\_inflight\_messages=1"\) and if true then MessageHandler callback must not block.
 
 <a name="WithMaxReconnectInterval"></a>
-### func [WithMaxReconnectInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L156)
+### func [WithMaxReconnectInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L168)
 
 ```go
 func WithMaxReconnectInterval(duration time.Duration) ClientOption
@@ -505,7 +506,7 @@ func WithPassword(password string) ClientOption
 WithPassword sets the password to be used while connecting to an MQTT broker.
 
 <a name="WithPersistence"></a>
-### func [WithPersistence](https://github.com/gojek/courier-go/blob/main/client_options.go#L171)
+### func [WithPersistence](https://github.com/gojek/courier-go/blob/main/client_options.go#L183)
 
 ```go
 func WithPersistence(store Store) ClientOption
@@ -543,7 +544,7 @@ func WithTLS(tlsConfig *tls.Config) ClientOption
 WithTLS sets the TLs configuration to be used while connecting to an MQTT broker.
 
 <a name="WithUseBase64Decoder"></a>
-### func [WithUseBase64Decoder](https://github.com/gojek/courier-go/blob/main/client_options.go#L185)
+### func [WithUseBase64Decoder](https://github.com/gojek/courier-go/blob/main/client_options.go#L197)
 
 ```go
 func WithUseBase64Decoder() ClientOption
@@ -561,7 +562,7 @@ func WithUsername(username string) ClientOption
 WithUsername sets the username to be used while connecting to an MQTT broker.
 
 <a name="WithWriteTimeout"></a>
-### func [WithWriteTimeout](https://github.com/gojek/courier-go/blob/main/client_options.go#L148)
+### func [WithWriteTimeout](https://github.com/gojek/courier-go/blob/main/client_options.go#L160)
 
 ```go
 func WithWriteTimeout(duration time.Duration) ClientOption
@@ -662,6 +663,15 @@ EncoderFunc is used to create an Encoder from io.Writer; the context.Context val
 
 ```go
 type EncoderFunc func(context.Context, io.Writer) Encoder
+```
+
+<a name="KeepAlive"></a>
+## type [KeepAlive](https://github.com/gojek/courier-go/blob/main/client_options.go#L133)
+
+KeepAlive will set the amount of time that the client should wait before sending a PING request to the broker. This will allow the client to know that a connection has not been lost with the server. Default value is 60 seconds. Note: Practically, when KeepAlive \>= 10s, the client will check every 5s, if it needs to send a PING. In other cases, the client will check every KeepAlive/2.
+
+```go
+type KeepAlive time.Duration
 ```
 
 <a name="Logger"></a>
@@ -865,7 +875,7 @@ type Retained bool
 ```
 
 <a name="SharedSubscriptionPredicate"></a>
-## type [SharedSubscriptionPredicate](https://github.com/gojek/courier-go/blob/main/client_options.go#L204)
+## type [SharedSubscriptionPredicate](https://github.com/gojek/courier-go/blob/main/client_options.go#L216)
 
 SharedSubscriptionPredicate allows to configure the predicate function that determines whether a topic is a shared subscription topic.
 

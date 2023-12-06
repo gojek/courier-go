@@ -123,10 +123,22 @@ func WithAddress(host string, port uint16) ClientOption {
 	})
 }
 
+// KeepAlive will set the amount of time that the client
+// should wait before sending a PING request to the broker. This will
+// allow the client to know that a connection has not been lost with the
+// server.
+// Default value is 60 seconds.
+// Note: Practically, when KeepAlive >= 10s, the client will check every 5s, if it needs to send a PING.
+// In other cases, the client will check every KeepAlive/2.
+type KeepAlive time.Duration
+
+func (ka KeepAlive) apply(o *clientOptions) { o.keepAlive = time.Duration(ka) }
+
 // WithKeepAlive will set the amount of time (in seconds) that the client
 // should wait before sending a PING request to the broker. This will
 // allow the client to know that a connection has not been lost with the
 // server.
+// Deprecated: Use KeepAlive instead.
 func WithKeepAlive(duration time.Duration) ClientOption {
 	return optionFunc(func(o *clientOptions) {
 		o.keepAlive = duration

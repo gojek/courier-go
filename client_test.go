@@ -295,22 +295,49 @@ func TestNewClient_WithOptions(t *testing.T) {
 
 func Test_reconnectHandler(t *testing.T) {
 	o := defaultClientOptions()
+	ml := newMockLogger(t)
+	o.logger = ml
 	o.onReconnectHandler = func(_ PubSub) {
 		t.Logf("reconnectHandler called")
 	}
-	c := &Client{options: o}
+	c := &Client{
+		options: o,
+		mqttClient: mqtt.NewClient(&mqtt.ClientOptions{
+			ClientID: "clientID",
+		}),
+	}
+
+	ml.On("Info", mock.Anything, "reconnecting", map[string]any{
+		"message":   "reconnecting",
+		"client_id": "clientID",
+	}).Return()
+
 	f := reconnectHandler(c, c.options)
-	f(c.mqttClient, &mqtt.ClientOptions{})
+	f(c.mqttClient, &mqtt.ClientOptions{ClientID: "clientID"})
 }
 
 func Test_connectionLostHandler(t *testing.T) {
 	o := defaultClientOptions()
+	ml := newMockLogger(t)
+	o.logger = ml
 	o.onConnectionLostHandler = func(err error) {
 		t.Logf("onConnectionLostHandler called")
 	}
-	c := &Client{options: o}
+	c := &Client{
+		options:    o,
+		mqttClient: mqtt.NewClient(&mqtt.ClientOptions{ClientID: "clientID"}),
+	}
+
+	ml.On("Error", mock.Anything, mock.MatchedBy(func(err error) bool {
+		return err.Error() == "disconnected"
+	}), map[string]any{
+		"message":   "connection lost",
+		"client_id": "clientID",
+	}).Return()
+
 	f := connectionLostHandler(c.options)
 	f(c.mqttClient, errors.New("disconnected"))
+	ml.AssertExpectations(t)
 }
 
 func Test_onConnectHandler(t *testing.T) {

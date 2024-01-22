@@ -1078,8 +1078,8 @@ TCPAddress specifies Host and Port for remote broker
 
 ```go
 type TCPAddress struct {
-    Host string
-    Port uint16
+    Host string `json:"host"`
+    Port uint16 `json:"port"`
 }
 ```
 

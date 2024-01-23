@@ -20,7 +20,7 @@ func newMockEmitter(t *testing.T) *mockEmitter {
 	return m
 }
 
-func (m *mockEmitter) Emit(ctx context.Context, info MQTTClientInfo) { m.Called(ctx, info) }
+func (m *mockEmitter) Emit(ctx context.Context, meta ClientMeta) { m.Called(ctx, meta) }
 
 func TestClient_ClientInfoEmitter(t *testing.T) {
 	tests := []struct {
@@ -52,7 +52,7 @@ func TestClient_ClientInfoEmitter(t *testing.T) {
 				go func() {
 					ch <- []TCPAddress{testBrokerAddress, testBrokerAddress}
 
-					<-time.After(2 * time.Second)
+					<-time.After(time.Second + 500*time.Millisecond)
 					close(ch)
 
 					dCh <- struct{}{}
@@ -64,11 +64,11 @@ func TestClient_ClientInfoEmitter(t *testing.T) {
 				}
 			},
 			mock: func(wg *sync.WaitGroup, m *mock.Mock) {
-				wg.Add(2)
+				wg.Add(1)
 
 				m.On("Emit", mock.Anything, mock.Anything).Return().Run(func(args mock.Arguments) {
 					wg.Done()
-				}).Twice()
+				}).Once()
 			},
 		},
 	}

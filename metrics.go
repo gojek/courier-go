@@ -5,10 +5,17 @@ import (
 	"time"
 )
 
+// ClientMeta contains information about the internal MQTT client(s)
+type ClientMeta struct {
+	MultiConnMode bool
+	Clients       []MQTTClientInfo
+	Subscriptions map[string]QOSLevel
+}
+
 // ClientInfoEmitter emits broker info.
 // This can be called concurrently, implementations should be concurrency safe.
 type ClientInfoEmitter interface {
-	Emit(ctx context.Context, info MQTTClientInfo)
+	Emit(ctx context.Context, meta ClientMeta)
 }
 
 // ClientInfoEmitterConfig is used to configure the broker info emitter.
@@ -31,11 +38,14 @@ func (c *Client) runBrokerInfoEmitter(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-tick.C:
-			cl := c.allClientInfo()
-
-			for _, ci := range cl {
-				go em.Emit(ctx, ci)
+			ir := c.infoResponse()
+			cm := ClientMeta{
+				MultiConnMode: ir.MultiConnMode,
+				Clients:       ir.Clients,
+				Subscriptions: ir.Subscriptions,
 			}
+
+			go em.Emit(ctx, cm)
 		}
 	}
 }

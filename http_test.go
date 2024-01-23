@@ -22,7 +22,7 @@ func TestClient_TelemetryHandler(t *testing.T) {
 			name:   "single connection mode",
 			status: http.StatusOK,
 			opts:   func(t *testing.T) []ClientOption { return nil },
-			body: fmt.Sprintf(`{"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true}],"multi":false}
+			body: fmt.Sprintf(`{"multi":false,"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true}]}
 `, testBrokerAddress.Host, testBrokerAddress.Port),
 		},
 		{
@@ -50,7 +50,7 @@ func TestClient_TelemetryHandler(t *testing.T) {
 					UseMultiConnectionMode,
 				}
 			},
-			body: fmt.Sprintf(`{"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-0-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true},{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-1-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true}],"multi":true}
+			body: fmt.Sprintf(`{"multi":true,"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-0-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true},{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-1-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true}]}
 `, testBrokerAddress.Host, testBrokerAddress.Port, testBrokerAddress.Host, testBrokerAddress.Port),
 		},
 	}

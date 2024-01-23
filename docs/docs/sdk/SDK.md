@@ -30,6 +30,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func \(c \*Client\) UseUnsubscriberMiddleware\(mwf ...UnsubscriberMiddlewareFunc\)](#Client.UseUnsubscriberMiddleware)
 - [type ClientInfoEmitter](#ClientInfoEmitter)
 - [type ClientInfoEmitterConfig](#ClientInfoEmitterConfig)
+- [type ClientMeta](#ClientMeta)
 - [type ClientOption](#ClientOption)
   - [func WithAddress\(host string, port uint16\) ClientOption](#WithAddress)
   - [func WithAutoReconnect\(autoReconnect bool\) ClientOption](#WithAutoReconnect)
@@ -353,18 +354,18 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc)
 UseUnsubscriberMiddleware appends a UnsubscriberMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip subscriptions. They are executed in the order that they are applied to the Client.
 
 <a name="ClientInfoEmitter"></a>
-## type [ClientInfoEmitter](https://github.com/gojek/courier-go/blob/main/metrics.go#L10-L12)
+## type [ClientInfoEmitter](https://github.com/gojek/courier-go/blob/main/metrics.go#L17-L19)
 
 ClientInfoEmitter emits broker info. This can be called concurrently, implementations should be concurrency safe.
 
 ```go
 type ClientInfoEmitter interface {
-    Emit(ctx context.Context, info MQTTClientInfo)
+    Emit(ctx context.Context, meta ClientMeta)
 }
 ```
 
 <a name="ClientInfoEmitterConfig"></a>
-## type [ClientInfoEmitterConfig](https://github.com/gojek/courier-go/blob/main/metrics.go#L15-L19)
+## type [ClientInfoEmitterConfig](https://github.com/gojek/courier-go/blob/main/metrics.go#L22-L26)
 
 ClientInfoEmitterConfig is used to configure the broker info emitter.
 
@@ -373,6 +374,19 @@ type ClientInfoEmitterConfig struct {
     // Interval is the interval at which the broker info emitter emits broker info.
     Interval time.Duration
     Emitter  ClientInfoEmitter
+}
+```
+
+<a name="ClientMeta"></a>
+## type [ClientMeta](https://github.com/gojek/courier-go/blob/main/metrics.go#L9-L13)
+
+ClientMeta contains information about the internal MQTT client\(s\)
+
+```go
+type ClientMeta struct {
+    MultiConnMode bool
+    Clients       []MQTTClientInfo
+    Subscriptions map[string]QOSLevel
 }
 ```
 

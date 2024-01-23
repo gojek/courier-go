@@ -8,13 +8,10 @@ import (
 // InfoHandler returns a http.Handler that exposes the connected clients information
 func (c *Client) InfoHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cl := c.allClientInfo()
+		ir := c.infoResponse()
 
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"multi":   c.options.multiConnectionMode,
-			"clients": cl,
-		})
+		_ = json.NewEncoder(w).Encode(ir)
 	})
 }

@@ -21,9 +21,24 @@ type MQTTClientInfo struct {
 	Connected     bool         `json:"connected"`
 }
 
-type clientIntoList []MQTTClientInfo
+type infoResponse struct {
+	MultiConnMode bool                `json:"multi"`
+	Clients       []MQTTClientInfo    `json:"clients,omitempty"`
+	Subscriptions map[string]QOSLevel `json:"subscriptions,omitempty"`
+}
 
-func (c *Client) allClientInfo() clientIntoList {
+func (c *Client) infoResponse() *infoResponse {
+	subs := c.readSubscriptionMeta()
+	ci := c.clientInfo()
+
+	return &infoResponse{
+		MultiConnMode: c.options.multiConnectionMode,
+		Clients:       ci,
+		Subscriptions: subs,
+	}
+}
+
+func (c *Client) clientInfo() []MQTTClientInfo {
 	if c.options.multiConnectionMode {
 		return c.multiClientInfo()
 	}
@@ -31,10 +46,38 @@ func (c *Client) allClientInfo() clientIntoList {
 	return c.singleClientInfo()
 }
 
-func (c *Client) multiClientInfo() clientIntoList {
+func (c *Client) readSubscriptionMeta() map[string]QOSLevel {
+	c.subMu.RLock()
+
+	subs := make(map[string]QOSLevel, len(c.subscriptions))
+
+	for topic, sub := range c.subscriptions {
+		for _, opt := range sub.options {
+			switch v := opt.(type) {
+			case QOSLevel:
+				subs[topic] = v
+			}
+		}
+
+		// if no QOSLevel Option is provided, default to QOSZero
+		if _, ok := subs[topic]; !ok {
+			subs[topic] = QOSZero
+		}
+	}
+
+	c.subMu.RUnlock()
+
+	return subs
+}
+
+func (c *Client) multiClientInfo() []MQTTClientInfo {
 	c.clientMu.RLock()
+
+	if len(c.mqttClients) == 0 {
+		return nil
+	}
+
 	bCh := make(chan MQTTClientInfo, len(c.mqttClients))
-	c.clientMu.RUnlock()
 
 	_ = c.execute(func(cc mqtt.Client) error {
 		bCh <- transformClientInfo(cc)
@@ -42,9 +85,11 @@ func (c *Client) multiClientInfo() clientIntoList {
 		return nil
 	}, execAll)
 
+	c.clientMu.RUnlock()
+
 	close(bCh)
 
-	bl := make(clientIntoList, 0, len(bCh))
+	bl := make([]MQTTClientInfo, 0, len(bCh))
 
 	for b := range bCh {
 		bl = append(bl, b)
@@ -55,7 +100,14 @@ func (c *Client) multiClientInfo() clientIntoList {
 	return bl
 }
 
-func (c *Client) singleClientInfo() clientIntoList {
+func (c *Client) singleClientInfo() []MQTTClientInfo {
+	c.clientMu.RLock()
+	defer c.clientMu.RUnlock()
+
+	if c.mqttClient == nil {
+		return nil
+	}
+
 	var bi MQTTClientInfo
 
 	_ = c.execute(func(cc mqtt.Client) error {
@@ -64,7 +116,7 @@ func (c *Client) singleClientInfo() clientIntoList {
 		return nil
 	}, execAll)
 
-	return clientIntoList{bi}
+	return []MQTTClientInfo{bi}
 }
 
 func transformClientInfo(cc mqtt.Client) MQTTClientInfo {

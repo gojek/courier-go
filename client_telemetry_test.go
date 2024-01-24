@@ -35,7 +35,15 @@ func TestClient_readSubscriptionMeta(t *testing.T) {
 }
 
 func TestClient_clientInfo(t *testing.T) {
-	c := &Client{options: &clientOptions{}}
-	ci := c.clientInfo()
-	assert.Equal(t, []MQTTClientInfo(nil), ci)
+	t.Run("single connection mode", func(t *testing.T) {
+		c := &Client{options: &clientOptions{}}
+		ci := c.clientInfo()
+		assert.Equal(t, []MQTTClientInfo(nil), ci)
+	})
+
+	t.Run("multi connection mode", func(t *testing.T) {
+		c := &Client{options: &clientOptions{multiConnectionMode: true}}
+		ci := c.clientInfo()
+		assert.Equal(t, []MQTTClientInfo(nil), ci)
+	})
 }

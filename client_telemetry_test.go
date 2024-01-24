@@ -1,9 +1,10 @@
 package courier
 
 import (
-	"github.com/stretchr/testify/assert"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestClient_readSubscriptionMeta(t *testing.T) {

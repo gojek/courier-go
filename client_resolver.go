@@ -74,10 +74,7 @@ func (c *Client) refreshClients(addrs []TCPAddress) error {
 	c.clientMu.Lock()
 	defer c.clientMu.Unlock()
 
-	clients, err := c.multipleClients(addrs)
-	if err != nil {
-		return err
-	}
+	clients := c.multipleClients(addrs)
 
 	c.reloadClients(clients)
 
@@ -101,17 +98,32 @@ func (c *Client) reloadClients(clients map[string]mqtt.Client) {
 	oldClients := xmap.Values(c.mqttClients)
 	c.mqttClients = clients
 
-	go func(oldClients []mqtt.Client) {
-		if len(oldClients) == 0 {
+	c.options.logger.Info(context.Background(), "reloading clients", map[string]any{
+		"oldIds": slice.Map(oldClients, func(cc mqtt.Client) string {
+			r := cc.OptionsReader()
+			return r.ClientID()
+		}),
+		"newIds": slice.Map(xmap.Values(clients), func(cc mqtt.Client) string {
+			r := cc.OptionsReader()
+			return r.ClientID()
+		}),
+	})
+
+	go func(oldClients []mqtt.Client, newClientsLen int) {
+		if len(oldClients) == 0 || newClientsLen == 0 {
 			return
 		}
 
-		slice.MapConcurrent(oldClients, func(cc mqtt.Client) error {
-			cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+		c.disconnectAll(oldClients)
+	}(oldClients, len(clients))
+}
 
-			return nil
-		})
-	}(oldClients)
+func (c *Client) disconnectAll(cls []mqtt.Client) {
+	slice.MapConcurrent(cls, func(cc mqtt.Client) error {
+		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+
+		return nil
+	})
 }
 
 type indexAddress struct {
@@ -119,50 +131,85 @@ type indexAddress struct {
 	addr  TCPAddress
 }
 
-func (c *Client) multipleClients(addrs []TCPAddress) (map[string]mqtt.Client, error) {
+func (c *Client) multipleClients(addrs []TCPAddress) map[string]mqtt.Client {
 	clients := &sync.Map{}
+
+	currRev := c.multiConnRevision.Load()
+	c.options.logger.Info(context.Background(), "attempting multiple connections", map[string]any{
+		"multiConnRevision": currRev,
+	})
 
 	i := &atomicCounter{}
 	iaddrs := slice.Map(addrs, func(a TCPAddress) indexAddress { return indexAddress{index: int(i.next()), addr: a} })
 
-	if err := slice.Reduce(slice.MapConcurrent(iaddrs, func(ia indexAddress) error {
+	slice.MapConcurrent(iaddrs, func(ia indexAddress) error {
 		opts := *c.options
 		opts.brokerAddress = ia.addr.String()
 
-		cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(
-			toClientOptions(c, &opts, fmt.Sprintf("-%d-%d", ia.index, c.multiConnRevision+1)),
-		)
+		pOpts := toClientOptions(c, &opts, fmt.Sprintf("-%d-%d", ia.index, currRev+1))
+		cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(pOpts)
+
+		clients.Store(ia.addr.String(), cc)
+
+		c.options.logger.Info(context.Background(), "attempting connection", map[string]any{
+			"multiConnRevision": currRev,
+			"clientID":          pOpts.ClientID,
+		})
 
 		t := cc.Connect()
 		if !t.WaitTimeout(c.options.connectTimeout) {
+			c.options.logger.Error(context.Background(), ErrConnectTimeout, map[string]any{
+				"clientID": pOpts.ClientID,
+			})
 			return ErrConnectTimeout
 		}
 
 		if err := t.Error(); err != nil {
+			c.options.logger.Error(context.Background(), err, map[string]any{
+				"clientID": pOpts.ClientID,
+			})
+
 			return err
 		}
 
-		clients.Store(ia.addr.String(), cc)
-
 		return nil
-	}), accumulateErrors); err != nil {
-		return nil, err
-	}
-
-	if len(iaddrs) > 0 {
-		c.multiConnRevision++
-	}
+	})
 
 	res := map[string]mqtt.Client{}
+	anyConnected := false
 
 	clients.Range(func(key, value interface{}) bool {
+		cc := value.(mqtt.Client)
+		if cc.IsConnectionOpen() {
+			anyConnected = true
+		}
 		// nolint: errcheck
-		res[key.(string)] = value.(mqtt.Client)
+		res[key.(string)] = cc
 
 		return true
 	})
 
-	return res, nil
+	if !anyConnected {
+		c.options.logger.Info(context.Background(), "no clients connected", map[string]any{
+			"multiConnRevision": currRev,
+		})
+
+		go c.disconnectAll(xmap.Values(res))
+
+		res = nil
+	}
+
+	if len(res) > 0 {
+		if c.multiConnRevision.CompareAndSwap(currRev, currRev+1) {
+			c.options.logger.Info(context.Background(), "multiConnRevision incremented", map[string]any{
+				"old":               currRev,
+				"new":               currRev + 1,
+				"multiConnRevision": c.multiConnRevision.Load(),
+			})
+		}
+	}
+
+	return res
 }
 
 func (c *Client) newClient(addrs []TCPAddress, attempt int) mqtt.Client {

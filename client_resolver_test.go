@@ -240,7 +240,7 @@ func TestClient_multiClientConnectionAttempts(t *testing.T) {
 
 			newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client { return tt.newClientFunc(t, o) })
 
-			got, err := c.multipleClients(tt.addrs)
+			got := c.multipleClients(tt.addrs)
 
 			tt.wantErr(t, err)
 

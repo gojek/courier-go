@@ -71,9 +71,6 @@ func (c *Client) attemptMultiConnections(addrs []TCPAddress) error {
 }
 
 func (c *Client) refreshClients(addrs []TCPAddress) error {
-	c.clientMu.Lock()
-	defer c.clientMu.Unlock()
-
 	clients := c.multipleClients(addrs)
 
 	c.reloadClients(clients)
@@ -95,8 +92,14 @@ func (c *Client) resumeSubscriptions() error {
 }
 
 func (c *Client) reloadClients(clients map[string]mqtt.Client) {
+	c.clientMu.Lock()
+	defer c.clientMu.Unlock()
+
 	oldClients := xmap.Values(c.mqttClients)
-	c.mqttClients = clients
+
+	if len(clients) > 0 {
+		c.mqttClients = clients
+	}
 
 	c.options.logger.Info(context.Background(), "reloading clients", map[string]any{
 		"oldIds": slice.Map(oldClients, func(cc mqtt.Client) string {
@@ -111,7 +114,7 @@ func (c *Client) reloadClients(clients map[string]mqtt.Client) {
 
 	go func(oldClients []mqtt.Client, newClientsLen int) {
 		if len(oldClients) == 0 || newClientsLen == 0 {
-			c.options.logger.Info(context.Background(), "skippind disconnections", map[string]any{})
+			c.options.logger.Info(context.Background(), "skipping disconnections", map[string]any{})
 
 			return
 		}

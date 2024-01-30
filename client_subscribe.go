@@ -3,6 +3,8 @@ package courier
 import (
 	"bytes"
 	"context"
+	"github.com/gojekfarm/xtools/generic"
+	"sync"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
@@ -77,9 +79,23 @@ func subscriberFuncs(c *Client) Subscriber {
 		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
 			o := composeOptions(opts)
 
-			eo := execOneRandom
+			var eo execOpt = execOneRandom
 			if c.options.sharedSubscriptionPredicate(topic) {
-				eo = execAll
+				eo = &execOptFn{
+					predicate: func(s *internalState) bool { return !s.topicSubscribed(topic) },
+					onExec: func(s *internalState, execErr error) {
+						sbs := s.topicSubscribed(topic)
+						c.options.logger.Info(context.Background(), "subscribing", map[string]any{
+							"alreadySubscribed": sbs,
+						})
+						if !sbs && execErr == nil {
+							c.options.logger.Info(context.Background(), "subscribe added", map[string]any{
+								"topic": topic,
+							})
+							s.addTopic(topic)
+						}
+					},
+				}
 			}
 
 			return c.execute(func(cc mqtt.Client) error {
@@ -141,6 +157,27 @@ func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 
 		callback(ctx, c, msg)
 	}
+}
+
+type internalState struct {
+	subsCalled generic.Set[string]
+	client     mqtt.Client
+
+	mu sync.RWMutex
+}
+
+func (s *internalState) topicSubscribed(topic string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.subsCalled.Has(topic)
+}
+
+func (s *internalState) addTopic(topic string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.subsCalled.Add(topic)
 }
 
 func filterSubs(

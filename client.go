@@ -24,7 +24,7 @@ type Client struct {
 
 	subscriptions map[string]*subscriptionMeta
 	mqttClient    mqtt.Client
-	mqttClients   map[string]mqtt.Client
+	mqttClients   map[string]*internalState
 
 	publisher     Publisher
 	subscriber    Subscriber

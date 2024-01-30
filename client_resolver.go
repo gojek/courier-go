@@ -86,13 +86,18 @@ func (c *Client) resumeSubscriptions() error {
 
 func (c *Client) reloadClients(clients map[string]mqtt.Client) {
 	oldClients := xmap.Values(c.mqttClients)
+	ocs := slice.Map(oldClients, func(is *internalState) mqtt.Client { return is.client })
 
 	if len(clients) > 0 {
-		c.mqttClients = clients
+		ncs := make(map[string]*internalState, len(clients))
+		for k, cc := range clients {
+			ncs[k] = &internalState{client: cc, subsCalled: generic.NewSet[string]()}
+		}
+		c.mqttClients = ncs
 	}
 
 	c.options.logger.Info(context.Background(), "reloading clients", map[string]any{
-		"oldIds": slice.Map(oldClients, clientIDMapper),
+		"oldIds": slice.Map(ocs, clientIDMapper),
 		"newIds": slice.Map(xmap.Values(clients), clientIDMapper),
 	})
 
@@ -104,7 +109,7 @@ func (c *Client) reloadClients(clients map[string]mqtt.Client) {
 		}
 
 		c.disconnectAll(oldClients)
-	}(oldClients, len(clients))
+	}(ocs, len(clients))
 }
 
 func (c *Client) disconnectAll(cls []mqtt.Client) {

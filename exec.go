@@ -10,10 +10,23 @@ import (
 	"github.com/gojekfarm/xtools/generic/xmap"
 )
 
-type execOpt int
+type execOpt interface {
+	isExecOpt()
+}
+
+type execOptConst int
+
+func (eoc execOptConst) isExecOpt() {}
+
+type execOptFn struct {
+	onExec    func(*internalState, error)
+	predicate func(*internalState) bool
+}
+
+func (eof *execOptFn) isExecOpt() {}
 
 const (
-	execAll execOpt = iota
+	execAll execOptConst = iota
 	execOneRandom
 	execOneRoundRobin
 )
@@ -44,22 +57,43 @@ func (c *Client) execute(f func(mqtt.Client) error, eo execOpt) error {
 	return f(c.mqttClient)
 }
 
+func (c *Client) filterStates(predicate func(*internalState) bool) []*internalState {
+	return slice.Filter(
+		xmap.Values(c.mqttClients),
+		func(is *internalState) bool { return predicate(is) },
+	)
+}
+
+func (c *Client) filterClients(predicate func(*internalState) bool) []mqtt.Client {
+	return slice.Map(c.filterStates(predicate), func(is *internalState) mqtt.Client { return is.client })
+}
+
 func (c *Client) execMultiConn(f func(mqtt.Client) error, eo execOpt) error {
-	ccs := xmap.Values(c.mqttClients)
+	switch eo := eo.(type) {
+	case execOptConst:
+		ccs := c.filterClients(func(is *internalState) bool { return true })
 
-	if eo == execOneRandom {
-		// nolint:errcheck
-		p := c.rndPool.Get().(*rand.Rand)
-		defer c.rndPool.Put(p)
+		if eo == execOneRandom {
+			// nolint:errcheck
+			p := c.rndPool.Get().(*rand.Rand)
+			defer c.rndPool.Put(p)
 
-		return f(ccs[p.Intn(len(ccs))])
+			return f(ccs[p.Intn(len(ccs))])
+		}
+		if eo == execOneRoundRobin {
+			return f(ccs[int(c.rrCounter.next())%len(ccs)])
+		}
+
+		return slice.Reduce(slice.MapConcurrent(ccs, func(cc mqtt.Client) error {
+			return f(cc)
+		}), accumulateErrors)
+	case *execOptFn:
+		return slice.Reduce(slice.MapConcurrent(c.filterStates(eo.predicate), func(is *internalState) error {
+			err := f(is.client)
+			eo.onExec(is, err)
+			return err
+		}), accumulateErrors)
 	}
 
-	if eo == execOneRoundRobin {
-		return f(ccs[int(c.rrCounter.next())%len(ccs)])
-	}
-
-	return slice.Reduce(slice.MapConcurrent(ccs, func(cc mqtt.Client) error {
-		return f(cc)
-	}), accumulateErrors)
+	return nil
 }

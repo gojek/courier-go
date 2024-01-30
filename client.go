@@ -298,9 +298,12 @@ func connectionLostHandler(o *clientOptions) mqtt.ConnectionLostHandler {
 	}
 }
 
-func onConnectHandler(client PubSub, o *clientOptions) mqtt.OnConnectHandler {
+func onConnectHandler(client *Client, o *clientOptions) mqtt.OnConnectHandler {
 	return func(_ mqtt.Client) {
 		if o.onConnectHandler != nil {
+			client.clientMu.RLock()
+			defer client.clientMu.RUnlock()
+
 			o.onConnectHandler(client)
 		}
 	}

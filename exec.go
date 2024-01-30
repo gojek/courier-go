@@ -60,7 +60,7 @@ func (c *Client) execute(f func(mqtt.Client) error, eo execOpt) error {
 func (c *Client) filterStates(predicate func(*internalState) bool) []*internalState {
 	return slice.Filter(
 		xmap.Values(c.mqttClients),
-		func(is *internalState) bool { return predicate(is) },
+		predicate,
 	)
 }
 

@@ -3,11 +3,11 @@ package courier
 import (
 	"bytes"
 	"context"
-	"github.com/gojekfarm/xtools/generic"
 	"sync"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
+	"github.com/gojekfarm/xtools/generic"
 	"github.com/gojekfarm/xtools/generic/slice"
 )
 

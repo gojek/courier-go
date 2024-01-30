@@ -128,6 +128,11 @@ func (c *Client) multipleClients(addrs []TCPAddress) map[string]mqtt.Client {
 	clients := &sync.Map{}
 	currRev := c.multiConnRevision.Load()
 
+	currRev := c.multiConnRevision.Load()
+	c.options.logger.Info(context.Background(), "attempting multiple connections", map[string]any{
+		"multiConnRevision": currRev,
+	})
+
 	i := &atomicCounter{}
 	iaddrs := slice.Map(addrs, func(a TCPAddress) indexAddress { return indexAddress{index: int(i.next()), addr: a} })
 
@@ -167,6 +172,10 @@ func (c *Client) multipleClients(addrs []TCPAddress) map[string]mqtt.Client {
 	anyConnected := false
 
 	clients.Range(func(key, value interface{}) bool {
+		cc := value.(mqtt.Client)
+		if cc.IsConnectionOpen() {
+			anyConnected = true
+		}
 		// nolint: errcheck
 		cc := value.(mqtt.Client)
 

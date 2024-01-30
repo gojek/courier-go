@@ -111,6 +111,8 @@ func (c *Client) reloadClients(clients map[string]mqtt.Client) {
 
 	go func(oldClients []mqtt.Client, newClientsLen int) {
 		if len(oldClients) == 0 || newClientsLen == 0 {
+			c.options.logger.Info(context.Background(), "skippind disconnections", map[string]any{})
+
 			return
 		}
 
@@ -120,6 +122,11 @@ func (c *Client) reloadClients(clients map[string]mqtt.Client) {
 
 func (c *Client) disconnectAll(cls []mqtt.Client) {
 	slice.MapConcurrent(cls, func(cc mqtt.Client) error {
+		r := cc.OptionsReader()
+		c.options.logger.Info(context.Background(), "disconnecting client", map[string]any{
+			"clientID": r.ClientID(),
+		})
+
 		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 
 		return nil

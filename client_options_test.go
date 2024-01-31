@@ -191,6 +191,11 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 			option: SharedSubscriptionPredicate(ssp),
 			want:   &clientOptions{sharedSubscriptionPredicate: ssp},
 		},
+		{
+			name:   "ConnectRetryInterval",
+			option: ConnectRetryInterval(time.Second),
+			want:   &clientOptions{connectRetryPolicy: connectRetryPolicy{enabled: true, interval: time.Second}},
+		},
 	}
 
 	for _, t := range tests {
@@ -216,6 +221,7 @@ func (s *ClientOptionSuite) Test_defaultOptions() {
 		gracefulShutdownPeriod:      30 * time.Second,
 		keepAlive:                   60 * time.Second,
 		credentialFetchTimeout:      10 * time.Second,
+		connectRetryPolicy:          connectRetryPolicy{interval: 10 * time.Second},
 		newEncoder:                  DefaultEncoderFunc,
 		newDecoder:                  DefaultDecoderFunc,
 		store:                       inMemoryPersistence,

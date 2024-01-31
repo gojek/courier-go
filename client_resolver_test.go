@@ -167,12 +167,10 @@ func TestClient_multiClientConnectionAttempts(t *testing.T) {
 		addrs         []TCPAddress
 		newClientFunc func(*testing.T, *mqtt.ClientOptions) mqtt.Client
 		logMock       func(*mock.Mock)
-		wantErr       assert.ErrorAssertionFunc
 	}{
 		{
-			name:    "success",
-			wantErr: assert.NoError,
-			addrs:   addresses,
+			name:  "success",
+			addrs: addresses,
 			newClientFunc: func(t *testing.T, o *mqtt.ClientOptions) mqtt.Client {
 				m := newMockClient(t)
 				tkn := newMockToken(t)
@@ -181,6 +179,7 @@ func TestClient_multiClientConnectionAttempts(t *testing.T) {
 				tkn.On("Error").Return(nil)
 
 				m.On("Connect").Return(tkn)
+				m.On("IsConnectionOpen").Return(true)
 
 				return m
 			},
@@ -195,16 +194,10 @@ func TestClient_multiClientConnectionAttempts(t *testing.T) {
 				tkn.On("WaitTimeout", o.ConnectTimeout).Return(false)
 
 				m.On("Connect").Return(tkn)
+				m.On("IsConnectionOpen").Return(false)
+				m.On("Disconnect", uint(defaultClientOptions().gracefulShutdownPeriod/time.Millisecond)).Return()
 
 				return m
-			},
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				merr := &multierror.Error{Errors: []error{
-					ErrConnectTimeout,
-					ErrConnectTimeout,
-				}, ErrorFormat: singleLineFormatFunc}
-
-				return assert.EqualError(t, err, merr.Error())
 			},
 		},
 		{
@@ -218,16 +211,10 @@ func TestClient_multiClientConnectionAttempts(t *testing.T) {
 				tkn.On("Error").Return(errors.New("some error"))
 
 				m.On("Connect").Return(tkn)
+				m.On("IsConnectionOpen").Return(false)
+				m.On("Disconnect", uint(defaultClientOptions().gracefulShutdownPeriod/time.Millisecond)).Return()
 
 				return m
-			},
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				merr := &multierror.Error{Errors: []error{
-					errors.New("some error"),
-					errors.New("some error"),
-				}, ErrorFormat: singleLineFormatFunc}
-
-				return assert.EqualError(t, err, merr.Error())
 			},
 		},
 	}
@@ -240,9 +227,7 @@ func TestClient_multiClientConnectionAttempts(t *testing.T) {
 
 			newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client { return tt.newClientFunc(t, o) })
 
-			got, err := c.multipleClients(tt.addrs)
-
-			tt.wantErr(t, err)
+			got := c.multipleClients(tt.addrs)
 
 			for _, mc := range got {
 				mc.(*mockClient).AssertExpectations(t)
@@ -351,18 +336,10 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 			{
 				name: "update_sent",
 				logMock: func(m *mock.Mock) {
-					m.On("Error", mock.Anything, mock.MatchedBy(
-						func(err error) bool {
-							merr := &multierror.Error{Errors: []error{
-								errors.New("some error"),
-								errors.New("some error"),
-							}, ErrorFormat: singleLineFormatFunc}
+					m.On("Error", mock.Anything, matchErr(errors.New("some error")), mock.Anything).
+						Twice()
 
-							return err.Error() == merr.Error()
-						},
-					), mock.MatchedBy(
-						func(fields map[string]any) bool { return fields["action"] == "attemptConnections" },
-					)).Once()
+					m.On("Info", mock.Anything, mock.Anything, mock.Anything).Return()
 				},
 				sender: func(c chan []TCPAddress, wg *sync.WaitGroup) {
 					c <- []TCPAddress{
@@ -383,6 +360,9 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 				sender: func(c chan []TCPAddress, wg *sync.WaitGroup) {
 					c <- []TCPAddress{}
 					wg.Done()
+				},
+				logMock: func(m *mock.Mock) {
+					m.On("Info", mock.Anything, mock.Anything, mock.Anything).Return()
 				},
 			},
 		}
@@ -417,6 +397,8 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 					tkn.On("WaitTimeout", o.ConnectTimeout).Return(true)
 					tkn.On("Error").Return(errors.New("some error"))
 					m.On("Connect").Return(tkn).Once()
+					m.On("IsConnectionOpen").Return(false)
+					m.On("Disconnect", uint(defaultClientOptions().gracefulShutdownPeriod/time.Millisecond)).Return()
 
 					return m
 				})
@@ -434,41 +416,6 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 				}, time.Second, 100*time.Millisecond)
 			})
 		}
-
-		t.Run("ErrorOnInitialConnect", func(t *testing.T) {
-			opts := defaultClientOptions()
-			opts.multiConnectionMode = true
-
-			r := &resolver{
-				updateChan: make(chan []TCPAddress),
-				doneChan:   make(chan struct{}),
-			}
-			opts.resolver = r
-
-			go func() {
-				r.updateChan <- []TCPAddress{
-					{Host: "localhost", Port: 1883},
-					{Host: "localhost", Port: 8888},
-				}
-			}()
-
-			newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
-				m := newMockClient(t)
-				tkn := newMockToken(t)
-				tkn.On("WaitTimeout", o.ConnectTimeout).Return(true)
-				tkn.On("Error").Return(errors.New("some error"))
-				m.On("Connect").Return(tkn).Once()
-
-				return m
-			})
-			defer newClientFunc.Store(mqtt.NewClient)
-
-			c := &Client{options: opts}
-			assert.Error(t, c.runResolver())
-
-			close(r.doneChan)
-			close(r.updateChan)
-		})
 	})
 }
 
@@ -502,6 +449,9 @@ func TestClient_AddressUpdates(t *testing.T) {
 		tkn.On("WaitTimeout", o.ConnectTimeout).Return(true)
 		tkn.On("Error").Return(nil)
 		m.On("Connect").Return(tkn).Once()
+		if o.ConnectRetry { // to only assert this call for multi-connection mode
+			m.On("IsConnectionOpen").Return(true)
+		}
 		m.On("Disconnect", uint(gsp/time.Millisecond)).Return().Once()
 
 		return m, tkn
@@ -597,7 +547,7 @@ func TestClient_AddressUpdates(t *testing.T) {
 		doneCh := make(chan struct{})
 		r.On("Done").Return(doneCh)
 
-		c, err := NewClient(WithResolver(r), UseMultiConnectionMode)
+		c, err := NewClient(WithResolver(r), UseMultiConnectionMode, ConnectRetryInterval(2*time.Second))
 		assert.NoError(t, err)
 
 		newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
@@ -663,7 +613,10 @@ func TestClient_AddressUpdates(t *testing.T) {
 
 		go func() { ch <- []TCPAddress{testBrokerAddress, testBrokerAddress2} }()
 
-		wantAddrs := []string{testBrokerAddress.String(), testBrokerAddress2.String()}
+		wantAddrs := []string{
+			fmt.Sprintf("%s-%d", testBrokerAddress.String(), 0),
+			fmt.Sprintf("%s-%d", testBrokerAddress2.String(), 1),
+		}
 		assert.Eventually(t, func() bool {
 			c.clientMu.RLock()
 			defer c.clientMu.RUnlock()
@@ -699,7 +652,7 @@ func TestClient_AddressUpdates(t *testing.T) {
 		doneCh := make(chan struct{})
 		r.On("Done").Return(doneCh)
 
-		c, err := NewClient(WithResolver(r), UseMultiConnectionMode)
+		c, err := NewClient(WithResolver(r), UseMultiConnectionMode, ConnectRetryInterval(2*time.Second))
 		assert.NoError(t, err)
 
 		subCallCh := make(chan string, 4)
@@ -767,7 +720,10 @@ func TestClient_AddressUpdates(t *testing.T) {
 
 		go func() { ch <- []TCPAddress{testBrokerAddress, testBrokerAddress2} }()
 
-		wantAddrs := []string{testBrokerAddress.String(), testBrokerAddress2.String()}
+		wantAddrs := []string{
+			fmt.Sprintf("%s-%d", testBrokerAddress.String(), 0),
+			fmt.Sprintf("%s-%d", testBrokerAddress2.String(), 1),
+		}
 		assert.Eventually(t, func() bool {
 			c.clientMu.RLock()
 			defer c.clientMu.RUnlock()
@@ -856,6 +812,33 @@ func Test_accumulateErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.wantErr(t, accumulateErrors(tt.prev, tt.curr), fmt.Sprintf("accumulateErrors(%v, %v)", tt.prev, tt.curr))
+		})
+	}
+}
+
+func Test_clientIDMapper(t *testing.T) {
+	tests := []struct {
+		name string
+		cc   mqtt.Client
+		want string
+	}{
+		{
+			name: "nil_options",
+			cc:   &mockClient{},
+			want: "<nil-options>",
+		},
+		{
+			name: "non_nil_options",
+			cc: mqtt.NewClient(&mqtt.ClientOptions{
+				ClientID: "client_id",
+			}),
+			want: "client_id",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, clientIDMapper(tt.cc), "clientIDMapper(%v)", tt.cc)
 		})
 	}
 }

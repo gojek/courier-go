@@ -479,3 +479,9 @@ func Test_formatAddressWithProtocol(t *testing.T) {
 		})
 	}
 }
+
+func matchErr(want error) any {
+	return mock.MatchedBy(func(err error) bool {
+		return err.Error() == want.Error()
+	})
+}

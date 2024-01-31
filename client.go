@@ -34,7 +34,7 @@ type Client struct {
 	usMiddlewares []unsubscribeMiddleware
 
 	rrCounter         *atomicCounter
-	multiConnRevision uint64
+	multiConnRevision atomic.Uint64
 	rndPool           *sync.Pool
 	clientMu          sync.RWMutex
 	subMu             sync.RWMutex
@@ -212,6 +212,11 @@ func toClientOptions(c *Client, o *clientOptions, idSuffix string) *mqtt.ClientO
 	}
 
 	setCredentials(o, opts)
+
+	if o.connectRetryPolicy.enabled {
+		opts.SetConnectRetry(true)
+		opts.SetConnectRetryInterval(o.connectRetryPolicy.interval)
+	}
 
 	opts.AddBroker(formatAddressWithProtocol(o)).
 		SetTLSConfig(o.tlsConfig).

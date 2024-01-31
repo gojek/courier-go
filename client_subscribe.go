@@ -3,6 +3,7 @@ package courier
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"sync"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -79,6 +80,8 @@ func subscriberFuncs(c *Client) Subscriber {
 		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
 			o := composeOptions(opts)
 
+			c.options.logger.Info(context.Background(), "subscribeFuncs", map[string]any{})
+
 			var eo execOpt = execOneRandom
 			if c.options.sharedSubscriptionPredicate(topic) {
 				eo = &execOptFn{
@@ -97,6 +100,8 @@ func subscriberFuncs(c *Client) Subscriber {
 					},
 				}
 			}
+
+			c.options.logger.Info(context.Background(), fmt.Sprintf("eo: %T", eo), map[string]any{})
 
 			return c.execute(func(cc mqtt.Client) error {
 				or := cc.OptionsReader()

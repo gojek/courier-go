@@ -179,6 +179,7 @@ func TestClient_multiClientConnectionAttempts(t *testing.T) {
 				tkn.On("Error").Return(nil)
 
 				m.On("Connect").Return(tkn)
+				m.On("IsConnectionOpen").Return(true)
 
 				return m
 			},
@@ -193,6 +194,8 @@ func TestClient_multiClientConnectionAttempts(t *testing.T) {
 				tkn.On("WaitTimeout", o.ConnectTimeout).Return(false)
 
 				m.On("Connect").Return(tkn)
+				m.On("IsConnectionOpen").Return(false)
+				m.On("Disconnect", uint(defaultClientOptions().gracefulShutdownPeriod/time.Millisecond)).Return()
 
 				return m
 			},
@@ -208,6 +211,8 @@ func TestClient_multiClientConnectionAttempts(t *testing.T) {
 				tkn.On("Error").Return(errors.New("some error"))
 
 				m.On("Connect").Return(tkn)
+				m.On("IsConnectionOpen").Return(false)
+				m.On("Disconnect", uint(defaultClientOptions().gracefulShutdownPeriod/time.Millisecond)).Return()
 
 				return m
 			},
@@ -331,18 +336,10 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 			{
 				name: "update_sent",
 				logMock: func(m *mock.Mock) {
-					m.On("Error", mock.Anything, mock.MatchedBy(
-						func(err error) bool {
-							merr := &multierror.Error{Errors: []error{
-								errors.New("some error"),
-								errors.New("some error"),
-							}, ErrorFormat: singleLineFormatFunc}
+					m.On("Error", mock.Anything, matchErr(errors.New("some error")), mock.Anything).
+						Twice()
 
-							return err.Error() == merr.Error()
-						},
-					), mock.MatchedBy(
-						func(fields map[string]any) bool { return fields["action"] == "attemptConnections" },
-					)).Once()
+					m.On("Info", mock.Anything, mock.Anything, mock.Anything).Return()
 				},
 				sender: func(c chan []TCPAddress, wg *sync.WaitGroup) {
 					c <- []TCPAddress{
@@ -363,6 +360,9 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 				sender: func(c chan []TCPAddress, wg *sync.WaitGroup) {
 					c <- []TCPAddress{}
 					wg.Done()
+				},
+				logMock: func(m *mock.Mock) {
+					m.On("Info", mock.Anything, mock.Anything, mock.Anything).Return()
 				},
 			},
 		}
@@ -397,6 +397,8 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 					tkn.On("WaitTimeout", o.ConnectTimeout).Return(true)
 					tkn.On("Error").Return(errors.New("some error"))
 					m.On("Connect").Return(tkn).Once()
+					m.On("IsConnectionOpen").Return(false)
+					m.On("Disconnect", uint(defaultClientOptions().gracefulShutdownPeriod/time.Millisecond)).Return()
 
 					return m
 				})
@@ -414,41 +416,6 @@ func TestClient_watchAddressUpdates(t *testing.T) {
 				}, time.Second, 100*time.Millisecond)
 			})
 		}
-
-		t.Run("ErrorOnInitialConnect", func(t *testing.T) {
-			opts := defaultClientOptions()
-			opts.multiConnectionMode = true
-
-			r := &resolver{
-				updateChan: make(chan []TCPAddress),
-				doneChan:   make(chan struct{}),
-			}
-			opts.resolver = r
-
-			go func() {
-				r.updateChan <- []TCPAddress{
-					{Host: "localhost", Port: 1883},
-					{Host: "localhost", Port: 8888},
-				}
-			}()
-
-			newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
-				m := newMockClient(t)
-				tkn := newMockToken(t)
-				tkn.On("WaitTimeout", o.ConnectTimeout).Return(true)
-				tkn.On("Error").Return(errors.New("some error"))
-				m.On("Connect").Return(tkn).Once()
-
-				return m
-			})
-			defer newClientFunc.Store(mqtt.NewClient)
-
-			c := &Client{options: opts}
-			assert.Error(t, c.runResolver())
-
-			close(r.doneChan)
-			close(r.updateChan)
-		})
 	})
 }
 
@@ -482,6 +449,9 @@ func TestClient_AddressUpdates(t *testing.T) {
 		tkn.On("WaitTimeout", o.ConnectTimeout).Return(true)
 		tkn.On("Error").Return(nil)
 		m.On("Connect").Return(tkn).Once()
+		if o.ConnectRetry { // to only assert this call for multi-connection mode
+			m.On("IsConnectionOpen").Return(true)
+		}
 		m.On("Disconnect", uint(gsp/time.Millisecond)).Return().Once()
 
 		return m, tkn
@@ -643,7 +613,10 @@ func TestClient_AddressUpdates(t *testing.T) {
 
 		go func() { ch <- []TCPAddress{testBrokerAddress, testBrokerAddress2} }()
 
-		wantAddrs := []string{testBrokerAddress.String(), testBrokerAddress2.String()}
+		wantAddrs := []string{
+			fmt.Sprintf("%s-%d", testBrokerAddress.String(), 0),
+			fmt.Sprintf("%s-%d", testBrokerAddress2.String(), 1),
+		}
 		assert.Eventually(t, func() bool {
 			c.clientMu.RLock()
 			defer c.clientMu.RUnlock()
@@ -747,7 +720,10 @@ func TestClient_AddressUpdates(t *testing.T) {
 
 		go func() { ch <- []TCPAddress{testBrokerAddress, testBrokerAddress2} }()
 
-		wantAddrs := []string{testBrokerAddress.String(), testBrokerAddress2.String()}
+		wantAddrs := []string{
+			fmt.Sprintf("%s-%d", testBrokerAddress.String(), 0),
+			fmt.Sprintf("%s-%d", testBrokerAddress2.String(), 1),
+		}
 		assert.Eventually(t, func() bool {
 			c.clientMu.RLock()
 			defer c.clientMu.RUnlock()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -108,9 +109,8 @@ func (c *Client) reloadClients(clients map[string]mqtt.Client) {
 
 func (c *Client) disconnectAll(cls []mqtt.Client) {
 	slice.MapConcurrent(cls, func(cc mqtt.Client) error {
-		r := cc.OptionsReader()
 		c.options.logger.Info(context.Background(), "disconnecting client", map[string]any{
-			"clientID": r.ClientID(),
+			"clientID": clientIDMapper(cc),
 		})
 
 		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
@@ -273,6 +273,10 @@ func singleLineFormatFunc(es []error) string {
 
 func clientIDMapper(cc mqtt.Client) string {
 	r := cc.OptionsReader()
+
+	if reflect.ValueOf(r).FieldByName("options").IsNil() {
+		return "<nil-options>"
+	}
 
 	return r.ClientID()
 }

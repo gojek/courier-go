@@ -68,6 +68,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func NewMessageWithDecoder\(payloadDecoder Decoder\) \*Message](#NewMessageWithDecoder)
   - [func \(m \*Message\) DecodePayload\(v interface\{\}\) error](#Message.DecodePayload)
 - [type MessageHandler](#MessageHandler)
+- [type MultiConnectRetryInterval](#MultiConnectRetryInterval)
 - [type OnConnectHandler](#OnConnectHandler)
 - [type OnConnectionLostHandler](#OnConnectionLostHandler)
 - [type OnReconnectHandler](#OnReconnectHandler)
@@ -515,7 +516,7 @@ func WithPersistence(store Store) ClientOption
 WithPersistence allows to configure the store to be used by broker Default persistence is in\-memory persistence with mqtt.MemoryStore
 
 <a name="WithResolver"></a>
-### func [WithResolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L35)
+### func [WithResolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L36)
 
 ```go
 func WithResolver(resolver Resolver) ClientOption
@@ -729,6 +730,15 @@ MessageHandler is the type that all callbacks being passed to Subscriber must sa
 type MessageHandler func(context.Context, PubSub, *Message)
 ```
 
+<a name="MultiConnectRetryInterval"></a>
+## type [MultiConnectRetryInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L217)
+
+MultiConnectRetryInterval allows to configure the interval between connection retries. It should be used with UseMultiConnectionMode. Default value is 10 seconds.
+
+```go
+type MultiConnectRetryInterval time.Duration
+```
+
 <a name="OnConnectHandler"></a>
 ## type [OnConnectHandler](https://github.com/gojek/courier-go/blob/main/types.go#L10)
 
@@ -852,7 +862,7 @@ const (
 ```
 
 <a name="Resolver"></a>
-## type [Resolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L27-L32)
+## type [Resolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L28-L33)
 
 Resolver sends TCPAddress updates on channel returned by UpdateChan\(\) channel.
 
@@ -875,7 +885,7 @@ type Retained bool
 ```
 
 <a name="SharedSubscriptionPredicate"></a>
-## type [SharedSubscriptionPredicate](https://github.com/gojek/courier-go/blob/main/client_options.go#L216)
+## type [SharedSubscriptionPredicate](https://github.com/gojek/courier-go/blob/main/client_options.go#L226)
 
 SharedSubscriptionPredicate allows to configure the predicate function that determines whether a topic is a shared subscription topic.
 
@@ -1002,7 +1012,7 @@ func (smw SubscriberMiddlewareFunc) Middleware(subscriber Subscriber) Subscriber
 Middleware allows SubscriberMiddlewareFunc to implement the subscribeMiddleware interface.
 
 <a name="TCPAddress"></a>
-## type [TCPAddress](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L19-L22)
+## type [TCPAddress](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L20-L23)
 
 TCPAddress specifies Host and Port for remote broker
 
@@ -1014,7 +1024,7 @@ type TCPAddress struct {
 ```
 
 <a name="TCPAddress.String"></a>
-### func \(TCPAddress\) [String](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L24)
+### func \(TCPAddress\) [String](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L25)
 
 ```go
 func (t TCPAddress) String() string

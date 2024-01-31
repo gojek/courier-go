@@ -216,6 +216,7 @@ func (s *ClientOptionSuite) Test_defaultOptions() {
 		gracefulShutdownPeriod:      30 * time.Second,
 		keepAlive:                   60 * time.Second,
 		credentialFetchTimeout:      10 * time.Second,
+		connectRetryPolicy:          connectRetryPolicy{interval: 10 * time.Second},
 		newEncoder:                  DefaultEncoderFunc,
 		newDecoder:                  DefaultDecoderFunc,
 		store:                       inMemoryPersistence,

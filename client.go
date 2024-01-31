@@ -213,6 +213,11 @@ func toClientOptions(c *Client, o *clientOptions, idSuffix string) *mqtt.ClientO
 
 	setCredentials(o, opts)
 
+	if o.connectRetryPolicy.enabled {
+		opts.SetConnectRetry(true)
+		opts.SetConnectRetryInterval(o.connectRetryPolicy.interval)
+	}
+
 	if o.multiConnectionMode {
 		opts.SetConnectRetry(true)
 		opts.SetConnectRetryInterval(2 * time.Second)

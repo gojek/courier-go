@@ -63,22 +63,11 @@ func (c *Client) attemptConnections(addrs []TCPAddress) error {
 }
 
 func (c *Client) attemptMultiConnections(addrs []TCPAddress) error {
-	if err := c.refreshClients(addrs); err != nil {
-		return err
-	}
+	c.clientMu.Lock()
+	c.reloadClients(c.multipleClients(addrs))
+	c.clientMu.Unlock()
 
 	return c.resumeSubscriptions()
-}
-
-func (c *Client) refreshClients(addrs []TCPAddress) error {
-	c.clientMu.Lock()
-	defer c.clientMu.Unlock()
-
-	clients := c.multipleClients(addrs)
-
-	c.reloadClients(clients)
-
-	return nil
 }
 
 func (c *Client) resumeSubscriptions() error {
@@ -102,14 +91,8 @@ func (c *Client) reloadClients(clients map[string]mqtt.Client) {
 	}
 
 	c.options.logger.Info(context.Background(), "reloading clients", map[string]any{
-		"oldIds": slice.Map(oldClients, func(cc mqtt.Client) string {
-			r := cc.OptionsReader()
-			return r.ClientID()
-		}),
-		"newIds": slice.Map(xmap.Values(clients), func(cc mqtt.Client) string {
-			r := cc.OptionsReader()
-			return r.ClientID()
-		}),
+		"oldIds": slice.Map(oldClients, clientIDMapper),
+		"newIds": slice.Map(xmap.Values(clients), clientIDMapper),
 	})
 
 	go func(oldClients []mqtt.Client, newClientsLen int) {
@@ -143,56 +126,54 @@ type indexAddress struct {
 
 func (c *Client) multipleClients(addrs []TCPAddress) map[string]mqtt.Client {
 	clients := &sync.Map{}
-
 	currRev := c.multiConnRevision.Load()
-	c.options.logger.Info(context.Background(), "attempting multiple connections", map[string]any{
-		"multiConnRevision": currRev,
-	})
 
 	i := &atomicCounter{}
 	iaddrs := slice.Map(addrs, func(a TCPAddress) indexAddress { return indexAddress{index: int(i.next()), addr: a} })
 
-	slice.MapConcurrent(iaddrs, func(ia indexAddress) error {
+	slice.MapConcurrentWithContext(context.Background(), iaddrs, func(ctx context.Context, ia indexAddress) error {
 		opts := *c.options
 		opts.brokerAddress = ia.addr.String()
 
 		pOpts := toClientOptions(c, &opts, fmt.Sprintf("-%d-%d", ia.index, currRev+1))
 		cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(pOpts)
 
-		clients.Store(ia.addr.String(), cc)
+		clients.Store(fmt.Sprintf("%s-%d", ia.addr.String(), ia.index), cc)
 
-		c.options.logger.Info(context.Background(), "attempting connection", map[string]any{
+		c.options.logger.Info(ctx, "attempting connection", map[string]any{
 			"multiConnRevision": currRev,
 			"clientID":          pOpts.ClientID,
 		})
 
 		t := cc.Connect()
+
 		if !t.WaitTimeout(c.options.connectTimeout) {
-			c.options.logger.Error(context.Background(), ErrConnectTimeout, map[string]any{
+			c.options.logger.Error(ctx, ErrConnectTimeout, map[string]any{
 				"clientID": pOpts.ClientID,
 			})
+
 			return ErrConnectTimeout
 		}
 
-		if err := t.Error(); err != nil {
-			c.options.logger.Error(context.Background(), err, map[string]any{
-				"clientID": pOpts.ClientID,
-			})
-
-			return err
+		err := t.Error()
+		if err != nil {
+			c.options.logger.Error(ctx, err, map[string]any{"clientID": pOpts.ClientID})
 		}
 
-		return nil
+		return err
 	})
 
 	res := map[string]mqtt.Client{}
 	anyConnected := false
 
 	clients.Range(func(key, value interface{}) bool {
+		// nolint: errcheck
 		cc := value.(mqtt.Client)
+
 		if cc.IsConnectionOpen() {
 			anyConnected = true
 		}
+
 		// nolint: errcheck
 		res[key.(string)] = cc
 
@@ -288,4 +269,10 @@ func singleLineFormatFunc(es []error) string {
 	return fmt.Sprintf(
 		"%d errors occurred: %s",
 		len(es), strings.Join(errorsList, " | "))
+}
+
+func clientIDMapper(cc mqtt.Client) string {
+	r := cc.OptionsReader()
+
+	return r.ClientID()
 }

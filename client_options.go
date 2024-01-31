@@ -211,6 +211,16 @@ func WithExponentialStartOptions(options ...StartOption) ClientOption {
 	})
 }
 
+// MultiConnectRetryInterval allows to configure the interval between connection retries.
+// It should be used with UseMultiConnectionMode.
+// Default value is 10 seconds.
+type MultiConnectRetryInterval time.Duration
+
+func (i MultiConnectRetryInterval) apply(o *clientOptions) {
+	o.connectRetryPolicy.enabled = true
+	o.connectRetryPolicy.interval = time.Duration(i)
+}
+
 // SharedSubscriptionPredicate allows to configure the predicate function that determines
 // whether a topic is a shared subscription topic.
 type SharedSubscriptionPredicate func(topic string) bool
@@ -241,7 +251,8 @@ type clientOptions struct {
 	maxReconnectInterval, gracefulShutdownPeriod,
 	credentialFetchTimeout time.Duration
 
-	startOptions *startOptions
+	connectRetryPolicy connectRetryPolicy
+	startOptions       *startOptions
 
 	onConnectHandler            OnConnectHandler
 	onConnectionLostHandler     OnConnectionLostHandler
@@ -252,6 +263,11 @@ type clientOptions struct {
 	newEncoder EncoderFunc
 	newDecoder DecoderFunc
 	store      Store
+}
+
+type connectRetryPolicy struct {
+	enabled  bool
+	interval time.Duration
 }
 
 type optionFunc func(*clientOptions)
@@ -268,6 +284,7 @@ func defaultClientOptions() *clientOptions {
 		gracefulShutdownPeriod:      30 * time.Second,
 		keepAlive:                   60 * time.Second,
 		credentialFetchTimeout:      10 * time.Second,
+		connectRetryPolicy:          connectRetryPolicy{interval: 10 * time.Second},
 		newEncoder:                  DefaultEncoderFunc,
 		newDecoder:                  DefaultDecoderFunc,
 		store:                       inMemoryPersistence,

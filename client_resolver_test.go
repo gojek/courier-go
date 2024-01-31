@@ -167,12 +167,10 @@ func TestClient_multiClientConnectionAttempts(t *testing.T) {
 		addrs         []TCPAddress
 		newClientFunc func(*testing.T, *mqtt.ClientOptions) mqtt.Client
 		logMock       func(*mock.Mock)
-		wantErr       assert.ErrorAssertionFunc
 	}{
 		{
-			name:    "success",
-			wantErr: assert.NoError,
-			addrs:   addresses,
+			name:  "success",
+			addrs: addresses,
 			newClientFunc: func(t *testing.T, o *mqtt.ClientOptions) mqtt.Client {
 				m := newMockClient(t)
 				tkn := newMockToken(t)
@@ -198,14 +196,6 @@ func TestClient_multiClientConnectionAttempts(t *testing.T) {
 
 				return m
 			},
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				merr := &multierror.Error{Errors: []error{
-					ErrConnectTimeout,
-					ErrConnectTimeout,
-				}, ErrorFormat: singleLineFormatFunc}
-
-				return assert.EqualError(t, err, merr.Error())
-			},
 		},
 		{
 			name:  "token_error",
@@ -221,14 +211,6 @@ func TestClient_multiClientConnectionAttempts(t *testing.T) {
 
 				return m
 			},
-			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
-				merr := &multierror.Error{Errors: []error{
-					errors.New("some error"),
-					errors.New("some error"),
-				}, ErrorFormat: singleLineFormatFunc}
-
-				return assert.EqualError(t, err, merr.Error())
-			},
 		},
 	}
 
@@ -241,8 +223,6 @@ func TestClient_multiClientConnectionAttempts(t *testing.T) {
 			newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client { return tt.newClientFunc(t, o) })
 
 			got := c.multipleClients(tt.addrs)
-
-			tt.wantErr(t, err)
 
 			for _, mc := range got {
 				mc.(*mockClient).AssertExpectations(t)

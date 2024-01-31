@@ -8,6 +8,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.2]
+
+### Added
+
+- Add `ConnectRetryInterval` Option to allow users to configure the interval between connection retries.
+
+### Changed
+
+- Update multi-connection mode connect logic ([#37](https://github.com/gojek/courier-go/pull/37))
+
 ## [0.5.1]
 
 ### Added
@@ -83,6 +93,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Initial Release
 
+[0.5.2]: https://github.com/gojek/courier-go/releases/tag/v0.5.2
 [0.5.1]: https://github.com/gojek/courier-go/releases/tag/v0.5.1
 [0.5.0]: https://github.com/gojek/courier-go/releases/tag/v0.5.0
 [0.4.0]: https://github.com/gojek/courier-go/releases/tag/v0.4.0

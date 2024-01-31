@@ -815,3 +815,30 @@ func Test_accumulateErrors(t *testing.T) {
 		})
 	}
 }
+
+func Test_clientIDMapper(t *testing.T) {
+	tests := []struct {
+		name string
+		cc   mqtt.Client
+		want string
+	}{
+		{
+			name: "nil_options",
+			cc:   &mockClient{},
+			want: "<nil-options>",
+		},
+		{
+			name: "non_nil_options",
+			cc: mqtt.NewClient(&mqtt.ClientOptions{
+				ClientID: "client_id",
+			}),
+			want: "client_id",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, clientIDMapper(tt.cc), "clientIDMapper(%v)", tt.cc)
+		})
+	}
+}

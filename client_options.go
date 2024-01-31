@@ -211,12 +211,11 @@ func WithExponentialStartOptions(options ...StartOption) ClientOption {
 	})
 }
 
-// MultiConnectRetryInterval allows to configure the interval between connection retries.
-// It should be used with UseMultiConnectionMode.
+// ConnectRetryInterval allows to configure the interval between connection retries.
 // Default value is 10 seconds.
-type MultiConnectRetryInterval time.Duration
+type ConnectRetryInterval time.Duration
 
-func (i MultiConnectRetryInterval) apply(o *clientOptions) {
+func (i ConnectRetryInterval) apply(o *clientOptions) {
 	o.connectRetryPolicy.enabled = true
 	o.connectRetryPolicy.interval = time.Duration(i)
 }

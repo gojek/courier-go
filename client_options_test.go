@@ -192,8 +192,8 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 			want:   &clientOptions{sharedSubscriptionPredicate: ssp},
 		},
 		{
-			name:   "MultiConnectRetryInterval",
-			option: MultiConnectRetryInterval(time.Second),
+			name:   "ConnectRetryInterval",
+			option: ConnectRetryInterval(time.Second),
 			want:   &clientOptions{connectRetryPolicy: connectRetryPolicy{enabled: true, interval: time.Second}},
 		},
 	}

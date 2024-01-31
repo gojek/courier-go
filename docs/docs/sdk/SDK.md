@@ -53,6 +53,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func WithUseBase64Decoder\(\) ClientOption](#WithUseBase64Decoder)
   - [func WithUsername\(username string\) ClientOption](#WithUsername)
   - [func WithWriteTimeout\(duration time.Duration\) ClientOption](#WithWriteTimeout)
+- [type ConnectRetryInterval](#ConnectRetryInterval)
 - [type ConnectionInformer](#ConnectionInformer)
 - [type Credential](#Credential)
 - [type CredentialFetcher](#CredentialFetcher)
@@ -68,7 +69,6 @@ Package courier contains the client that can be used to interact with the courie
   - [func NewMessageWithDecoder\(payloadDecoder Decoder\) \*Message](#NewMessageWithDecoder)
   - [func \(m \*Message\) DecodePayload\(v interface\{\}\) error](#Message.DecodePayload)
 - [type MessageHandler](#MessageHandler)
-- [type MultiConnectRetryInterval](#MultiConnectRetryInterval)
 - [type OnConnectHandler](#OnConnectHandler)
 - [type OnConnectionLostHandler](#OnConnectionLostHandler)
 - [type OnReconnectHandler](#OnReconnectHandler)
@@ -571,6 +571,15 @@ func WithWriteTimeout(duration time.Duration) ClientOption
 
 WithWriteTimeout limits how long the client will wait when trying to publish, subscribe or unsubscribe on topic when a context deadline is not set while calling Publisher.Publish, Subscriber.Subscribe, Subscriber.SubscribeMultiple or Unsubscriber.Unsubscribe.
 
+<a name="ConnectRetryInterval"></a>
+## type [ConnectRetryInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L216)
+
+ConnectRetryInterval allows to configure the interval between connection retries. Default value is 10 seconds.
+
+```go
+type ConnectRetryInterval time.Duration
+```
+
 <a name="ConnectionInformer"></a>
 ## type [ConnectionInformer](https://github.com/gojek/courier-go/blob/main/interface.go#L13-L16)
 
@@ -730,15 +739,6 @@ MessageHandler is the type that all callbacks being passed to Subscriber must sa
 type MessageHandler func(context.Context, PubSub, *Message)
 ```
 
-<a name="MultiConnectRetryInterval"></a>
-## type [MultiConnectRetryInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L217)
-
-MultiConnectRetryInterval allows to configure the interval between connection retries. It should be used with UseMultiConnectionMode. Default value is 10 seconds.
-
-```go
-type MultiConnectRetryInterval time.Duration
-```
-
 <a name="OnConnectHandler"></a>
 ## type [OnConnectHandler](https://github.com/gojek/courier-go/blob/main/types.go#L10)
 
@@ -885,7 +885,7 @@ type Retained bool
 ```
 
 <a name="SharedSubscriptionPredicate"></a>
-## type [SharedSubscriptionPredicate](https://github.com/gojek/courier-go/blob/main/client_options.go#L226)
+## type [SharedSubscriptionPredicate](https://github.com/gojek/courier-go/blob/main/client_options.go#L225)
 
 SharedSubscriptionPredicate allows to configure the predicate function that determines whether a topic is a shared subscription topic.
 

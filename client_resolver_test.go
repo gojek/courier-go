@@ -547,7 +547,7 @@ func TestClient_AddressUpdates(t *testing.T) {
 		doneCh := make(chan struct{})
 		r.On("Done").Return(doneCh)
 
-		c, err := NewClient(WithResolver(r), UseMultiConnectionMode)
+		c, err := NewClient(WithResolver(r), UseMultiConnectionMode, ConnectRetryInterval(2*time.Second))
 		assert.NoError(t, err)
 
 		newClientFunc.Store(func(o *mqtt.ClientOptions) mqtt.Client {
@@ -652,7 +652,7 @@ func TestClient_AddressUpdates(t *testing.T) {
 		doneCh := make(chan struct{})
 		r.On("Done").Return(doneCh)
 
-		c, err := NewClient(WithResolver(r), UseMultiConnectionMode)
+		c, err := NewClient(WithResolver(r), UseMultiConnectionMode, ConnectRetryInterval(2*time.Second))
 		assert.NoError(t, err)
 
 		subCallCh := make(chan string, 4)

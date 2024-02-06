@@ -87,10 +87,14 @@ func subscriberFuncs(c *Client) Subscriber {
 					predicate: func(s *internalState) bool {
 						c.options.logger.Info(context.Background(), "running shared subscription predicate", map[string]any{})
 
-						return !s.topicSubscribed(topic)
+						s.mu.Lock()
+
+						return s.subsCalled.Has(topic)
 					},
 					onExec: func(s *internalState, execErr error) {
-						sbs := s.topicSubscribed(topic)
+						defer s.mu.Unlock()
+
+						sbs := s.subsCalled.Has(topic)
 						c.options.logger.Info(context.Background(), "subscribing", map[string]any{
 							"alreadySubscribed": sbs,
 						})
@@ -98,7 +102,7 @@ func subscriberFuncs(c *Client) Subscriber {
 							c.options.logger.Info(context.Background(), "subscribe added", map[string]any{
 								"topic": topic,
 							})
-							s.addTopic(topic)
+							s.subsCalled.Add(topic)
 						}
 					},
 				}
@@ -168,20 +172,6 @@ type internalState struct {
 	subsCalled generic.Set[string]
 	client     mqtt.Client
 	mu         sync.Mutex
-}
-
-func (s *internalState) topicSubscribed(topic string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	return s.subsCalled.Has(topic)
-}
-
-func (s *internalState) addTopic(topic string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.subsCalled.Add(topic)
 }
 
 func filterSubs(

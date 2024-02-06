@@ -79,8 +79,6 @@ func subscriberFuncs(c *Client) Subscriber {
 		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
 			o := composeOptions(opts)
 
-			c.options.logger.Info(context.Background(), "subscribeFuncs", map[string]any{})
-
 			var eo execOpt = execOneRandom
 			if c.options.sharedSubscriptionPredicate(topic) {
 				eo = &execOptFn{
@@ -88,30 +86,12 @@ func subscriberFuncs(c *Client) Subscriber {
 						s.mu.Lock()
 						defer s.mu.Unlock()
 
-						cid := clientIDMapper(s.client)
-
-						c.options.logger.Info(context.Background(), "running shared subscription predicate", map[string]any{
-							"clientId": cid,
-						})
-
 						if s.subsCalled.Has(topic) {
-							c.options.logger.Info(context.Background(), "already subscribed", map[string]any{
-								"clientId": cid,
-							})
-
 							return nil
 						}
 
-						c.options.logger.Info(context.Background(), "subscribing", map[string]any{
-							"clientId": cid,
-						})
-
 						err := f(s.client)
 						if err == nil {
-							c.options.logger.Info(context.Background(), "subscribe added", map[string]any{
-								"clientId": cid,
-							})
-
 							s.subsCalled.Add(topic)
 						}
 
@@ -121,11 +101,6 @@ func subscriberFuncs(c *Client) Subscriber {
 			}
 
 			return c.execute(func(cc mqtt.Client) error {
-				c.options.logger.Info(context.Background(), "subscribing", map[string]any{
-					"clientId": clientIDMapper(cc),
-					"flow":     "subscribeFunc",
-				})
-
 				return c.handleToken(ctx, cc.Subscribe(topic, o.qos, callbackWrapper(c, callback)), ErrSubscribeTimeout)
 			}, eo)
 		},

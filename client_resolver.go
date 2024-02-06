@@ -282,6 +282,10 @@ func singleLineFormatFunc(es []error) string {
 }
 
 func clientIDMapper(cc mqtt.Client) string {
+	if cc == nil {
+		return "<nil-client>"
+	}
+
 	r := cc.OptionsReader()
 
 	if reflect.ValueOf(r).FieldByName("options").IsNil() {

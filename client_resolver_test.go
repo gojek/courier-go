@@ -823,6 +823,10 @@ func Test_clientIDMapper(t *testing.T) {
 		want string
 	}{
 		{
+			name: "nil_client",
+			want: "<nil-client>",
+		},
+		{
 			name: "nil_options",
 			cc:   &mockClient{},
 			want: "<nil-options>",

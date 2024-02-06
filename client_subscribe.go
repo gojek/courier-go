@@ -104,10 +104,8 @@ func subscriberFuncs(c *Client) Subscriber {
 			c.options.logger.Info(context.Background(), fmt.Sprintf("eo: %T", eo), map[string]any{})
 
 			return c.execute(func(cc mqtt.Client) error {
-				or := cc.OptionsReader()
-
 				c.options.logger.Info(context.Background(), "subscribing", map[string]any{
-					"clientId": or.ClientID(),
+					"clientId": clientIDMapper(cc),
 				})
 
 				return c.handleToken(ctx, cc.Subscribe(topic, o.qos, callbackWrapper(c, callback)), ErrSubscribeTimeout)

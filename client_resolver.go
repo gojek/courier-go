@@ -12,7 +12,6 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/gojekfarm/xtools/generic"
 	"github.com/gojekfarm/xtools/generic/slice"
 	"github.com/gojekfarm/xtools/generic/xmap"
 )
@@ -92,7 +91,7 @@ func (c *Client) reloadClients(clients map[string]mqtt.Client) {
 	if len(clients) > 0 {
 		ncs := make(map[string]*internalState, len(clients))
 		for k, cc := range clients {
-			ncs[k] = &internalState{client: cc, subsCalled: generic.NewSet[string]()}
+			ncs[k] = &internalState{client: cc}
 		}
 		c.mqttClients = ncs
 	}

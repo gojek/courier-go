@@ -8,7 +8,6 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
-	"github.com/gojekfarm/xtools/generic"
 	"github.com/gojekfarm/xtools/generic/slice"
 )
 
@@ -163,24 +162,18 @@ func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 }
 
 type internalState struct {
-	subsCalled generic.Set[string]
-	client     mqtt.Client
-
-	mu sync.RWMutex
+	client  mqtt.Client
+	subsMap sync.Map
 }
 
 func (s *internalState) topicSubscribed(topic string) bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	_, ok := s.subsMap.Load(topic)
 
-	return s.subsCalled.Has(topic)
+	return ok
 }
 
 func (s *internalState) addTopic(topic string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.subsCalled.Add(topic)
+	s.subsMap.Store(topic, struct{}{})
 }
 
 func filterSubs(

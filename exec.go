@@ -3,15 +3,23 @@ package courier
 import (
 	"errors"
 	"math/rand"
+	"sync"
 	"sync/atomic"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
+	"github.com/gojekfarm/xtools/generic"
 	"github.com/gojekfarm/xtools/generic/slice"
 	"github.com/gojekfarm/xtools/generic/xmap"
 )
 
 var errInvalidExecOpt = errors.New("courier: invalid exec option")
+
+type internalState struct {
+	subsCalled generic.Set[string]
+	client     mqtt.Client
+	mu         sync.Mutex
+}
 
 type execOpt interface{ isExecOpt() }
 

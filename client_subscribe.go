@@ -3,11 +3,9 @@ package courier
 import (
 	"bytes"
 	"context"
-	"sync"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
-	"github.com/gojekfarm/xtools/generic"
 	"github.com/gojekfarm/xtools/generic/slice"
 )
 
@@ -155,12 +153,6 @@ func subscribeOnlyOnce(topic string) execOptWithState {
 
 		return err
 	}
-}
-
-type internalState struct {
-	subsCalled generic.Set[string]
-	client     mqtt.Client
-	mu         sync.Mutex
 }
 
 func filterSubs(

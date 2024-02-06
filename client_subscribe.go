@@ -84,26 +84,38 @@ func subscriberFuncs(c *Client) Subscriber {
 			var eo execOpt = execOneRandom
 			if c.options.sharedSubscriptionPredicate(topic) {
 				eo = &execOptFn{
-					predicate: func(s *internalState) bool {
-						c.options.logger.Info(context.Background(), "running shared subscription predicate", map[string]any{})
-
+					execWithState: func(f func(mqtt.Client) error, s *internalState) error {
 						s.mu.Lock()
-
-						return s.subsCalled.Has(topic)
-					},
-					onExec: func(s *internalState, execErr error) {
 						defer s.mu.Unlock()
 
-						sbs := s.subsCalled.Has(topic)
-						c.options.logger.Info(context.Background(), "subscribing", map[string]any{
-							"alreadySubscribed": sbs,
+						cid := clientIDMapper(s.client)
+
+						c.options.logger.Info(context.Background(), "running shared subscription predicate", map[string]any{
+							"clientId": cid,
 						})
-						if !sbs && execErr == nil {
-							c.options.logger.Info(context.Background(), "subscribe added", map[string]any{
-								"topic": topic,
+
+						if s.subsCalled.Has(topic) {
+							c.options.logger.Info(context.Background(), "already subscribed", map[string]any{
+								"clientId": cid,
 							})
+
+							return nil
+						}
+
+						c.options.logger.Info(context.Background(), "subscribing", map[string]any{
+							"clientId": cid,
+						})
+
+						err := f(s.client)
+						if err == nil {
+							c.options.logger.Info(context.Background(), "subscribe added", map[string]any{
+								"clientId": cid,
+							})
+
 							s.subsCalled.Add(topic)
 						}
+
+						return err
 					},
 				}
 			}

@@ -20,8 +20,7 @@ type execOptConst int
 func (eoc execOptConst) isExecOpt() {}
 
 type execOptFn struct {
-	onExec    func(*internalState, error)
-	predicate func(*internalState) bool
+	execWithState func(func(mqtt.Client) error, *internalState) error
 }
 
 func (eof *execOptFn) isExecOpt() {}
@@ -70,34 +69,34 @@ func (c *Client) filterClients(predicate func(*internalState) bool) []mqtt.Clien
 }
 
 func (c *Client) execMultiConn(f func(mqtt.Client) error, eo execOpt) error {
+	ccs := xmap.Values(c.mqttClients)
+
 	switch eo := eo.(type) {
 	case execOptConst:
-		ccs := c.filterClients(func(is *internalState) bool { return true })
 
 		if eo == execOneRandom {
 			// nolint:errcheck
 			p := c.rndPool.Get().(*rand.Rand)
 			defer c.rndPool.Put(p)
 
-			return f(ccs[p.Intn(len(ccs))])
-		}
-		if eo == execOneRoundRobin {
-			return f(ccs[int(c.rrCounter.next())%len(ccs)])
+			return f(ccs[p.Intn(len(ccs))].client)
 		}
 
-		return slice.Reduce(slice.MapConcurrent(ccs, func(cc mqtt.Client) error {
-			return f(cc)
+		if eo == execOneRoundRobin {
+			return f(ccs[int(c.rrCounter.next())%len(ccs)].client)
+		}
+
+		return slice.Reduce(slice.MapConcurrent(ccs, func(s *internalState) error {
+			return f(s.client)
 		}), accumulateErrors)
 	case *execOptFn:
-		return slice.Reduce(slice.MapConcurrent(c.filterStates(eo.predicate), func(is *internalState) error {
+		return slice.Reduce(slice.MapConcurrent(ccs, func(is *internalState) error {
 			c.options.logger.Info(context.Background(), "executing", map[string]any{
 				"clientId": clientIDMapper(is.client),
 				"flow":     "execute",
 			})
 
-			err := f(is.client)
-			eo.onExec(is, err)
-			return err
+			return eo.execWithState(f, is)
 		}), accumulateErrors)
 	}
 

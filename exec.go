@@ -1,6 +1,7 @@
 package courier
 
 import (
+	"context"
 	"math/rand"
 	"sync/atomic"
 
@@ -89,6 +90,11 @@ func (c *Client) execMultiConn(f func(mqtt.Client) error, eo execOpt) error {
 		}), accumulateErrors)
 	case *execOptFn:
 		return slice.Reduce(slice.MapConcurrent(c.filterStates(eo.predicate), func(is *internalState) error {
+			c.options.logger.Info(context.Background(), "executing", map[string]any{
+				"clientId": clientIDMapper(is.client),
+				"flow":     "execute",
+			})
+
 			err := f(is.client)
 			eo.onExec(is, err)
 			return err

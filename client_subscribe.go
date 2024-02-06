@@ -3,7 +3,7 @@ package courier
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"github.com/gojekfarm/xtools/generic"
 	"sync"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -84,7 +84,11 @@ func subscriberFuncs(c *Client) Subscriber {
 			var eo execOpt = execOneRandom
 			if c.options.sharedSubscriptionPredicate(topic) {
 				eo = &execOptFn{
-					predicate: func(s *internalState) bool { return !s.topicSubscribed(topic) },
+					predicate: func(s *internalState) bool {
+						c.options.logger.Info(context.Background(), "running shared subscription predicate", map[string]any{})
+
+						return !s.topicSubscribed(topic)
+					},
 					onExec: func(s *internalState, execErr error) {
 						sbs := s.topicSubscribed(topic)
 						c.options.logger.Info(context.Background(), "subscribing", map[string]any{
@@ -99,8 +103,6 @@ func subscriberFuncs(c *Client) Subscriber {
 					},
 				}
 			}
-
-			c.options.logger.Info(context.Background(), fmt.Sprintf("eo: %T", eo), map[string]any{})
 
 			return c.execute(func(cc mqtt.Client) error {
 				c.options.logger.Info(context.Background(), "subscribing", map[string]any{
@@ -163,18 +165,23 @@ func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 }
 
 type internalState struct {
-	client  mqtt.Client
-	subsMap sync.Map
+	subsCalled generic.Set[string]
+	client     mqtt.Client
+	mu         sync.Mutex
 }
 
 func (s *internalState) topicSubscribed(topic string) bool {
-	_, ok := s.subsMap.Load(topic)
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	return ok
+	return s.subsCalled.Has(topic)
 }
 
 func (s *internalState) addTopic(topic string) {
-	s.subsMap.Store(topic, struct{}{})
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.subsCalled.Add(topic)
 }
 
 func filterSubs(

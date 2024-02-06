@@ -299,8 +299,12 @@ func connectionLostHandler(o *clientOptions) mqtt.ConnectionLostHandler {
 }
 
 func onConnectHandler(client *Client, o *clientOptions) mqtt.OnConnectHandler {
-	return func(_ mqtt.Client) {
+	return func(cc mqtt.Client) {
 		if o.onConnectHandler != nil {
+			client.options.logger.Info(context.Background(), "onConnectHandler", map[string]any{
+				"client_id": clientIDMapper(cc),
+			})
+
 			o.onConnectHandler(client)
 		}
 	}

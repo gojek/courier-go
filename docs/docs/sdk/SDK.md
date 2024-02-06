@@ -280,7 +280,7 @@ func (c *Client) Stop()
 Stop will disconnect from the broker and finish up any pending work on internal communication workers. This can only block until the period configured with the ClientOption WithGracefulShutdownPeriod.
 
 <a name="Client.Subscribe"></a>
-### func \(\*Client\) [Subscribe](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L13)
+### func \(\*Client\) [Subscribe](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L15)
 
 ```go
 func (c *Client) Subscribe(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error
@@ -289,7 +289,7 @@ func (c *Client) Subscribe(ctx context.Context, topic string, callback MessageHa
 Subscribe allows to subscribe to messages from an MQTT broker
 
 <a name="Client.SubscribeMultiple"></a>
-### func \(\*Client\) [SubscribeMultiple](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L30-L34)
+### func \(\*Client\) [SubscribeMultiple](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L32-L36)
 
 ```go
 func (c *Client) SubscribeMultiple(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error
@@ -316,7 +316,7 @@ func (c *Client) UsePublisherMiddleware(mwf ...PublisherMiddlewareFunc)
 UsePublisherMiddleware appends a PublisherMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip messages. They are executed in the order that they are applied to the Client.
 
 <a name="Client.UseSubscriberMiddleware"></a>
-### func \(\*Client\) [UseSubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L57)
+### func \(\*Client\) [UseSubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L59)
 
 ```go
 func (c *Client) UseSubscriberMiddleware(mwf ...SubscriberMiddlewareFunc)
@@ -516,7 +516,7 @@ func WithPersistence(store Store) ClientOption
 WithPersistence allows to configure the store to be used by broker Default persistence is in\-memory persistence with mqtt.MemoryStore
 
 <a name="WithResolver"></a>
-### func [WithResolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L36)
+### func [WithResolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L37)
 
 ```go
 func WithResolver(resolver Resolver) ClientOption
@@ -862,7 +862,7 @@ const (
 ```
 
 <a name="Resolver"></a>
-## type [Resolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L28-L33)
+## type [Resolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L29-L34)
 
 Resolver sends TCPAddress updates on channel returned by UpdateChan\(\) channel.
 
@@ -1012,7 +1012,7 @@ func (smw SubscriberMiddlewareFunc) Middleware(subscriber Subscriber) Subscriber
 Middleware allows SubscriberMiddlewareFunc to implement the subscribeMiddleware interface.
 
 <a name="TCPAddress"></a>
-## type [TCPAddress](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L20-L23)
+## type [TCPAddress](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L21-L24)
 
 TCPAddress specifies Host and Port for remote broker
 
@@ -1024,7 +1024,7 @@ type TCPAddress struct {
 ```
 
 <a name="TCPAddress.String"></a>
-### func \(TCPAddress\) [String](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L25)
+### func \(TCPAddress\) [String](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L26)
 
 ```go
 func (t TCPAddress) String() string

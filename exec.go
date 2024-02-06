@@ -1,7 +1,7 @@
 package courier
 
 import (
-	"context"
+	"errors"
 	"math/rand"
 	"sync/atomic"
 
@@ -11,19 +11,17 @@ import (
 	"github.com/gojekfarm/xtools/generic/xmap"
 )
 
-type execOpt interface {
-	isExecOpt()
-}
+var errInvalidExecOpt = errors.New("courier: invalid exec option")
+
+type execOpt interface{ isExecOpt() }
 
 type execOptConst int
 
 func (eoc execOptConst) isExecOpt() {}
 
-type execOptFn struct {
-	execWithState func(func(mqtt.Client) error, *internalState) error
-}
+type execOptWithState func(func(mqtt.Client) error, *internalState) error
 
-func (eof *execOptFn) isExecOpt() {}
+func (eof execOptWithState) isExecOpt() {}
 
 const (
 	execAll execOptConst = iota
@@ -57,23 +55,11 @@ func (c *Client) execute(f func(mqtt.Client) error, eo execOpt) error {
 	return f(c.mqttClient)
 }
 
-func (c *Client) filterStates(predicate func(*internalState) bool) []*internalState {
-	return slice.Filter(
-		xmap.Values(c.mqttClients),
-		predicate,
-	)
-}
-
-func (c *Client) filterClients(predicate func(*internalState) bool) []mqtt.Client {
-	return slice.Map(c.filterStates(predicate), func(is *internalState) mqtt.Client { return is.client })
-}
-
 func (c *Client) execMultiConn(f func(mqtt.Client) error, eo execOpt) error {
 	ccs := xmap.Values(c.mqttClients)
 
 	switch eo := eo.(type) {
 	case execOptConst:
-
 		if eo == execOneRandom {
 			// nolint:errcheck
 			p := c.rndPool.Get().(*rand.Rand)
@@ -89,16 +75,9 @@ func (c *Client) execMultiConn(f func(mqtt.Client) error, eo execOpt) error {
 		return slice.Reduce(slice.MapConcurrent(ccs, func(s *internalState) error {
 			return f(s.client)
 		}), accumulateErrors)
-	case *execOptFn:
-		return slice.Reduce(slice.MapConcurrent(ccs, func(is *internalState) error {
-			c.options.logger.Info(context.Background(), "executing", map[string]any{
-				"clientId": clientIDMapper(is.client),
-				"flow":     "execute",
-			})
-
-			return eo.execWithState(f, is)
-		}), accumulateErrors)
+	case execOptWithState:
+		return slice.Reduce(slice.MapConcurrent(ccs, func(s *internalState) error { return eo(f, s) }), accumulateErrors)
+	default:
+		return errInvalidExecOpt
 	}
-
-	return nil
 }

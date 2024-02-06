@@ -4,11 +4,17 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/gojekfarm/xtools/generic"
+	"github.com/gojekfarm/xtools/generic/slice"
 )
 
 type ClientSubscribeSuite struct {
@@ -410,4 +416,36 @@ func (t *testMsg) Payload() []byte {
 
 func (t *testMsg) Ack() {
 	t.once.Do(t.ack)
+}
+
+func Test_subscribeOnlyOnce(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		s := &internalState{subsCalled: generic.NewSet[string]()}
+		eo := subscribeOnlyOnce("topic")
+		counter := atomic.Int32{}
+		ef := func(mqtt.Client) error {
+			counter.Add(1)
+			return nil
+		}
+		execs := []func(mqtt.Client) error{ef, ef, ef, ef}
+
+		err := slice.Reduce(slice.MapConcurrent(execs, func(f func(mqtt.Client) error) error { return eo(f, s) }), accumulateErrors)
+		assert.NoError(t, err)
+		assert.Equal(t, int32(1), counter.Load())
+	})
+
+	t.Run("Error", func(t *testing.T) {
+		s := &internalState{subsCalled: generic.NewSet[string]()}
+		eo := subscribeOnlyOnce("topic")
+		counter := atomic.Int32{}
+		ef := func(mqtt.Client) error {
+			counter.Add(1)
+			return errors.New("error")
+		}
+		execs := []func(mqtt.Client) error{ef, ef, ef, ef}
+
+		err := slice.Reduce(slice.MapConcurrent(execs, func(f func(mqtt.Client) error) error { return eo(f, s) }), accumulateErrors)
+		assert.Error(t, err)
+		assert.Equal(t, int32(4), counter.Load())
+	})
 }

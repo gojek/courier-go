@@ -6,8 +6,13 @@ import (
 	"testing"
 	"time"
 
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/gojekfarm/xtools/generic"
+	"github.com/gojekfarm/xtools/generic/slice"
 )
 
 type ClientUnsubscribeSuite struct {
@@ -206,5 +211,31 @@ func (tm *testUnsubscribeMiddleware) Middleware(us Unsubscriber) Unsubscriber {
 	return UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
 		tm.timesCalled++
 		return us.Unsubscribe(ctx, topics...)
+	})
+}
+
+func Test_removeSubsFromState(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		s := &internalState{subsCalled: generic.NewSet("topic1", "topic2")}
+		eo := removeSubsFromState("topic1", "topic2")
+		ef := func(cc mqtt.Client) error { return nil }
+		execs := []func(mqtt.Client) error{ef, ef, ef, ef}
+
+		err := slice.Reduce(slice.MapConcurrent(execs, func(f func(mqtt.Client) error) error { return eo(f, s) }), accumulateErrors)
+		assert.NoError(t, err)
+
+		assert.False(t, s.subsCalled.HasAny("topic1", "topic2"))
+	})
+
+	t.Run("Error", func(t *testing.T) {
+		s := &internalState{subsCalled: generic.NewSet("topic1", "topic2")}
+		eo := removeSubsFromState("topic1", "topic2")
+		ef := func(cc mqtt.Client) error { return errors.New("error") }
+		execs := []func(mqtt.Client) error{ef, ef, ef, ef}
+
+		err := slice.Reduce(slice.MapConcurrent(execs, func(f func(mqtt.Client) error) error { return eo(f, s) }), accumulateErrors)
+		assert.Error(t, err)
+
+		assert.True(t, s.subsCalled.HasAll("topic1", "topic2"))
 	})
 }

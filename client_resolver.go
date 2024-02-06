@@ -91,9 +91,11 @@ func (c *Client) reloadClients(clients map[string]mqtt.Client) {
 
 	if len(clients) > 0 {
 		ncs := make(map[string]*internalState, len(clients))
+
 		for k, cc := range clients {
 			ncs[k] = &internalState{client: cc, subsCalled: generic.NewSet[string]()}
 		}
+
 		c.mqttClients = ncs
 	}
 

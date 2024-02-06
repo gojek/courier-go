@@ -285,10 +285,9 @@ func reconnectHandler(client PubSub, o *clientOptions) mqtt.ReconnectHandler {
 func connectionLostHandler(o *clientOptions) mqtt.ConnectionLostHandler {
 	return func(cc mqtt.Client, err error) {
 		if o.logger != nil {
-			or := cc.OptionsReader()
 			o.logger.Error(context.Background(), err, map[string]any{
 				"message":   "connection lost",
-				"client_id": or.ClientID(),
+				"client_id": clientIDMapper(cc),
 			})
 		}
 

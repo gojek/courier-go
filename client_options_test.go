@@ -123,6 +123,11 @@ func (s *ClientOptionSuite) Test_apply() {
 			option: UseMultiConnectionMode,
 			want:   &clientOptions{multiConnectionMode: true},
 		},
+		{
+			name:   "ResumeSubscriptions",
+			option: ResumeSubscriptions,
+			want:   &clientOptions{resumeSubscriptions: true},
+		},
 	}
 
 	for _, t := range tests {

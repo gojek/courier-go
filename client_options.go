@@ -232,9 +232,17 @@ func (ssp SharedSubscriptionPredicate) apply(o *clientOptions) { o.sharedSubscri
 // to subscribe on the same application.
 var UseMultiConnectionMode = multiConnMode{}
 
+// ResumeSubscriptions allows resuming of stored (un)subscribe messages when connecting
+// but not reconnecting if CleanSession is false. Otherwise, these messages are discarded.
+var ResumeSubscriptions = resumeSubscriptions{}
+
 type multiConnMode struct{}
 
 func (mcm multiConnMode) apply(o *clientOptions) { o.multiConnectionMode = true }
+
+type resumeSubscriptions struct{}
+
+func (rs resumeSubscriptions) apply(o *clientOptions) { o.resumeSubscriptions = true }
 
 type clientOptions struct {
 	username, clientID, password,
@@ -244,7 +252,8 @@ type clientOptions struct {
 
 	tlsConfig *tls.Config
 
-	autoReconnect, maintainOrder, cleanSession, multiConnectionMode bool
+	autoReconnect, maintainOrder, cleanSession,
+	multiConnectionMode, resumeSubscriptions bool
 
 	connectTimeout, writeTimeout, keepAlive,
 	maxReconnectInterval, gracefulShutdownPeriod,

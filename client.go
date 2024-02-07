@@ -219,6 +219,7 @@ func toClientOptions(c *Client, o *clientOptions, idSuffix string) *mqtt.ClientO
 	}
 
 	opts.AddBroker(formatAddressWithProtocol(o)).
+		SetResumeSubs(o.resumeSubscriptions).
 		SetTLSConfig(o.tlsConfig).
 		SetAutoReconnect(o.autoReconnect).
 		SetCleanSession(o.cleanSession).

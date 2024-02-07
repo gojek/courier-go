@@ -129,6 +129,12 @@ var (
 var ErrClientNotInitialized = errors.New("courier: client not initialized")
 ```
 
+<a name="ResumeSubscriptions"></a>ResumeSubscriptions allows resuming of stored \(un\)subscribe messages when connecting but not reconnecting if CleanSession is false. Otherwise, these messages are discarded.
+
+```go
+var ResumeSubscriptions = resumeSubscriptions{}
+```
+
 <a name="UseMultiConnectionMode"></a>UseMultiConnectionMode allows to configure the client to use multiple connections when available.
 
 This is useful when working with shared subscriptions and multiple connections can be created to subscribe on the same application.

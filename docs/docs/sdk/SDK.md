@@ -754,7 +754,7 @@ type Logger interface {
 ```
 
 <a name="MQTTClientInfo"></a>
-## type [MQTTClientInfo](https://github.com/gojek/courier-go/blob/main/client_telemetry.go#L14-L22)
+## type [MQTTClientInfo](https://github.com/gojek/courier-go/blob/main/client_telemetry.go#L14-L25)
 
 MQTTClientInfo contains information about the internal MQTT client
 
@@ -767,6 +767,9 @@ type MQTTClientInfo struct {
     CleanSession  bool         `json:"clean_session"`
     AutoReconnect bool         `json:"auto_reconnect"`
     Connected     bool         `json:"connected"`
+    // Subscriptions contains the topics the client is subscribed to
+    // Note: Currently, this field only holds shared subscriptions.
+    Subscriptions []string `json:"subscriptions,omitempty"`
 }
 ```
 

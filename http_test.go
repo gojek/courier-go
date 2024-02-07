@@ -22,7 +22,7 @@ func TestClient_TelemetryHandler(t *testing.T) {
 			name:   "single connection mode",
 			status: http.StatusOK,
 			opts:   func(t *testing.T) []ClientOption { return nil },
-			body: fmt.Sprintf(`{"multi":false,"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true}]}
+			body: fmt.Sprintf(`{"multi":false,"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true}],"subscriptions":{"$share/test/test-topic":0}}
 `, testBrokerAddress.Host, testBrokerAddress.Port),
 		},
 		{
@@ -50,7 +50,7 @@ func TestClient_TelemetryHandler(t *testing.T) {
 					UseMultiConnectionMode,
 				}
 			},
-			body: fmt.Sprintf(`{"multi":true,"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-0-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true},{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-1-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true}]}
+			body: fmt.Sprintf(`{"multi":true,"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-0-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true,"subscriptions":["$share/test/test-topic"]},{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-1-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true,"subscriptions":["$share/test/test-topic"]}],"subscriptions":{"$share/test/test-topic":0}}
 `, testBrokerAddress.Host, testBrokerAddress.Port, testBrokerAddress.Host, testBrokerAddress.Port),
 		},
 	}
@@ -68,6 +68,13 @@ func TestClient_TelemetryHandler(t *testing.T) {
 			go func() {
 				_ = c.Run(ctx)
 			}()
+
+			WaitForConnection(c, 2*time.Second, 100*time.Millisecond)
+
+			assert.NoError(t, c.Subscribe(context.TODO(), "$share/test/test-topic",
+				func(ctx context.Context, ps PubSub, msg *Message) {
+					// do nothing
+				}))
 
 			h := c.InfoHandler()
 

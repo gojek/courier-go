@@ -19,6 +19,9 @@ type MQTTClientInfo struct {
 	CleanSession  bool         `json:"clean_session"`
 	AutoReconnect bool         `json:"auto_reconnect"`
 	Connected     bool         `json:"connected"`
+	// Subscriptions contains the topics the client is subscribed to
+	// Note: Currently, this field only holds shared subscriptions.
+	Subscriptions []string `json:"subscriptions,omitempty"`
 }
 
 type infoResponse struct {
@@ -73,13 +76,29 @@ func (c *Client) readSubscriptionMeta() map[string]QOSLevel {
 func (c *Client) multiClientInfo() []MQTTClientInfo {
 	c.clientMu.RLock()
 
-	if len(c.mqttClients) == 0 {
+	cls := c.mqttClients
+
+	if len(cls) == 0 {
+		c.clientMu.RUnlock()
+
 		return nil
 	}
 
-	bCh := make(chan MQTTClientInfo, len(c.mqttClients))
+	bCh := make(chan MQTTClientInfo, len(cls))
 
 	_ = c.execute(func(cc mqtt.Client) error {
+		for _, is := range cls {
+			if is.client == cc {
+				is.mu.Lock()
+				subs := is.subsCalled.Values()
+				is.mu.Unlock()
+
+				bCh <- transformClientInfo(cc, subs...)
+
+				return nil
+			}
+		}
+
 		bCh <- transformClientInfo(cc)
 
 		return nil
@@ -119,7 +138,7 @@ func (c *Client) singleClientInfo() []MQTTClientInfo {
 	return []MQTTClientInfo{bi}
 }
 
-func transformClientInfo(cc mqtt.Client) MQTTClientInfo {
+func transformClientInfo(cc mqtt.Client, subscribedTopics ...string) MQTTClientInfo {
 	opts := cc.OptionsReader()
 
 	return MQTTClientInfo{
@@ -137,5 +156,6 @@ func transformClientInfo(cc mqtt.Client) MQTTClientInfo {
 		CleanSession:  opts.CleanSession(),
 		AutoReconnect: opts.AutoReconnect(),
 		Connected:     cc.IsConnected(),
+		Subscriptions: subscribedTopics,
 	}
 }

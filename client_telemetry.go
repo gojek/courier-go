@@ -155,7 +155,7 @@ func transformClientInfo(cc mqtt.Client, subscribedTopics ...string) MQTTClientI
 		ResumeSubs:    opts.ResumeSubs(),
 		CleanSession:  opts.CleanSession(),
 		AutoReconnect: opts.AutoReconnect(),
-		Connected:     cc.IsConnected(),
+		Connected:     cc.IsConnectionOpen(),
 		Subscriptions: subscribedTopics,
 	}
 }

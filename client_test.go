@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/gojekfarm/xtools/generic"
 )
 
 var defOpts []ClientOption
@@ -307,10 +309,7 @@ func Test_reconnectHandler(t *testing.T) {
 		}),
 	}
 
-	ml.On("Info", mock.Anything, "reconnecting", map[string]any{
-		"message":   "reconnecting",
-		"client_id": "clientID",
-	}).Return()
+	ml.On("Info", mock.Anything, "reconnecting", map[string]any{"client_id": "clientID"}).Return()
 
 	f := reconnectHandler(c, c.options)
 	f(c.mqttClient, &mqtt.ClientOptions{ClientID: "clientID"})
@@ -335,7 +334,7 @@ func Test_connectionLostHandler(t *testing.T) {
 		"client_id": "clientID",
 	}).Return()
 
-	f := connectionLostHandler(c.options)
+	f := connectionLostHandler(c, c.options)
 	f(c.mqttClient, errors.New("disconnected"))
 	ml.AssertExpectations(t)
 }
@@ -484,4 +483,24 @@ func matchErr(want error) any {
 	return mock.MatchedBy(func(err error) bool {
 		return err.Error() == want.Error()
 	})
+}
+
+func TestClient_removeStoredSubsCalled(t *testing.T) {
+	cc1 := mqtt.NewClient(&mqtt.ClientOptions{})
+
+	c := &Client{mqttClients: map[string]*internalState{
+		"clientID-1": {
+			subsCalled: generic.NewSet("topic"),
+			client:     cc1,
+		},
+		"clientID-2": {
+			subsCalled: generic.NewSet("topic"),
+			client:     mqtt.NewClient(&mqtt.ClientOptions{}),
+		},
+	}}
+
+	c.removeStoredSubsCalled(cc1)
+
+	assert.Empty(t, c.mqttClients["clientID-1"].subsCalled)
+	assert.NotEmpty(t, c.mqttClients["clientID-2"].subsCalled)
 }

@@ -122,11 +122,21 @@ func (c *Client) Run(ctx context.Context) error {
 }
 
 func (c *Client) stop() error {
-	return c.execute(func(cc mqtt.Client) error {
+	err := c.execute(func(cc mqtt.Client) error {
 		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 
 		return nil
 	}, execAll)
+
+	if err == nil {
+		c.clientMu.Lock()
+		defer c.clientMu.Unlock()
+
+		c.mqttClient = nil
+		c.mqttClients = nil
+	}
+
+	return err
 }
 
 func (c *Client) handleToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {
@@ -202,6 +212,19 @@ func (c *Client) attemptSingleConnection(addrs []TCPAddress) error {
 	return c.resumeSubscriptions()
 }
 
+func (c *Client) removeStoredSubsCalled(cc mqtt.Client) {
+	c.clientMu.RLock()
+	defer c.clientMu.RUnlock()
+
+	for _, v := range c.mqttClients {
+		if v.client == cc {
+			v.mu.Lock()
+			v.subsCalled.Delete(v.subsCalled.Values()...)
+			v.mu.Unlock()
+		}
+	}
+}
+
 func toClientOptions(c *Client, o *clientOptions, idSuffix string) *mqtt.ClientOptions {
 	opts := mqtt.NewClientOptions()
 
@@ -228,7 +251,7 @@ func toClientOptions(c *Client, o *clientOptions, idSuffix string) *mqtt.ClientO
 		SetConnectTimeout(o.connectTimeout).
 		SetMaxReconnectInterval(o.maxReconnectInterval).
 		SetReconnectingHandler(reconnectHandler(c, o)).
-		SetConnectionLostHandler(connectionLostHandler(o)).
+		SetConnectionLostHandler(connectionLostHandler(c, o)).
 		SetOnConnectHandler(onConnectHandler(c, o))
 
 	return opts
@@ -271,10 +294,7 @@ func formatAddressWithProtocol(opts *clientOptions) string {
 func reconnectHandler(client PubSub, o *clientOptions) mqtt.ReconnectHandler {
 	return func(_ mqtt.Client, opts *mqtt.ClientOptions) {
 		if o.logger != nil {
-			o.logger.Info(context.Background(), "reconnecting", map[string]any{
-				"message":   "reconnecting",
-				"client_id": opts.ClientID,
-			})
+			o.logger.Info(context.Background(), "reconnecting", map[string]any{"client_id": opts.ClientID})
 		}
 
 		if o.onReconnectHandler != nil {
@@ -283,7 +303,7 @@ func reconnectHandler(client PubSub, o *clientOptions) mqtt.ReconnectHandler {
 	}
 }
 
-func connectionLostHandler(o *clientOptions) mqtt.ConnectionLostHandler {
+func connectionLostHandler(c *Client, o *clientOptions) mqtt.ConnectionLostHandler {
 	return func(cc mqtt.Client, err error) {
 		if o.logger != nil {
 			o.logger.Error(context.Background(), err, map[string]any{
@@ -291,6 +311,8 @@ func connectionLostHandler(o *clientOptions) mqtt.ConnectionLostHandler {
 				"client_id": clientIDMapper(cc),
 			})
 		}
+
+		c.removeStoredSubsCalled(cc)
 
 		if o.onConnectionLostHandler != nil {
 			o.onConnectionLostHandler(err)

@@ -129,6 +129,12 @@ var (
 var ErrClientNotInitialized = errors.New("courier: client not initialized")
 ```
 
+<a name="ResumeSubscriptions"></a>ResumeSubscriptions allows resuming of stored \(un\)subscribe messages when connecting but not reconnecting if CleanSession is false. Otherwise, these messages are discarded.
+
+```go
+var ResumeSubscriptions = resumeSubscriptions{}
+```
+
 <a name="UseMultiConnectionMode"></a>UseMultiConnectionMode allows to configure the client to use multiple connections when available.
 
 This is useful when working with shared subscriptions and multiple connections can be created to subscribe on the same application.
@@ -516,7 +522,7 @@ func WithPersistence(store Store) ClientOption
 WithPersistence allows to configure the store to be used by broker Default persistence is in\-memory persistence with mqtt.MemoryStore
 
 <a name="WithResolver"></a>
-### func [WithResolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L36)
+### func [WithResolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L37)
 
 ```go
 func WithResolver(resolver Resolver) ClientOption
@@ -862,7 +868,7 @@ const (
 ```
 
 <a name="Resolver"></a>
-## type [Resolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L28-L33)
+## type [Resolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L29-L34)
 
 Resolver sends TCPAddress updates on channel returned by UpdateChan\(\) channel.
 
@@ -1012,7 +1018,7 @@ func (smw SubscriberMiddlewareFunc) Middleware(subscriber Subscriber) Subscriber
 Middleware allows SubscriberMiddlewareFunc to implement the subscribeMiddleware interface.
 
 <a name="TCPAddress"></a>
-## type [TCPAddress](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L20-L23)
+## type [TCPAddress](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L21-L24)
 
 TCPAddress specifies Host and Port for remote broker
 
@@ -1024,7 +1030,7 @@ type TCPAddress struct {
 ```
 
 <a name="TCPAddress.String"></a>
-### func \(TCPAddress\) [String](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L25)
+### func \(TCPAddress\) [String](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L26)
 
 ```go
 func (t TCPAddress) String() string

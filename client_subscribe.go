@@ -77,9 +77,9 @@ func subscriberFuncs(c *Client) Subscriber {
 		func(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
 			o := composeOptions(opts)
 
-			eo := execOneRandom
+			var eo execOpt = execOneRandom
 			if c.options.sharedSubscriptionPredicate(topic) {
-				eo = execAll
+				eo = subscribeOnlyOnce(topic)
 			}
 
 			return c.execute(func(cc mqtt.Client) error {
@@ -134,6 +134,24 @@ func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 		msg.QoS = QOSLevel(m.Qos())
 
 		callback(ctx, c, msg)
+	}
+}
+
+func subscribeOnlyOnce(topic string) execOptWithState {
+	return func(f func(mqtt.Client) error, s *internalState) error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		if s.subsCalled.Has(topic) {
+			return nil
+		}
+
+		err := f(s.client)
+		if err == nil {
+			s.subsCalled.Add(topic)
+		}
+
+		return err
 	}
 }
 

@@ -1,19 +1,38 @@
 package courier
 
 import (
+	"errors"
 	"math/rand"
+	"sync"
 	"sync/atomic"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
+	"github.com/gojekfarm/xtools/generic"
 	"github.com/gojekfarm/xtools/generic/slice"
 	"github.com/gojekfarm/xtools/generic/xmap"
 )
 
-type execOpt int
+var errInvalidExecOpt = errors.New("courier: invalid exec option")
+
+type internalState struct {
+	subsCalled generic.Set[string]
+	client     mqtt.Client
+	mu         sync.Mutex
+}
+
+type execOpt interface{ isExecOpt() }
+
+type execOptConst int
+
+func (eoc execOptConst) isExecOpt() {}
+
+type execOptWithState func(func(mqtt.Client) error, *internalState) error
+
+func (eof execOptWithState) isExecOpt() {}
 
 const (
-	execAll execOpt = iota
+	execAll execOptConst = iota
 	execOneRandom
 	execOneRoundRobin
 )
@@ -47,19 +66,26 @@ func (c *Client) execute(f func(mqtt.Client) error, eo execOpt) error {
 func (c *Client) execMultiConn(f func(mqtt.Client) error, eo execOpt) error {
 	ccs := xmap.Values(c.mqttClients)
 
-	if eo == execOneRandom {
-		// nolint:errcheck
-		p := c.rndPool.Get().(*rand.Rand)
-		defer c.rndPool.Put(p)
+	switch eo := eo.(type) {
+	case execOptConst:
+		if eo == execOneRandom {
+			// nolint:errcheck
+			p := c.rndPool.Get().(*rand.Rand)
+			defer c.rndPool.Put(p)
 
-		return f(ccs[p.Intn(len(ccs))])
+			return f(ccs[p.Intn(len(ccs))].client)
+		}
+
+		if eo == execOneRoundRobin {
+			return f(ccs[int(c.rrCounter.next())%len(ccs)].client)
+		}
+
+		return slice.Reduce(slice.MapConcurrent(ccs, func(s *internalState) error {
+			return f(s.client)
+		}), accumulateErrors)
+	case execOptWithState:
+		return slice.Reduce(slice.MapConcurrent(ccs, func(s *internalState) error { return eo(f, s) }), accumulateErrors)
+	default:
+		return errInvalidExecOpt
 	}
-
-	if eo == execOneRoundRobin {
-		return f(ccs[int(c.rrCounter.next())%len(ccs)])
-	}
-
-	return slice.Reduce(slice.MapConcurrent(ccs, func(cc mqtt.Client) error {
-		return f(cc)
-	}), accumulateErrors)
 }

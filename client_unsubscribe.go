@@ -40,6 +40,20 @@ func unsubscriberHandler(c *Client) Unsubscriber {
 	return UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
 		return c.execute(func(cc mqtt.Client) error {
 			return c.handleToken(ctx, cc.Unsubscribe(topics...), ErrUnsubscribeTimeout)
-		}, execAll)
+		}, removeSubsFromState(topics...))
 	})
+}
+
+func removeSubsFromState(topics ...string) execOptWithState {
+	return func(f func(mqtt.Client) error, s *internalState) error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		err := f(s.client)
+		if err == nil {
+			s.subsCalled.Delete(topics...)
+		}
+
+		return err
+	}
 }

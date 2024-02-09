@@ -273,7 +273,7 @@ func (c *Client) Publish(ctx context.Context, topic string, message interface{},
 Publish allows to publish messages to an MQTT broker
 
 <a name="Client.Run"></a>
-### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L118)
+### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L112)
 
 ```go
 func (c *Client) Run(ctx context.Context) error
@@ -291,7 +291,7 @@ func (c *Client) Start() error
 Start will attempt to connect to the broker.
 
 <a name="Client.Stop"></a>
-### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L114)
+### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L108)
 
 ```go
 func (c *Client) Stop()
@@ -754,7 +754,7 @@ type Logger interface {
 ```
 
 <a name="MQTTClientInfo"></a>
-## type [MQTTClientInfo](https://github.com/gojek/courier-go/blob/main/client_telemetry.go#L14-L25)
+## type [MQTTClientInfo](https://github.com/gojek/courier-go/blob/main/client_telemetry.go#L15-L26)
 
 MQTTClientInfo contains information about the internal MQTT client
 

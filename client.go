@@ -95,17 +95,11 @@ func (c *Client) IsConnected() bool {
 
 // Start will attempt to connect to the broker.
 func (c *Client) Start() error {
-	if err := c.runConnect(); err != nil {
-		return err
-	}
-
 	if c.options.resolver != nil {
 		return c.runResolver()
 	}
 
-	c.handleInfoEmitter()
-
-	return nil
+	return c.runConnect()
 }
 
 // Stop will disconnect from the broker and finish up any pending work on internal
@@ -208,11 +202,7 @@ func (c *Client) runResolver() error {
 }
 
 func (c *Client) runConnect() error {
-	if len(c.options.brokerAddress) == 0 {
-		return nil
-	}
-
-	return c.execute(func(cc mqtt.Client) error {
+	err := c.execute(func(cc mqtt.Client) error {
 		t := cc.Connect()
 		if !t.WaitTimeout(c.options.connectTimeout) {
 			return ErrConnectTimeout
@@ -220,6 +210,14 @@ func (c *Client) runConnect() error {
 
 		return t.Error()
 	}, execAll)
+
+	if err != nil {
+		return err
+	}
+
+	c.handleInfoEmitter()
+
+	return nil
 }
 
 func (c *Client) attemptSingleConnection(addrs []TCPAddress) error {

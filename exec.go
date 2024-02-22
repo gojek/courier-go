@@ -16,6 +16,7 @@ import (
 var errInvalidExecOpt = errors.New("courier: invalid exec option")
 
 type internalState struct {
+	// currently holds only shared subscriptions info
 	subsCalled generic.Set[string]
 	client     mqtt.Client
 	mu         sync.Mutex

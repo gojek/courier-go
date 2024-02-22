@@ -16,6 +16,7 @@ Package courier contains the client that can be used to interact with the courie
 - [func WaitForConnection\(c ConnectionInformer, waitFor time.Duration, tick time.Duration\) bool](#WaitForConnection)
 - [type Client](#Client)
   - [func NewClient\(opts ...ClientOption\) \(\*Client, error\)](#NewClient)
+  - [func \(c \*Client\) InfoHandler\(\) http.Handler](#Client.InfoHandler)
   - [func \(c \*Client\) IsConnected\(\) bool](#Client.IsConnected)
   - [func \(c \*Client\) Publish\(ctx context.Context, topic string, message interface\{\}, opts ...Option\) error](#Client.Publish)
   - [func \(c \*Client\) Run\(ctx context.Context\) error](#Client.Run)
@@ -27,6 +28,9 @@ Package courier contains the client that can be used to interact with the courie
   - [func \(c \*Client\) UsePublisherMiddleware\(mwf ...PublisherMiddlewareFunc\)](#Client.UsePublisherMiddleware)
   - [func \(c \*Client\) UseSubscriberMiddleware\(mwf ...SubscriberMiddlewareFunc\)](#Client.UseSubscriberMiddleware)
   - [func \(c \*Client\) UseUnsubscriberMiddleware\(mwf ...UnsubscriberMiddlewareFunc\)](#Client.UseUnsubscriberMiddleware)
+- [type ClientInfoEmitter](#ClientInfoEmitter)
+- [type ClientInfoEmitterConfig](#ClientInfoEmitterConfig)
+- [type ClientMeta](#ClientMeta)
 - [type ClientOption](#ClientOption)
   - [func WithAddress\(host string, port uint16\) ClientOption](#WithAddress)
   - [func WithAutoReconnect\(autoReconnect bool\) ClientOption](#WithAutoReconnect)
@@ -65,6 +69,7 @@ Package courier contains the client that can be used to interact with the courie
 - [type EncoderFunc](#EncoderFunc)
 - [type KeepAlive](#KeepAlive)
 - [type Logger](#Logger)
+- [type MQTTClientInfo](#MQTTClientInfo)
 - [type Message](#Message)
   - [func NewMessageWithDecoder\(payloadDecoder Decoder\) \*Message](#NewMessageWithDecoder)
   - [func \(m \*Message\) DecodePayload\(v interface\{\}\) error](#Message.DecodePayload)
@@ -171,7 +176,7 @@ func WaitForConnection(c ConnectionInformer, waitFor time.Duration, tick time.Du
 WaitForConnection checks if the Client is connected, it calls ConnectionInformer.IsConnected after every tick and waitFor is the maximum duration it can block. Returns true only when ConnectionInformer.IsConnected returns true
 
 <a name="Client"></a>
-## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L22-L41)
+## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L22-L43)
 
 Client allows to communicate with an MQTT broker
 
@@ -182,7 +187,7 @@ type Client struct {
 ```
 
 <a name="NewClient"></a>
-### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L46)
+### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L48)
 
 ```go
 func NewClient(opts ...ClientOption) (*Client, error)
@@ -240,8 +245,17 @@ c.Stop()
 </p>
 </details>
 
+<a name="Client.InfoHandler"></a>
+### func \(\*Client\) [InfoHandler](https://github.com/gojek/courier-go/blob/main/http.go#L9)
+
+```go
+func (c *Client) InfoHandler() http.Handler
+```
+
+InfoHandler returns a http.Handler that exposes the connected clients information
+
 <a name="Client.IsConnected"></a>
-### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L78)
+### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L84)
 
 ```go
 func (c *Client) IsConnected() bool
@@ -259,7 +273,7 @@ func (c *Client) Publish(ctx context.Context, topic string, message interface{},
 Publish allows to publish messages to an MQTT broker
 
 <a name="Client.Run"></a>
-### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L110)
+### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L112)
 
 ```go
 func (c *Client) Run(ctx context.Context) error
@@ -268,7 +282,7 @@ func (c *Client) Run(ctx context.Context) error
 Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package. https://pkg.go.dev/github.com/gojekfarm/xrun
 
 <a name="Client.Start"></a>
-### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L91)
+### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L97)
 
 ```go
 func (c *Client) Start() error
@@ -277,7 +291,7 @@ func (c *Client) Start() error
 Start will attempt to connect to the broker.
 
 <a name="Client.Stop"></a>
-### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L106)
+### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L108)
 
 ```go
 func (c *Client) Stop()
@@ -338,6 +352,43 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc)
 ```
 
 UseUnsubscriberMiddleware appends a UnsubscriberMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip subscriptions. They are executed in the order that they are applied to the Client.
+
+<a name="ClientInfoEmitter"></a>
+## type [ClientInfoEmitter](https://github.com/gojek/courier-go/blob/main/metrics.go#L17-L19)
+
+ClientInfoEmitter emits broker info. This can be called concurrently, implementations should be concurrency safe.
+
+```go
+type ClientInfoEmitter interface {
+    Emit(ctx context.Context, meta ClientMeta)
+}
+```
+
+<a name="ClientInfoEmitterConfig"></a>
+## type [ClientInfoEmitterConfig](https://github.com/gojek/courier-go/blob/main/metrics.go#L22-L26)
+
+ClientInfoEmitterConfig is used to configure the broker info emitter.
+
+```go
+type ClientInfoEmitterConfig struct {
+    // Interval is the interval at which the broker info emitter emits broker info.
+    Interval time.Duration
+    Emitter  ClientInfoEmitter
+}
+```
+
+<a name="ClientMeta"></a>
+## type [ClientMeta](https://github.com/gojek/courier-go/blob/main/metrics.go#L9-L13)
+
+ClientMeta contains information about the internal MQTT client\(s\)
+
+```go
+type ClientMeta struct {
+    MultiConnMode bool
+    Clients       []MQTTClientInfo
+    Subscriptions map[string]QOSLevel
+}
+```
 
 <a name="ClientOption"></a>
 ## type [ClientOption](https://github.com/gojek/courier-go/blob/main/client_options.go#L17)
@@ -702,6 +753,26 @@ type Logger interface {
 }
 ```
 
+<a name="MQTTClientInfo"></a>
+## type [MQTTClientInfo](https://github.com/gojek/courier-go/blob/main/client_telemetry.go#L15-L26)
+
+MQTTClientInfo contains information about the internal MQTT client
+
+```go
+type MQTTClientInfo struct {
+    Addresses     []TCPAddress `json:"addresses"`
+    ClientID      string       `json:"client_id"`
+    Username      string       `json:"username"`
+    ResumeSubs    bool         `json:"resume_subs"`
+    CleanSession  bool         `json:"clean_session"`
+    AutoReconnect bool         `json:"auto_reconnect"`
+    Connected     bool         `json:"connected"`
+    // Subscriptions contains the topics the client is subscribed to
+    // Note: Currently, this field only holds shared subscriptions.
+    Subscriptions []string `json:"subscriptions,omitempty"`
+}
+```
+
 <a name="Message"></a>
 ## type [Message](https://github.com/gojek/courier-go/blob/main/message.go#L4-L12)
 
@@ -1024,8 +1095,8 @@ TCPAddress specifies Host and Port for remote broker
 
 ```go
 type TCPAddress struct {
-    Host string
-    Port uint16
+    Host string `json:"host"`
+    Port uint16 `json:"port"`
 }
 ```
 

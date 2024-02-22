@@ -19,8 +19,8 @@ import (
 
 // TCPAddress specifies Host and Port for remote broker
 type TCPAddress struct {
-	Host string
-	Port uint16
+	Host string `json:"host"`
+	Port uint16 `json:"port"`
 }
 
 func (t TCPAddress) String() string { return fmt.Sprintf("%s:%d", t.Host, t.Port) }

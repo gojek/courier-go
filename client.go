@@ -38,6 +38,8 @@ type Client struct {
 	rndPool           *sync.Pool
 	clientMu          sync.RWMutex
 	subMu             sync.RWMutex
+
+	stopInfoEmitter context.CancelFunc
 }
 
 // NewClient creates the Client struct with the clientOptions provided,
@@ -52,6 +54,10 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 
 	if len(co.brokerAddress) == 0 && co.resolver == nil {
 		return nil, fmt.Errorf("at least WithAddress or WithResolver ClientOption should be used")
+	}
+
+	if co.infoEmitterCfg != nil && co.infoEmitterCfg.Emitter != nil && co.infoEmitterCfg.Interval.Seconds() < 1 {
+		return nil, fmt.Errorf("client info emitter interval must be greater than or equal to 1s")
 	}
 
 	c := &Client{
@@ -89,15 +95,11 @@ func (c *Client) IsConnected() bool {
 
 // Start will attempt to connect to the broker.
 func (c *Client) Start() error {
-	if err := c.runConnect(); err != nil {
-		return err
-	}
-
 	if c.options.resolver != nil {
 		return c.runResolver()
 	}
 
-	return nil
+	return c.runConnect()
 }
 
 // Stop will disconnect from the broker and finish up any pending work on internal
@@ -128,6 +130,10 @@ func (c *Client) stop() error {
 		return nil
 	}, execAll)
 
+	if c.stopInfoEmitter != nil {
+		c.stopInfoEmitter()
+	}
+
 	if err == nil {
 		c.clientMu.Lock()
 		defer c.clientMu.Unlock()
@@ -137,6 +143,15 @@ func (c *Client) stop() error {
 	}
 
 	return err
+}
+
+func (c *Client) handleInfoEmitter() {
+	if c.options.infoEmitterCfg != nil && c.options.infoEmitterCfg.Emitter != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		c.stopInfoEmitter = cancel
+
+		go c.runBrokerInfoEmitter(ctx)
+	}
 }
 
 func (c *Client) handleToken(ctx context.Context, t mqtt.Token, timeoutErr error) error {
@@ -179,17 +194,15 @@ func (c *Client) runResolver() error {
 		}
 	}
 
+	c.handleInfoEmitter()
+
 	go c.watchAddressUpdates(c.options.resolver)
 
 	return nil
 }
 
 func (c *Client) runConnect() error {
-	if len(c.options.brokerAddress) == 0 {
-		return nil
-	}
-
-	return c.execute(func(cc mqtt.Client) error {
+	err := c.execute(func(cc mqtt.Client) error {
 		t := cc.Connect()
 		if !t.WaitTimeout(c.options.connectTimeout) {
 			return ErrConnectTimeout
@@ -197,6 +210,14 @@ func (c *Client) runConnect() error {
 
 		return t.Error()
 	}, execAll)
+
+	if err != nil {
+		return err
+	}
+
+	c.handleInfoEmitter()
+
+	return nil
 }
 
 func (c *Client) attemptSingleConnection(addrs []TCPAddress) error {

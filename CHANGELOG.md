@@ -8,6 +8,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.3]
+
+### Added
+
+- Paho's `mqtt.CredentialsProvider` is now used when `CredentialFetcher` is provided. ([#40](https://github.com/gojek/courier-go/pull/40))
+
+### Changed
+
+- De-duplicate subscription calls when using OnConnectHandler to avoid concurrent subscribe issues. ([#39](https://github.com/gojek/courier-go/pull/39))
+
 ## [0.5.2]
 
 ### Added
@@ -93,6 +103,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Initial Release
 
+[0.5.3]: https://github.com/gojek/courier-go/releases/tag/v0.5.3
 [0.5.2]: https://github.com/gojek/courier-go/releases/tag/v0.5.2
 [0.5.1]: https://github.com/gojek/courier-go/releases/tag/v0.5.1
 [0.5.0]: https://github.com/gojek/courier-go/releases/tag/v0.5.0

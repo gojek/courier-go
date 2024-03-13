@@ -282,11 +282,29 @@ func setCredentials(o *clientOptions, opts *mqtt.ClientOptions) {
 	if o.credentialFetcher != nil {
 		refreshCredentialsWithFetcher(o, opts)
 
+		opts.SetCredentialsProvider(credentialsRefresher(o))
+
 		return
 	}
 
 	opts.SetUsername(o.username)
 	opts.SetPassword(o.password)
+}
+
+func credentialsRefresher(o *clientOptions) func() (string, string) {
+	return func() (string, string) {
+		ctx, cancel := context.WithTimeout(context.Background(), o.credentialFetchTimeout)
+		defer cancel()
+
+		c, err := o.credentialFetcher.Credentials(ctx)
+		if err != nil {
+			o.logger.Error(ctx, err, map[string]any{"message": "failed to fetch credentials"})
+
+			return "<unknown>", ""
+		}
+
+		return c.Username, c.Password
+	}
 }
 
 func refreshCredentialsWithFetcher(o *clientOptions, opts *mqtt.ClientOptions) {

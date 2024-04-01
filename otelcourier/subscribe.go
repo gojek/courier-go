@@ -30,9 +30,11 @@ const (
 )
 
 var (
-	runtimeSpanNameExtractor = regexp.MustCompile(fmt.Sprintf(`^(?P<%s>.*)?/(?P<%s>[^/]+)$`, moduleNamedGroup, pkgFnNamedGroup))
-	pkgFnIndex               = runtimeSpanNameExtractor.SubexpIndex(pkgFnNamedGroup)
-	_                        = runtimeSpanNameExtractor.SubexpIndex(moduleNamedGroup) // unused at the moment
+	runtimeSpanNameExtractor = regexp.MustCompile(
+		fmt.Sprintf(`^(?P<%s>.*)?/(?P<%s>[^/]+)$`, moduleNamedGroup, pkgFnNamedGroup),
+	)
+	pkgFnIndex = runtimeSpanNameExtractor.SubexpIndex(pkgFnNamedGroup)
+	_          = runtimeSpanNameExtractor.SubexpIndex(moduleNamedGroup) // unused at the moment
 )
 
 // SubscriberMiddleware is a courier.SubscriberMiddlewareFunc for tracing subscribe calls.
@@ -127,6 +129,7 @@ func (t *OTel) instrumentCallback(in courier.MessageHandler) courier.MessageHand
 		}
 
 		spanName := "UnknownSubscribeCallback"
+
 		if fnPtr := runtime.FuncForPC(reflect.ValueOf(in).Pointer()); fnPtr != nil {
 			fullName := fnPtr.Name()
 			if matches := runtimeSpanNameExtractor.FindStringSubmatch(fullName); len(matches) > 0 {

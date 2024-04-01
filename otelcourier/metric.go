@@ -37,6 +37,7 @@ func (t *OTel) newRecorder(flow string) *recorders {
 				metric.WithDescription(fmt.Sprintf("Number of %s attempts", flow)),
 			)
 			r.attempts = ac
+
 			return err
 		},
 		func(r *recorders) error {
@@ -45,6 +46,7 @@ func (t *OTel) newRecorder(flow string) *recorders {
 				metric.WithDescription(fmt.Sprintf("Number of %s failures", flow)),
 			)
 			r.failures = fc
+
 			return err
 		},
 		func(r *recorders) error {
@@ -54,6 +56,7 @@ func (t *OTel) newRecorder(flow string) *recorders {
 				metric.WithUnit("s"),
 			)
 			r.latency = lt
+
 			return err
 		},
 	} {

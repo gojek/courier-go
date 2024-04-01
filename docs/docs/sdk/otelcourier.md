@@ -15,16 +15,18 @@ Package otelcourier instruments the github.com/gojek/courier\-go package.
 - [func DisablePublisherTracing\(opts \*traceOptions\)](#DisablePublisherTracing)
 - [func DisableSubscriberTracing\(opts \*traceOptions\)](#DisableSubscriberTracing)
 - [func DisableUnsubscriberTracing\(opts \*traceOptions\)](#DisableUnsubscriberTracing)
+- [type OTel](#OTel)
+  - [func New\(service string, opts ...Option\) \*OTel](#New)
+  - [func \(t \*OTel\) ApplyMiddlewares\(c UseMiddleware\)](#OTel.ApplyMiddlewares)
+  - [func \(t \*OTel\) PublisherMiddleware\(next courier.Publisher\) courier.Publisher](#OTel.PublisherMiddleware)
+  - [func \(t \*OTel\) SubscriberMiddleware\(next courier.Subscriber\) courier.Subscriber](#OTel.SubscriberMiddleware)
+  - [func \(t \*OTel\) UnsubscriberMiddleware\(next courier.Unsubscriber\) courier.Unsubscriber](#OTel.UnsubscriberMiddleware)
 - [type Option](#Option)
+  - [func WithMeterProvider\(provider metric.MeterProvider\) Option](#WithMeterProvider)
   - [func WithTextMapCarrierExtractFunc\(fn func\(context.Context\) propagation.TextMapCarrier\) Option](#WithTextMapCarrierExtractFunc)
   - [func WithTextMapPropagator\(propagator propagation.TextMapPropagator\) Option](#WithTextMapPropagator)
   - [func WithTracerProvider\(provider oteltrace.TracerProvider\) Option](#WithTracerProvider)
-- [type Tracer](#Tracer)
-  - [func NewTracer\(service string, opts ...Option\) \*Tracer](#NewTracer)
-  - [func \(t \*Tracer\) ApplyTraceMiddlewares\(c \*courier.Client\)](#Tracer.ApplyTraceMiddlewares)
-  - [func \(t \*Tracer\) PublisherMiddleware\(next courier.Publisher\) courier.Publisher](#Tracer.PublisherMiddleware)
-  - [func \(t \*Tracer\) SubscriberMiddleware\(next courier.Subscriber\) courier.Subscriber](#Tracer.SubscriberMiddleware)
-  - [func \(t \*Tracer\) UnsubscriberMiddleware\(next courier.Unsubscriber\) courier.Unsubscriber](#Tracer.UnsubscriberMiddleware)
+- [type UseMiddleware](#UseMiddleware)
 
 
 ## Constants
@@ -41,11 +43,13 @@ const (
     MQTTTopicWithQoS = attribute.Key("mqtt.topicwithqos")
     // MQTTRetained is the attribute key for tracing message retained flag
     MQTTRetained = attribute.Key("mqtt.retained")
+    // CallbackName is the attribute key for tracing message handler function name
+    CallbackName = attribute.Key("callback.name")
 )
 ```
 
 <a name="DisableCallbackTracing"></a>
-## func [DisableCallbackTracing](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L59)
+## func [DisableCallbackTracing](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L68)
 
 ```go
 func DisableCallbackTracing(opts *traceOptions)
@@ -54,7 +58,7 @@ func DisableCallbackTracing(opts *traceOptions)
 DisableCallbackTracing disables implicit tracing on subscription callbacks.
 
 <a name="DisablePublisherTracing"></a>
-## func [DisablePublisherTracing](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L62)
+## func [DisablePublisherTracing](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L71)
 
 ```go
 func DisablePublisherTracing(opts *traceOptions)
@@ -63,7 +67,7 @@ func DisablePublisherTracing(opts *traceOptions)
 DisablePublisherTracing disables courier.Publisher tracing.
 
 <a name="DisableSubscriberTracing"></a>
-## func [DisableSubscriberTracing](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L65)
+## func [DisableSubscriberTracing](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L74)
 
 ```go
 func DisableSubscriberTracing(opts *traceOptions)
@@ -72,7 +76,7 @@ func DisableSubscriberTracing(opts *traceOptions)
 DisableSubscriberTracing disables courier.Subscriber tracing.
 
 <a name="DisableUnsubscriberTracing"></a>
-## func [DisableUnsubscriberTracing](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L68)
+## func [DisableUnsubscriberTracing](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L77)
 
 ```go
 func DisableUnsubscriberTracing(opts *traceOptions)
@@ -80,8 +84,108 @@ func DisableUnsubscriberTracing(opts *traceOptions)
 
 DisableUnsubscriberTracing disables courier.Unsubscriber tracing.
 
+<a name="OTel"></a>
+## type [OTel](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L28-L38)
+
+OTel implements tracing & metric abilities using OpenTelemetry SDK.
+
+```go
+type OTel struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="New"></a>
+### func [New](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L41)
+
+```go
+func New(service string, opts ...Option) *OTel
+```
+
+New creates a new OTel with Option\(s\).
+
+<details><summary>Example</summary>
+<p>
+
+
+
+```go
+tp := trace.NewTracerProvider()
+defer tp.Shutdown(context.Background())
+
+exporter, err := prometheus.New(
+/* Add a non-default prometheus registry here with `prometheus.WithRegisterer` option, if needed. */
+)
+if err != nil {
+	panic(err)
+}
+mp := metric.NewMeterProvider(metric.WithReader(exporter))
+
+otel.SetTracerProvider(tp)
+otel.SetMeterProvider(mp)
+
+c, _ := courier.NewClient()
+otelcourier.New("service-name").ApplyMiddlewares(c)
+
+if err := c.Start(); err != nil {
+	panic(err)
+}
+
+ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+
+if err := c.Publish(
+	context.Background(), "test-topic", "message", courier.QOSOne); err != nil {
+	panic(err)
+}
+
+// Here, you can expose the metrics at /metrics endpoint for prometheus.DefaultRegisterer.
+
+<-ctx.Done()
+
+c.Stop()
+```
+
+</p>
+</details>
+
+<a name="OTel.ApplyMiddlewares"></a>
+### func \(\*OTel\) [ApplyMiddlewares](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L76)
+
+```go
+func (t *OTel) ApplyMiddlewares(c UseMiddleware)
+```
+
+ApplyMiddlewares will instrument all the operations of a UseMiddleware instance according to Option\(s\) used.
+
+<a name="OTel.PublisherMiddleware"></a>
+### func \(\*OTel\) [PublisherMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/publish.go#L23)
+
+```go
+func (t *OTel) PublisherMiddleware(next courier.Publisher) courier.Publisher
+```
+
+PublisherMiddleware is a courier.PublisherMiddlewareFunc for tracing publish calls.
+
+<a name="OTel.SubscriberMiddleware"></a>
+### func \(\*OTel\) [SubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/subscribe.go#L41)
+
+```go
+func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber
+```
+
+SubscriberMiddleware is a courier.SubscriberMiddlewareFunc for tracing subscribe calls.
+
+<a name="OTel.UnsubscriberMiddleware"></a>
+### func \(\*OTel\) [UnsubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/unsubscribe.go#L22)
+
+```go
+func (t *OTel) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubscriber
+```
+
+UnsubscriberMiddleware is a courier.UnsubscriberMiddlewareFunc for tracing unsubscribe calls.
+
 <a name="Option"></a>
-## type [Option](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L30)
+## type [Option](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L32)
 
 Option helps configure trace options.
 
@@ -89,8 +193,17 @@ Option helps configure trace options.
 type Option func(*traceOptions)
 ```
 
+<a name="WithMeterProvider"></a>
+### func [WithMeterProvider](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L51)
+
+```go
+func WithMeterProvider(provider metric.MeterProvider) Option
+```
+
+WithMeterProvider specifies a meter provider to use for creating a meter. If none is specified, the global provider is used.
+
 <a name="WithTextMapCarrierExtractFunc"></a>
-### func [WithTextMapCarrierExtractFunc](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L54)
+### func [WithTextMapCarrierExtractFunc](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L63)
 
 ```go
 func WithTextMapCarrierExtractFunc(fn func(context.Context) propagation.TextMapCarrier) Option
@@ -99,7 +212,7 @@ func WithTextMapCarrierExtractFunc(fn func(context.Context) propagation.TextMapC
 WithTextMapCarrierExtractFunc is used to specify the function which should be used to extract propagation.TextMapCarrier from the ongoing context.Context.
 
 <a name="WithTextMapPropagator"></a>
-### func [WithTextMapPropagator](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L48)
+### func [WithTextMapPropagator](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L57)
 
 ```go
 func WithTextMapPropagator(propagator propagation.TextMapPropagator) Option
@@ -108,7 +221,7 @@ func WithTextMapPropagator(propagator propagation.TextMapPropagator) Option
 WithTextMapPropagator specifies the propagator to use for extracting/injecting key\-value texts. If none is specified, the global provider is used.
 
 <a name="WithTracerProvider"></a>
-### func [WithTracerProvider](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L42)
+### func [WithTracerProvider](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L45)
 
 ```go
 func WithTracerProvider(provider oteltrace.TracerProvider) Option
@@ -116,110 +229,17 @@ func WithTracerProvider(provider oteltrace.TracerProvider) Option
 
 WithTracerProvider specifies a tracer provider to use for creating a tracer. If none is specified, the global provider is used.
 
-<a name="Tracer"></a>
-## type [Tracer](https://github.com/gojek/courier-go/blob/main/otelcourier/trace.go#L17-L23)
+<a name="UseMiddleware"></a>
+## type [UseMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L21-L25)
 
-Tracer implements tracing abilities using OpenTelemetry SDK.
+UseMiddleware is an interface that defines the methods to apply middlewares to a courier.Client or similar instance.
 
 ```go
-type Tracer struct {
-    // contains filtered or unexported fields
+type UseMiddleware interface {
+    UsePublisherMiddleware(mwf ...courier.PublisherMiddlewareFunc)
+    UseSubscriberMiddleware(mwf ...courier.SubscriberMiddlewareFunc)
+    UseUnsubscriberMiddleware(mwf ...courier.UnsubscriberMiddlewareFunc)
 }
 ```
-
-<a name="NewTracer"></a>
-### func [NewTracer](https://github.com/gojek/courier-go/blob/main/otelcourier/trace.go#L26)
-
-```go
-func NewTracer(service string, opts ...Option) *Tracer
-```
-
-NewTracer creates a new Tracer with Option\(s\).
-
-<details><summary>Example</summary>
-<p>
-
-
-
-```go
-package main
-
-import (
-	"context"
-	"os"
-	"os/signal"
-	"syscall"
-
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/sdk/trace"
-
-	courier "github.com/gojek/courier-go"
-	"github.com/gojek/courier-go/otelcourier"
-)
-
-func main() {
-	tp := trace.NewTracerProvider()
-	defer tp.Shutdown(context.Background())
-
-	otel.SetTracerProvider(tp)
-
-	c, _ := courier.NewClient()
-	otelcourier.NewTracer("service-name").ApplyTraceMiddlewares(c)
-
-	if err := c.Start(); err != nil {
-		panic(err)
-	}
-
-	stopCh := make(chan os.Signal, 1)
-	signal.Notify(stopCh, []os.Signal{os.Interrupt, syscall.SIGTERM}...)
-
-	if err := c.Publish(
-		context.Background(), "test-topic", "message", courier.QOSOne); err != nil {
-		panic(err)
-	}
-	<-stopCh
-
-	c.Stop()
-}
-```
-
-</p>
-</details>
-
-<a name="Tracer.ApplyTraceMiddlewares"></a>
-### func \(\*Tracer\) [ApplyTraceMiddlewares](https://github.com/gojek/courier-go/blob/main/otelcourier/trace.go#L49)
-
-```go
-func (t *Tracer) ApplyTraceMiddlewares(c *courier.Client)
-```
-
-ApplyTraceMiddlewares will instrument all the operations of a courier.Client instance according to Option\(s\) used.
-
-<a name="Tracer.PublisherMiddleware"></a>
-### func \(\*Tracer\) [PublisherMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/publish.go#L20)
-
-```go
-func (t *Tracer) PublisherMiddleware(next courier.Publisher) courier.Publisher
-```
-
-PublisherMiddleware is a courier.PublisherMiddlewareFunc for tracing publish calls.
-
-<a name="Tracer.SubscriberMiddleware"></a>
-### func \(\*Tracer\) [SubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/subscribe.go#L25)
-
-```go
-func (t *Tracer) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber
-```
-
-SubscriberMiddleware is a courier.SubscriberMiddlewareFunc for tracing subscribe calls.
-
-<a name="Tracer.UnsubscriberMiddleware"></a>
-### func \(\*Tracer\) [UnsubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/unsubscribe.go#L19)
-
-```go
-func (t *Tracer) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubscriber
-```
-
-UnsubscriberMiddleware is a courier.UnsubscriberMiddlewareFunc for tracing unsubscribe calls.
 
 Generated by [gomarkdoc](https://github.com/princjef/gomarkdoc)

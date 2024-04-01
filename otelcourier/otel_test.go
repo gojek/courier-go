@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	oteltrace "go.opentelemetry.io/otel/trace"
 
-	courier "github.com/gojek/courier-go"
+	"github.com/gojek/courier-go"
 )
 
 func TestChildSpanFromGlobalTracer(t *testing.T) {
@@ -19,7 +19,7 @@ func TestChildSpanFromGlobalTracer(t *testing.T) {
 	tp.RegisterSpanProcessor(sr)
 	otel.SetTracerProvider(tp)
 
-	mwf := NewTracer("test-service")
+	mwf := New("test-service")
 
 	p := mwf.PublisherMiddleware(courier.PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...courier.Option) error {
 		span := oteltrace.SpanFromContext(ctx)
@@ -37,7 +37,7 @@ func TestChildSpanFromCustomTracer(t *testing.T) {
 	sr := tracetest.NewSpanRecorder()
 	tp.RegisterSpanProcessor(sr)
 
-	m := NewTracer("test-service", WithTracerProvider(tp))
+	m := New("test-service", WithTracerProvider(tp))
 
 	p := m.PublisherMiddleware(courier.PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...courier.Option) error {
 		span := oteltrace.SpanFromContext(ctx)
@@ -55,8 +55,8 @@ func TestInstrumentClient(t *testing.T) {
 	sr := tracetest.NewSpanRecorder()
 	tp.RegisterSpanProcessor(sr)
 
-	tr := NewTracer("test-service", WithTracerProvider(tp))
+	tr := New("test-service", WithTracerProvider(tp))
 	c, err := courier.NewClient(courier.WithAddress("localhost", 1883))
 	assert.NoError(t, err)
-	tr.ApplyTraceMiddlewares(c)
+	tr.ApplyMiddlewares(c)
 }

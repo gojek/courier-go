@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -21,6 +22,7 @@ const (
 
 type traceOptions struct {
 	tracerProvider          oteltrace.TracerProvider
+	meterProvider           metric.MeterProvider
 	propagator              propagation.TextMapPropagator
 	textMapCarrierExtractor func(context.Context) propagation.TextMapCarrier
 	tracePaths              tracePath
@@ -32,6 +34,7 @@ type Option func(*traceOptions)
 func defaultOptions() *traceOptions {
 	return &traceOptions{
 		tracerProvider: otel.GetTracerProvider(),
+		meterProvider:  otel.GetMeterProvider(),
 		propagator:     otel.GetTextMapPropagator(),
 		tracePaths:     tracePublisher + traceSubscriber + traceUnsubscriber + traceCallback,
 	}
@@ -41,6 +44,12 @@ func defaultOptions() *traceOptions {
 // If none is specified, the global provider is used.
 func WithTracerProvider(provider oteltrace.TracerProvider) Option {
 	return func(opts *traceOptions) { opts.tracerProvider = provider }
+}
+
+// WithMeterProvider specifies a meter provider to use for creating a meter.
+// If none is specified, the global provider is used.
+func WithMeterProvider(provider metric.MeterProvider) Option {
+	return func(opts *traceOptions) { opts.meterProvider = provider }
 }
 
 // WithTextMapPropagator specifies the propagator to use for extracting/injecting key-value texts.

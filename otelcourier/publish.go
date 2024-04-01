@@ -2,10 +2,13 @@ package otelcourier
 
 import (
 	"context"
+	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/gojek/courier-go"
@@ -17,22 +20,32 @@ const (
 )
 
 // PublisherMiddleware is a courier.PublisherMiddlewareFunc for tracing publish calls.
-func (t *Tracer) PublisherMiddleware(next courier.Publisher) courier.Publisher {
+func (t *OTel) PublisherMiddleware(next courier.Publisher) courier.Publisher {
 	return courier.PublisherFunc(func(
 		ctx context.Context,
 		topic string,
 		message interface{},
 		opts ...courier.Option,
 	) error {
-		traceOpts := []trace.SpanStartOption{
-			trace.WithAttributes(MQTTTopic.String(topic)),
-			trace.WithAttributes(semconv.ServiceNameKey.String(t.service)),
-			trace.WithSpanKind(trace.SpanKindProducer),
+		attrs := []attribute.KeyValue{
+			MQTTTopic.String(topic),
+			semconv.ServiceNameKey.String(t.service),
 		}
-		traceOpts = append(traceOpts, mapOptions(opts)...)
+		attrs = append(attrs, mapAttributes(opts)...)
 
-		ctx, span := t.tracer.Start(ctx, publishSpanName, traceOpts...)
+		metricAttrs := metric.WithAttributes(attrs...)
+
+		defer func(ctx context.Context, now time.Time, attrs metric.MeasurementOption) {
+			t.rc.recordLatency(ctx, tracePublisher, time.Since(now), attrs)
+		}(ctx, t.tnow(), metricAttrs)
+
+		ctx, span := t.tracer.Start(ctx, publishSpanName,
+			trace.WithAttributes(attrs...),
+			trace.WithSpanKind(trace.SpanKindProducer),
+		)
 		defer span.End()
+
+		t.rc.incAttempt(ctx, tracePublisher, metricAttrs)
 
 		if tmc, ok := message.(propagation.TextMapCarrier); ok {
 			t.propagator.Inject(ctx, tmc)
@@ -42,21 +55,23 @@ func (t *Tracer) PublisherMiddleware(next courier.Publisher) courier.Publisher {
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, publishErrMessage)
+
+			t.rc.incFailure(ctx, tracePublisher, metricAttrs)
 		}
 
 		return err
 	})
 }
 
-func mapOptions(opts []courier.Option) []trace.SpanStartOption {
-	res := make([]trace.SpanStartOption, 0, len(opts))
+func mapAttributes(opts []courier.Option) []attribute.KeyValue {
+	res := make([]attribute.KeyValue, 0, len(opts))
 
 	for _, opt := range opts {
 		switch opt := opt.(type) {
 		case courier.QOSLevel:
-			res = append(res, trace.WithAttributes(MQTTQoS.Int(int(opt))))
+			res = append(res, MQTTQoS.Int(int(opt)))
 		case courier.Retained:
-			res = append(res, trace.WithAttributes(MQTTRetained.Bool(bool(opt))))
+			res = append(res, MQTTRetained.Bool(bool(opt)))
 		}
 	}
 

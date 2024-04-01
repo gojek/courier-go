@@ -1,54 +1,45 @@
 package otelcourier
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"regexp"
 	"testing"
 
+	prom "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 
-	courier "github.com/gojek/courier-go"
+	"github.com/gojek/courier-go"
 )
-
-type testTextMapCarrier struct {
-	headers map[string]string
-}
-
-func (t *testTextMapCarrier) Get(key string) string {
-	return t.headers[key]
-}
-
-func (t *testTextMapCarrier) Set(key string, value string) {
-	t.headers[key] = value
-}
-
-func (t *testTextMapCarrier) Keys() []string {
-	keys := make([]string, 0, len(t.headers))
-	for k := range t.headers {
-		keys = append(keys, k)
-	}
-	return keys
-}
 
 func TestPublishTraceSpan(t *testing.T) {
 	tp := trace.NewTracerProvider()
 	sr := tracetest.NewSpanRecorder()
 	tp.RegisterSpanProcessor(sr)
 
+	reg := prom.NewRegistry()
+	exporter, err := prometheus.New(prometheus.WithRegisterer(reg))
+	require.NoError(t, err)
+	mp := metric.NewMeterProvider(metric.WithReader(exporter))
+
 	mtmc := newMockTextMapCarrier(t, "hello-world")
 
-	mwf := NewTracer("test-service", WithTracerProvider(tp),
+	mwf := New("test-service", WithTracerProvider(tp), WithMeterProvider(mp),
 		WithTextMapPropagator(propagation.NewCompositeTextMapPropagator(&propagation.TraceContext{})))
 	uErr := errors.New("error_from_upstream")
 
@@ -61,9 +52,7 @@ func TestPublishTraceSpan(t *testing.T) {
 		return traceParentRegex.MatchString(in)
 	}))
 
-	err := p.Publish(context.Background(), "test-topic", mtmc, courier.QOSOne, courier.Retained(false))
-
-	assert.EqualError(t, err, uErr.Error())
+	assert.EqualError(t, p.Publish(context.Background(), "test-topic", mtmc, courier.QOSOne, courier.Retained(false)), uErr.Error())
 
 	spans := sr.Ended()
 	require.Len(t, spans, 1)
@@ -93,6 +82,38 @@ func TestPublishTraceSpan(t *testing.T) {
 		assert.Equal(t, expected, got)
 		assert.Equal(t, codes.Error, span.Status().Code)
 		assert.Equal(t, publishErrMessage, span.Status().Description)
+	})
+
+	t.Run("Metrics", func(t *testing.T) {
+		vsn := courier.Version()
+		buf := bytes.NewBufferString(fmt.Sprintf(`# HELP courier_publish_attempts_total Number of publish attempts
+# TYPE courier_publish_attempts_total counter
+courier_publish_attempts_total{mqtt_qos="1",mqtt_retained="false",mqtt_topic="test-topic",otel_scope_name="github.com/gojek/courier-go/otelcourier",otel_scope_version="semver:%s",service_name="test-service"} 1
+# HELP courier_publish_failures_total Number of publish failures
+# TYPE courier_publish_failures_total counter
+courier_publish_failures_total{mqtt_qos="1",mqtt_retained="false",mqtt_topic="test-topic",otel_scope_name="github.com/gojek/courier-go/otelcourier",otel_scope_version="semver:%s",service_name="test-service"} 1
+`, vsn, vsn))
+		assert.NoError(t, testutil.GatherAndCompare(reg, buf,
+			"courier_publish_attempts_total",
+			"courier_publish_failures_total",
+		))
+
+		metrics, err := reg.Gather()
+		assert.NoError(t, err)
+
+		var found bool
+		for _, metricFamily := range metrics {
+			if metricFamily.GetName() != "courier_publish_latency_seconds" {
+				continue
+			}
+			found = true
+
+			for _, m := range metricFamily.GetMetric() {
+				assert.EqualValues(t, 1, m.GetHistogram().GetSampleCount())
+			}
+		}
+
+		assert.True(t, found)
 	})
 
 	mtmc.AssertExpectations(t)

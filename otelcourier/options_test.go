@@ -20,6 +20,7 @@ func TestOption(t *testing.T) {
 			name: "DefaultOptions",
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
+				meterProvider:  otel.GetMeterProvider(),
 				propagator:     otel.GetTextMapPropagator(),
 				tracePaths:     tracePublisher + traceSubscriber + traceUnsubscriber + traceCallback,
 			},
@@ -29,6 +30,7 @@ func TestOption(t *testing.T) {
 			options: []Option{DisablePublisherTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
+				meterProvider:  otel.GetMeterProvider(),
 				propagator:     otel.GetTextMapPropagator(),
 				tracePaths:     traceSubscriber + traceUnsubscriber + traceCallback,
 			},
@@ -38,6 +40,7 @@ func TestOption(t *testing.T) {
 			options: []Option{DisableSubscriberTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
+				meterProvider:  otel.GetMeterProvider(),
 				propagator:     otel.GetTextMapPropagator(),
 				tracePaths:     tracePublisher + traceUnsubscriber + traceCallback,
 			},
@@ -47,6 +50,7 @@ func TestOption(t *testing.T) {
 			options: []Option{DisableUnsubscriberTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
+				meterProvider:  otel.GetMeterProvider(),
 				propagator:     otel.GetTextMapPropagator(),
 				tracePaths:     tracePublisher + traceSubscriber + traceCallback,
 			},
@@ -56,6 +60,7 @@ func TestOption(t *testing.T) {
 			options: []Option{DisableCallbackTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
+				meterProvider:  otel.GetMeterProvider(),
 				propagator:     otel.GetTextMapPropagator(),
 				tracePaths:     tracePublisher + traceSubscriber + traceUnsubscriber,
 			},
@@ -65,6 +70,7 @@ func TestOption(t *testing.T) {
 			options: []Option{DisableCallbackTracing, DisableCallbackTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
+				meterProvider:  otel.GetMeterProvider(),
 				propagator:     otel.GetTextMapPropagator(),
 				tracePaths:     tracePublisher + traceSubscriber + traceUnsubscriber,
 			},
@@ -74,6 +80,7 @@ func TestOption(t *testing.T) {
 			options: []Option{DisablePublisherTracing, DisableSubscriberTracing, DisableUnsubscriberTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
+				meterProvider:  otel.GetMeterProvider(),
 				propagator:     otel.GetTextMapPropagator(),
 				tracePaths:     traceCallback,
 			},
@@ -83,6 +90,7 @@ func TestOption(t *testing.T) {
 			options: []Option{DisablePublisherTracing, DisableSubscriberTracing},
 			want: &traceOptions{
 				tracerProvider: otel.GetTracerProvider(),
+				meterProvider:  otel.GetMeterProvider(),
 				propagator:     otel.GetTextMapPropagator(),
 				tracePaths:     traceUnsubscriber + traceCallback,
 			},

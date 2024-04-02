@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/metric"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
 var metricFlowNames = map[tracePath]string{
@@ -22,6 +23,14 @@ func (t *OTel) initRecorders() {
 		}
 
 		t.rc[path] = t.newRecorder(flow)
+	}
+
+	if _, err := t.meter.Int64ObservableUpDownCounter(
+		"courier.client.connected",
+		metric.WithDescription("Tells if a client is connected or not, partitioned by client ID."),
+		metric.WithInt64Callback(t.emitter.callback(semconv.ServiceNameKey.String(t.service))),
+	); err != nil {
+		panic(err)
 	}
 }
 

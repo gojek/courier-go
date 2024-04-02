@@ -33,6 +33,7 @@ type OTel struct {
 	propagator         propagation.TextMapPropagator
 	textMapCarrierFunc func(context.Context) propagation.TextMapCarrier
 	topicTransformer   TopicAttributeTransformer
+	emitter            *infoEmitter
 
 	rc   recorder
 	tnow func() time.Time
@@ -65,6 +66,7 @@ func New(service string, opts ...Option) *OTel {
 		topicTransformer:   to.topicTransformer,
 		tracePaths:         to.tracePaths,
 		rc:                 make(recorder),
+		emitter:            newInfoEmitter(),
 		tnow:               time.Now,
 	}
 

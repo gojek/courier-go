@@ -16,6 +16,7 @@ Package otelcourier instruments the github.com/gojek/courier\-go package.
 - [type OTel](#OTel)
   - [func New\(service string, opts ...Option\) \*OTel](#New)
   - [func \(t \*OTel\) ApplyMiddlewares\(c UseMiddleware\)](#OTel.ApplyMiddlewares)
+  - [func \(t \*OTel\) Emit\(\_ context.Context, meta courier.ClientMeta\)](#OTel.Emit)
   - [func \(t \*OTel\) PublisherMiddleware\(next courier.Publisher\) courier.Publisher](#OTel.PublisherMiddleware)
   - [func \(t \*OTel\) SubscriberMiddleware\(next courier.Subscriber\) courier.Subscriber](#OTel.SubscriberMiddleware)
   - [func \(t \*OTel\) UnsubscriberMiddleware\(next courier.Unsubscriber\) courier.Unsubscriber](#OTel.UnsubscriberMiddleware)
@@ -42,6 +43,8 @@ const (
     MQTTTopicWithQoS = attribute.Key("mqtt.topicwithqos")
     // MQTTRetained is the attribute key for tracing message retained flag
     MQTTRetained = attribute.Key("mqtt.retained")
+    // MQTTClientID is the attribute key for tracing mqtt client id
+    MQTTClientID = attribute.Key("mqtt.clientid")
     // CallbackName is the attribute key for tracing message handler function name
     CallbackName = attribute.Key("callback.name")
 )
@@ -83,7 +86,7 @@ func DefaultTopicAttributeTransformer(_ context.Context, topic string) string
 DefaultTopicAttributeTransformer is the default transformer for topic attribute.
 
 <a name="OTel"></a>
-## type [OTel](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L28-L39)
+## type [OTel](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L28-L40)
 
 OTel implements tracing & metric abilities using OpenTelemetry SDK.
 
@@ -94,7 +97,7 @@ type OTel struct {
 ```
 
 <a name="New"></a>
-### func [New](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L42)
+### func [New](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L43)
 
 ```go
 func New(service string, opts ...Option) *OTel
@@ -161,13 +164,22 @@ c.Stop()
 </details>
 
 <a name="OTel.ApplyMiddlewares"></a>
-### func \(\*OTel\) [ApplyMiddlewares](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L78)
+### func \(\*OTel\) [ApplyMiddlewares](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L80)
 
 ```go
 func (t *OTel) ApplyMiddlewares(c UseMiddleware)
 ```
 
 ApplyMiddlewares will instrument all the operations of a UseMiddleware instance according to Option\(s\) used.
+
+<a name="OTel.Emit"></a>
+### func \(\*OTel\) [Emit](https://github.com/gojek/courier-go/blob/main/otelcourier/emitter.go#L39)
+
+```go
+func (t *OTel) Emit(_ context.Context, meta courier.ClientMeta)
+```
+
+
 
 <a name="OTel.PublisherMiddleware"></a>
 ### func \(\*OTel\) [PublisherMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/publish.go#L23)

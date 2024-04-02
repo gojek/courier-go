@@ -32,6 +32,7 @@ type OTel struct {
 	meter              metric.Meter
 	propagator         propagation.TextMapPropagator
 	textMapCarrierFunc func(context.Context) propagation.TextMapCarrier
+	topicTransformer   TopicAttributeTransformer
 
 	rc   recorder
 	tnow func() time.Time
@@ -42,7 +43,7 @@ func New(service string, opts ...Option) *OTel {
 	to := defaultOptions()
 
 	for _, opt := range opts {
-		opt(to)
+		opt.apply(to)
 	}
 
 	vsn := fmt.Sprintf("semver:%s", courier.Version())
@@ -61,6 +62,7 @@ func New(service string, opts ...Option) *OTel {
 		meter:              meter,
 		propagator:         to.propagator,
 		textMapCarrierFunc: to.textMapCarrierExtractor,
+		topicTransformer:   to.topicTransformer,
 		tracePaths:         to.tracePaths,
 		rc:                 make(recorder),
 		tnow:               time.Now,

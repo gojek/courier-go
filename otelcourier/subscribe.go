@@ -42,7 +42,7 @@ func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber 
 	return courier.NewSubscriberFuncs(
 		func(ctx context.Context, topic string, callback courier.MessageHandler, opts ...courier.Option) error {
 			attrs := []attribute.KeyValue{
-				MQTTTopic.String(topic),
+				MQTTTopic.String(t.topicTransformer(ctx, topic)),
 				semconv.ServiceNameKey.String(t.service),
 			}
 			attrs = append(attrs, mapAttributes(opts)...)
@@ -75,7 +75,7 @@ func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber 
 			unnestMetricAttrs := make([]metric.MeasurementOption, 0, len(topicsWithQos))
 			for topic, qos := range topicsWithQos {
 				unnestMetricAttrs = append(unnestMetricAttrs, metric.WithAttributes(
-					MQTTTopic.String(topic),
+					MQTTTopic.String(t.topicTransformer(ctx, topic)),
 					MQTTQoS.Int(int(qos)),
 					semconv.ServiceNameKey.String(t.service),
 				))
@@ -89,7 +89,7 @@ func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber 
 
 			ctx, span := t.tracer.Start(ctx, subscribeMultipleSpanName,
 				trace.WithAttributes(
-					MQTTTopicWithQoS.StringSlice(mapToArray(topicsWithQos)),
+					MQTTTopicWithQoS.StringSlice(t.mapToArray(ctx, topicsWithQos)),
 					semconv.ServiceNameKey.String(t.service),
 				),
 				trace.WithSpanKind(trace.SpanKindClient),
@@ -122,7 +122,7 @@ func (t *OTel) instrumentCallback(in courier.MessageHandler) courier.MessageHand
 
 	return func(ctx context.Context, pubSub courier.PubSub, msg *courier.Message) {
 		attrs := []attribute.KeyValue{
-			MQTTTopic.String(msg.Topic),
+			MQTTTopic.String(t.topicTransformer(ctx, msg.Topic)),
 			MQTTQoS.Int(int(msg.QoS)),
 			MQTTRetained.Bool(msg.Retained),
 			semconv.ServiceNameKey.String(t.service),
@@ -160,10 +160,10 @@ func (t *OTel) instrumentCallback(in courier.MessageHandler) courier.MessageHand
 	}
 }
 
-func mapToArray(topicsWithQos map[string]courier.QOSLevel) []string {
+func (t *OTel) mapToArray(ctx context.Context, topicsWithQos map[string]courier.QOSLevel) []string {
 	result := make([]string, 0, len(topicsWithQos))
 	for k, v := range topicsWithQos {
-		result = append(result, fmt.Sprintf("%s | qos[%d]", k, v))
+		result = append(result, fmt.Sprintf("%s | qos[%d]", t.topicTransformer(ctx, k), v))
 	}
 
 	sort.Strings(result)

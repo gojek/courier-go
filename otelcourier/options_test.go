@@ -102,8 +102,11 @@ func TestOption(t *testing.T) {
 			to := defaultOptions()
 
 			for _, opt := range tt.options {
-				opt(to)
+				opt.apply(to)
 			}
+
+			// Ignore topicTransformer
+			to.topicTransformer = nil
 
 			assert.Equal(t, tt.want, to)
 		})
@@ -114,8 +117,22 @@ func TestOption(t *testing.T) {
 	t.Run("TextMapCarrierExtractor", func(t *testing.T) {
 		to := defaultOptions()
 
-		WithTextMapCarrierExtractFunc(extractorFn)(to)
+		WithTextMapCarrierExtractFunc(extractorFn).apply(to)
 
 		assert.Equal(t, fmt.Sprintf("%p", extractorFn), fmt.Sprintf("%p", to.textMapCarrierExtractor))
+	})
+
+	t.Run("DefaultTopicAttributeTransformer", func(t *testing.T) {
+		assert.Equal(t, "topic", DefaultTopicAttributeTransformer(context.Background(), "topic"))
+	})
+
+	customTransformer := func(_ context.Context, topic string) string { return topic + "custom" }
+
+	t.Run("CustomTopicAttributeTransformer", func(t *testing.T) {
+		to := defaultOptions()
+
+		TopicAttributeTransformer(customTransformer).apply(to)
+
+		assert.Equal(t, "topiccustom", to.topicTransformer(context.Background(), "topic"))
 	})
 }

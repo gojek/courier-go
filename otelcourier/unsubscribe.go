@@ -21,15 +21,20 @@ const (
 // UnsubscriberMiddleware is a courier.UnsubscriberMiddlewareFunc for tracing unsubscribe calls.
 func (t *OTel) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubscriber {
 	return courier.UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
+		attrTopics := make([]string, 0, len(topics))
+		for _, topic := range topics {
+			attrTopics = append(attrTopics, t.topicTransformer(ctx, topic))
+		}
+
 		attrs := []attribute.KeyValue{
-			MQTTTopic.StringSlice(topics),
+			MQTTTopic.StringSlice(attrTopics),
 			semconv.ServiceNameKey.String(t.service),
 		}
 
 		unnestMetricAttrs := make([]metric.MeasurementOption, 0, len(topics))
 		for _, topic := range topics {
 			unnestMetricAttrs = append(unnestMetricAttrs, metric.WithAttributes(
-				MQTTTopic.String(topic),
+				MQTTTopic.String(t.topicTransformer(ctx, topic)),
 				semconv.ServiceNameKey.String(t.service),
 			))
 		}

@@ -43,7 +43,7 @@ func TestPublishTraceSpan(t *testing.T) {
 		WithTextMapPropagator(propagation.NewCompositeTextMapPropagator(&propagation.TraceContext{})))
 	uErr := errors.New("error_from_upstream")
 
-	p := mwf.PublisherMiddleware(courier.PublisherFunc(func(ctx context.Context, topic string, message interface{}, opts ...courier.Option) error {
+	p := mwf.PublisherMiddleware(courier.PublisherFunc(func(ctx context.Context, topic string, message any, opts ...courier.Option) error {
 		return uErr
 	}))
 
@@ -120,7 +120,7 @@ courier_publish_failures_total{mqtt_qos="1",mqtt_retained="false",mqtt_topic="te
 }
 
 func TestPublishSpanNotInstrumented(t *testing.T) {
-	p := courier.PublisherFunc(func(ctx context.Context, _ string, _ interface{}, _ ...courier.Option) error {
+	p := courier.PublisherFunc(func(ctx context.Context, _ string, _ any, _ ...courier.Option) error {
 		span := oteltrace.SpanFromContext(ctx)
 		ok := !span.SpanContext().IsValid()
 		assert.True(t, ok)

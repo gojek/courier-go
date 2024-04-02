@@ -24,11 +24,11 @@ func (t *OTel) PublisherMiddleware(next courier.Publisher) courier.Publisher {
 	return courier.PublisherFunc(func(
 		ctx context.Context,
 		topic string,
-		message interface{},
+		message any,
 		opts ...courier.Option,
 	) error {
 		attrs := []attribute.KeyValue{
-			MQTTTopic.String(topic),
+			MQTTTopic.String(t.topicTransformer(ctx, topic)),
 			semconv.ServiceNameKey.String(t.service),
 		}
 		attrs = append(attrs, mapAttributes(opts)...)

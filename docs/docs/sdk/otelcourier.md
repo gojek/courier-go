@@ -121,6 +121,7 @@ mp := metric.NewMeterProvider(metric.WithReader(exporter))
 
 otel.SetTracerProvider(tp)
 otel.SetMeterProvider(mp)
+otel.SetTextMapPropagator(&propagation.TraceContext{})
 
 metricLabelMapper := otelcourier.TopicAttributeTransformer(func(ctx context.Context, topic string) string {
 	if strings.HasPrefix(topic, "test") {

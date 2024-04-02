@@ -8,6 +8,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/prometheus"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/trace"
 
@@ -29,6 +30,7 @@ func ExampleNew() {
 
 	otel.SetTracerProvider(tp)
 	otel.SetMeterProvider(mp)
+	otel.SetTextMapPropagator(&propagation.TraceContext{})
 
 	metricLabelMapper := otelcourier.TopicAttributeTransformer(func(ctx context.Context, topic string) string {
 		if strings.HasPrefix(topic, "test") {

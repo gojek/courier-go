@@ -27,20 +27,17 @@ func (t *OTel) PublisherMiddleware(next courier.Publisher) courier.Publisher {
 		message any,
 		opts ...courier.Option,
 	) error {
-		attrs := []attribute.KeyValue{
-			MQTTTopic.String(t.topicTransformer(ctx, topic)),
+		attrs := append([]attribute.KeyValue{
 			semconv.ServiceNameKey.String(t.service),
-		}
-		attrs = append(attrs, mapAttributes(opts)...)
-
-		metricAttrs := metric.WithAttributes(attrs...)
+		}, mapAttributes(opts)...)
+		metricAttrs := metric.WithAttributes(append(attrs, MQTTTopic.String(t.topicTransformer(ctx, topic)))...)
 
 		defer func(ctx context.Context, now time.Time, attrs metric.MeasurementOption) {
 			t.rc.recordLatency(ctx, tracePublisher, time.Since(now), attrs)
 		}(ctx, t.tnow(), metricAttrs)
 
 		ctx, span := t.tracer.Start(ctx, publishSpanName,
-			trace.WithAttributes(attrs...),
+			trace.WithAttributes(append(attrs, MQTTTopic.String(topic))...),
 			trace.WithSpanKind(trace.SpanKindProducer),
 		)
 		defer span.End()

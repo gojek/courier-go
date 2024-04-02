@@ -41,20 +41,17 @@ var (
 func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber {
 	return courier.NewSubscriberFuncs(
 		func(ctx context.Context, topic string, callback courier.MessageHandler, opts ...courier.Option) error {
-			attrs := []attribute.KeyValue{
-				MQTTTopic.String(t.topicTransformer(ctx, topic)),
+			attrs := append([]attribute.KeyValue{
 				semconv.ServiceNameKey.String(t.service),
-			}
-			attrs = append(attrs, mapAttributes(opts)...)
-
-			metricAttrs := metric.WithAttributes(attrs...)
+			}, mapAttributes(opts)...)
+			metricAttrs := metric.WithAttributes(append(attrs, MQTTTopic.String(t.topicTransformer(ctx, topic)))...)
 
 			defer func(ctx context.Context, now time.Time, attrs metric.MeasurementOption) {
 				t.rc.recordLatency(ctx, traceSubscriber, time.Since(now), attrs)
 			}(ctx, t.tnow(), metricAttrs)
 
 			ctx, span := t.tracer.Start(ctx, subscribeSpanName,
-				trace.WithAttributes(attrs...),
+				trace.WithAttributes(append(attrs, MQTTTopic.String(topic))...),
 				trace.WithSpanKind(trace.SpanKindClient),
 			)
 			defer span.End()
@@ -75,9 +72,9 @@ func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber 
 			unnestMetricAttrs := make([]metric.MeasurementOption, 0, len(topicsWithQos))
 			for topic, qos := range topicsWithQos {
 				unnestMetricAttrs = append(unnestMetricAttrs, metric.WithAttributes(
+					semconv.ServiceNameKey.String(t.service),
 					MQTTTopic.String(t.topicTransformer(ctx, topic)),
 					MQTTQoS.Int(int(qos)),
-					semconv.ServiceNameKey.String(t.service),
 				))
 			}
 
@@ -89,8 +86,8 @@ func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber 
 
 			ctx, span := t.tracer.Start(ctx, subscribeMultipleSpanName,
 				trace.WithAttributes(
-					MQTTTopicWithQoS.StringSlice(t.mapToArray(ctx, topicsWithQos)),
 					semconv.ServiceNameKey.String(t.service),
+					MQTTTopicWithQoS.StringSlice(mapToArray(topicsWithQos)),
 				),
 				trace.WithSpanKind(trace.SpanKindClient),
 			)
@@ -122,10 +119,9 @@ func (t *OTel) instrumentCallback(in courier.MessageHandler) courier.MessageHand
 
 	return func(ctx context.Context, pubSub courier.PubSub, msg *courier.Message) {
 		attrs := []attribute.KeyValue{
-			MQTTTopic.String(t.topicTransformer(ctx, msg.Topic)),
+			semconv.ServiceNameKey.String(t.service),
 			MQTTQoS.Int(int(msg.QoS)),
 			MQTTRetained.Bool(msg.Retained),
-			semconv.ServiceNameKey.String(t.service),
 		}
 
 		spanName := "UnknownSubscribeCallback"
@@ -141,13 +137,16 @@ func (t *OTel) instrumentCallback(in courier.MessageHandler) courier.MessageHand
 			ctx = t.propagator.Extract(ctx, t.textMapCarrierFunc(ctx))
 		}
 
-		metricAttrs := metric.WithAttributes(append(attrs, CallbackName.String(spanName))...)
+		metricAttrs := metric.WithAttributes(append(attrs,
+			CallbackName.String(spanName),
+			MQTTTopic.String(t.topicTransformer(ctx, msg.Topic)),
+		)...)
 
 		defer func(ctx context.Context, now time.Time, attrs metric.MeasurementOption) {
 			t.rc.recordLatency(ctx, traceCallback, time.Since(now), attrs)
 		}(ctx, t.tnow(), metricAttrs)
 
-		ctx, span := t.tracer.Start(ctx, spanName, trace.WithAttributes(attrs...))
+		ctx, span := t.tracer.Start(ctx, spanName, trace.WithAttributes(append(attrs, MQTTTopic.String(msg.Topic))...))
 		defer span.End()
 
 		t.rc.incAttempt(ctx, traceCallback, metricAttrs)
@@ -160,10 +159,10 @@ func (t *OTel) instrumentCallback(in courier.MessageHandler) courier.MessageHand
 	}
 }
 
-func (t *OTel) mapToArray(ctx context.Context, topicsWithQos map[string]courier.QOSLevel) []string {
+func mapToArray(topicsWithQos map[string]courier.QOSLevel) []string {
 	result := make([]string, 0, len(topicsWithQos))
 	for k, v := range topicsWithQos {
-		result = append(result, fmt.Sprintf("%s | qos[%d]", t.topicTransformer(ctx, k), v))
+		result = append(result, fmt.Sprintf("%s | qos[%d]", k, v))
 	}
 
 	sort.Strings(result)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strings"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/prometheus"
@@ -29,8 +30,16 @@ func ExampleNew() {
 	otel.SetTracerProvider(tp)
 	otel.SetMeterProvider(mp)
 
+	metricLabelMapper := otelcourier.TopicAttributeTransformer(func(ctx context.Context, topic string) string {
+		if strings.HasPrefix(topic, "test") {
+			return "test"
+		}
+
+		return "other"
+	})
+
 	c, _ := courier.NewClient()
-	otelcourier.New("service-name").ApplyMiddlewares(c)
+	otelcourier.New("service-name", metricLabelMapper).ApplyMiddlewares(c)
 
 	if err := c.Start(); err != nil {
 		panic(err)
@@ -40,6 +49,11 @@ func ExampleNew() {
 
 	if err := c.Publish(
 		context.Background(), "test-topic", "message", courier.QOSOne); err != nil {
+		panic(err)
+	}
+
+	if err := c.Publish(
+		context.Background(), "other-topic", "message", courier.QOSOne); err != nil {
 		panic(err)
 	}
 

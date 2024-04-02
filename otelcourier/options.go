@@ -13,6 +13,7 @@ import (
 type Option interface{ apply(*traceOptions) }
 
 // TopicAttributeTransformer helps transform topic before making an attribute for it.
+// It is used in metric recording only. Traces use the original topic.
 type TopicAttributeTransformer func(context.Context, string) string
 
 // WithTracerProvider specifies a tracer provider to use for creating a tracer.

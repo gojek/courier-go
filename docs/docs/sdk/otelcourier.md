@@ -74,7 +74,7 @@ var DisableUnsubscriberTracing = &disableTracePathOpt{traceUnsubscriber}
 ```
 
 <a name="DefaultTopicAttributeTransformer"></a>
-## func [DefaultTopicAttributeTransformer](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L55)
+## func [DefaultTopicAttributeTransformer](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L56)
 
 ```go
 func DefaultTopicAttributeTransformer(_ context.Context, topic string) string
@@ -122,8 +122,16 @@ mp := metric.NewMeterProvider(metric.WithReader(exporter))
 otel.SetTracerProvider(tp)
 otel.SetMeterProvider(mp)
 
+metricLabelMapper := otelcourier.TopicAttributeTransformer(func(ctx context.Context, topic string) string {
+	if strings.HasPrefix(topic, "test") {
+		return "test"
+	}
+
+	return "other"
+})
+
 c, _ := courier.NewClient()
-otelcourier.New("service-name").ApplyMiddlewares(c)
+otelcourier.New("service-name", metricLabelMapper).ApplyMiddlewares(c)
 
 if err := c.Start(); err != nil {
 	panic(err)
@@ -133,6 +141,11 @@ ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 
 if err := c.Publish(
 	context.Background(), "test-topic", "message", courier.QOSOne); err != nil {
+	panic(err)
+}
+
+if err := c.Publish(
+	context.Background(), "other-topic", "message", courier.QOSOne); err != nil {
 	panic(err)
 }
 
@@ -174,7 +187,7 @@ func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber
 SubscriberMiddleware is a courier.SubscriberMiddlewareFunc for tracing subscribe calls.
 
 <a name="OTel.UnsubscriberMiddleware"></a>
-### func \(\*OTel\) [UnsubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/unsubscribe.go#L22)
+### func \(\*OTel\) [UnsubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/unsubscribe.go#L21)
 
 ```go
 func (t *OTel) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubscriber
@@ -194,7 +207,7 @@ type Option interface {
 ```
 
 <a name="WithMeterProvider"></a>
-### func [WithMeterProvider](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L26)
+### func [WithMeterProvider](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L27)
 
 ```go
 func WithMeterProvider(provider metric.MeterProvider) Option
@@ -203,7 +216,7 @@ func WithMeterProvider(provider metric.MeterProvider) Option
 WithMeterProvider specifies a meter provider to use for creating a meter. If none is specified, the global provider is used.
 
 <a name="WithTextMapCarrierExtractFunc"></a>
-### func [WithTextMapCarrierExtractFunc](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L38)
+### func [WithTextMapCarrierExtractFunc](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L39)
 
 ```go
 func WithTextMapCarrierExtractFunc(fn func(context.Context) propagation.TextMapCarrier) Option
@@ -212,7 +225,7 @@ func WithTextMapCarrierExtractFunc(fn func(context.Context) propagation.TextMapC
 WithTextMapCarrierExtractFunc is used to specify the function which should be used to extract propagation.TextMapCarrier from the ongoing context.Context.
 
 <a name="WithTextMapPropagator"></a>
-### func [WithTextMapPropagator](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L32)
+### func [WithTextMapPropagator](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L33)
 
 ```go
 func WithTextMapPropagator(propagator propagation.TextMapPropagator) Option
@@ -221,7 +234,7 @@ func WithTextMapPropagator(propagator propagation.TextMapPropagator) Option
 WithTextMapPropagator specifies the propagator to use for extracting/injecting key\-value texts. If none is specified, the global provider is used.
 
 <a name="WithTracerProvider"></a>
-### func [WithTracerProvider](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L20)
+### func [WithTracerProvider](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L21)
 
 ```go
 func WithTracerProvider(provider oteltrace.TracerProvider) Option
@@ -230,9 +243,9 @@ func WithTracerProvider(provider oteltrace.TracerProvider) Option
 WithTracerProvider specifies a tracer provider to use for creating a tracer. If none is specified, the global provider is used.
 
 <a name="TopicAttributeTransformer"></a>
-## type [TopicAttributeTransformer](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L16)
+## type [TopicAttributeTransformer](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L17)
 
-TopicAttributeTransformer helps transform topic before making an attribute for it.
+TopicAttributeTransformer helps transform topic before making an attribute for it. It is used in metric recording only. Traces use the original topic.
 
 ```go
 type TopicAttributeTransformer func(context.Context, string) string

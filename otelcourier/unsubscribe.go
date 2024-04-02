@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
@@ -21,21 +20,11 @@ const (
 // UnsubscriberMiddleware is a courier.UnsubscriberMiddlewareFunc for tracing unsubscribe calls.
 func (t *OTel) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubscriber {
 	return courier.UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
-		attrTopics := make([]string, 0, len(topics))
-		for _, topic := range topics {
-			attrTopics = append(attrTopics, t.topicTransformer(ctx, topic))
-		}
-
-		attrs := []attribute.KeyValue{
-			MQTTTopic.StringSlice(attrTopics),
-			semconv.ServiceNameKey.String(t.service),
-		}
-
 		unnestMetricAttrs := make([]metric.MeasurementOption, 0, len(topics))
 		for _, topic := range topics {
 			unnestMetricAttrs = append(unnestMetricAttrs, metric.WithAttributes(
-				MQTTTopic.String(t.topicTransformer(ctx, topic)),
 				semconv.ServiceNameKey.String(t.service),
+				MQTTTopic.String(t.topicTransformer(ctx, topic)),
 			))
 		}
 
@@ -46,7 +35,10 @@ func (t *OTel) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubsc
 		}(ctx, t.tnow(), unnestMetricAttrs...)
 
 		ctx, span := t.tracer.Start(ctx, unsubscribeSpanName,
-			trace.WithAttributes(attrs...),
+			trace.WithAttributes(
+				semconv.ServiceNameKey.String(t.service),
+				MQTTTopic.StringSlice(topics),
+			),
 			trace.WithSpanKind(trace.SpanKindClient),
 		)
 		defer span.End()

@@ -41,7 +41,12 @@ func ExampleNew() {
 	})
 
 	c, _ := courier.NewClient()
-	otelcourier.New("service-name", metricLabelMapper).ApplyMiddlewares(c)
+	otelcourier.New(
+		"service-name",
+		// Use this to also track active connections.
+		otelcourier.WithInfoHandlerFrom(c),
+		metricLabelMapper,
+	).ApplyMiddlewares(c)
 
 	if err := c.Start(); err != nil {
 		panic(err)

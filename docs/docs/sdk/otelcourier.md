@@ -16,11 +16,11 @@ Package otelcourier instruments the github.com/gojek/courier\-go package.
 - [type OTel](#OTel)
   - [func New\(service string, opts ...Option\) \*OTel](#New)
   - [func \(t \*OTel\) ApplyMiddlewares\(c UseMiddleware\)](#OTel.ApplyMiddlewares)
-  - [func \(t \*OTel\) Emit\(\_ context.Context, meta courier.ClientMeta\)](#OTel.Emit)
   - [func \(t \*OTel\) PublisherMiddleware\(next courier.Publisher\) courier.Publisher](#OTel.PublisherMiddleware)
   - [func \(t \*OTel\) SubscriberMiddleware\(next courier.Subscriber\) courier.Subscriber](#OTel.SubscriberMiddleware)
   - [func \(t \*OTel\) UnsubscriberMiddleware\(next courier.Unsubscriber\) courier.Unsubscriber](#OTel.UnsubscriberMiddleware)
 - [type Option](#Option)
+  - [func WithInfoHandlerFrom\(c interface\{ InfoHandler\(\) http.Handler \}\) Option](#WithInfoHandlerFrom)
   - [func WithMeterProvider\(provider metric.MeterProvider\) Option](#WithMeterProvider)
   - [func WithTextMapCarrierExtractFunc\(fn func\(context.Context\) propagation.TextMapCarrier\) Option](#WithTextMapCarrierExtractFunc)
   - [func WithTextMapPropagator\(propagator propagation.TextMapPropagator\) Option](#WithTextMapPropagator)
@@ -45,8 +45,6 @@ const (
     MQTTRetained = attribute.Key("mqtt.retained")
     // MQTTClientID is the attribute key for tracing mqtt client id
     MQTTClientID = attribute.Key("mqtt.clientid")
-    // CallbackName is the attribute key for tracing message handler function name
-    CallbackName = attribute.Key("callback.name")
 )
 ```
 
@@ -77,7 +75,7 @@ var DisableUnsubscriberTracing = &disableTracePathOpt{traceUnsubscriber}
 ```
 
 <a name="DefaultTopicAttributeTransformer"></a>
-## func [DefaultTopicAttributeTransformer](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L56)
+## func [DefaultTopicAttributeTransformer](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L63)
 
 ```go
 func DefaultTopicAttributeTransformer(_ context.Context, topic string) string
@@ -86,7 +84,7 @@ func DefaultTopicAttributeTransformer(_ context.Context, topic string) string
 DefaultTopicAttributeTransformer is the default transformer for topic attribute.
 
 <a name="OTel"></a>
-## type [OTel](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L28-L40)
+## type [OTel](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L29-L41)
 
 OTel implements tracing & metric abilities using OpenTelemetry SDK.
 
@@ -97,7 +95,7 @@ type OTel struct {
 ```
 
 <a name="New"></a>
-### func [New](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L43)
+### func [New](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L44)
 
 ```go
 func New(service string, opts ...Option) *OTel
@@ -135,7 +133,12 @@ metricLabelMapper := otelcourier.TopicAttributeTransformer(func(ctx context.Cont
 })
 
 c, _ := courier.NewClient()
-otelcourier.New("service-name", metricLabelMapper).ApplyMiddlewares(c)
+otelcourier.New(
+	"service-name",
+	// Use this to also track active connections.
+	otelcourier.WithInfoHandlerFrom(c),
+	metricLabelMapper,
+).ApplyMiddlewares(c)
 
 if err := c.Start(); err != nil {
 	panic(err)
@@ -164,22 +167,13 @@ c.Stop()
 </details>
 
 <a name="OTel.ApplyMiddlewares"></a>
-### func \(\*OTel\) [ApplyMiddlewares](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L80)
+### func \(\*OTel\) [ApplyMiddlewares](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L81)
 
 ```go
 func (t *OTel) ApplyMiddlewares(c UseMiddleware)
 ```
 
 ApplyMiddlewares will instrument all the operations of a UseMiddleware instance according to Option\(s\) used.
-
-<a name="OTel.Emit"></a>
-### func \(\*OTel\) [Emit](https://github.com/gojek/courier-go/blob/main/otelcourier/emitter.go#L39)
-
-```go
-func (t *OTel) Emit(_ context.Context, meta courier.ClientMeta)
-```
-
-
 
 <a name="OTel.PublisherMiddleware"></a>
 ### func \(\*OTel\) [PublisherMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/publish.go#L23)
@@ -191,7 +185,7 @@ func (t *OTel) PublisherMiddleware(next courier.Publisher) courier.Publisher
 PublisherMiddleware is a courier.PublisherMiddlewareFunc for tracing publish calls.
 
 <a name="OTel.SubscriberMiddleware"></a>
-### func \(\*OTel\) [SubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/subscribe.go#L41)
+### func \(\*OTel\) [SubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/subscribe.go#L43)
 
 ```go
 func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber
@@ -209,7 +203,7 @@ func (t *OTel) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubsc
 UnsubscriberMiddleware is a courier.UnsubscriberMiddlewareFunc for tracing unsubscribe calls.
 
 <a name="Option"></a>
-## type [Option](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L13)
+## type [Option](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L14)
 
 Option helps configure trace options.
 
@@ -219,8 +213,17 @@ type Option interface {
 }
 ```
 
+<a name="WithInfoHandlerFrom"></a>
+### func [WithInfoHandlerFrom](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L46)
+
+```go
+func WithInfoHandlerFrom(c interface{ InfoHandler() http.Handler }) Option
+```
+
+WithInfoHandlerFrom is used to specify the handler which should be used to extract client information from the courier.Client instance.
+
 <a name="WithMeterProvider"></a>
-### func [WithMeterProvider](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L27)
+### func [WithMeterProvider](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L28)
 
 ```go
 func WithMeterProvider(provider metric.MeterProvider) Option
@@ -229,7 +232,7 @@ func WithMeterProvider(provider metric.MeterProvider) Option
 WithMeterProvider specifies a meter provider to use for creating a meter. If none is specified, the global provider is used.
 
 <a name="WithTextMapCarrierExtractFunc"></a>
-### func [WithTextMapCarrierExtractFunc](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L39)
+### func [WithTextMapCarrierExtractFunc](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L40)
 
 ```go
 func WithTextMapCarrierExtractFunc(fn func(context.Context) propagation.TextMapCarrier) Option
@@ -238,7 +241,7 @@ func WithTextMapCarrierExtractFunc(fn func(context.Context) propagation.TextMapC
 WithTextMapCarrierExtractFunc is used to specify the function which should be used to extract propagation.TextMapCarrier from the ongoing context.Context.
 
 <a name="WithTextMapPropagator"></a>
-### func [WithTextMapPropagator](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L33)
+### func [WithTextMapPropagator](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L34)
 
 ```go
 func WithTextMapPropagator(propagator propagation.TextMapPropagator) Option
@@ -247,7 +250,7 @@ func WithTextMapPropagator(propagator propagation.TextMapPropagator) Option
 WithTextMapPropagator specifies the propagator to use for extracting/injecting key\-value texts. If none is specified, the global provider is used.
 
 <a name="WithTracerProvider"></a>
-### func [WithTracerProvider](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L21)
+### func [WithTracerProvider](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L22)
 
 ```go
 func WithTracerProvider(provider oteltrace.TracerProvider) Option
@@ -256,7 +259,7 @@ func WithTracerProvider(provider oteltrace.TracerProvider) Option
 WithTracerProvider specifies a tracer provider to use for creating a tracer. If none is specified, the global provider is used.
 
 <a name="TopicAttributeTransformer"></a>
-## type [TopicAttributeTransformer](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L17)
+## type [TopicAttributeTransformer](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L18)
 
 TopicAttributeTransformer helps transform topic before making an attribute for it. It is used in metric recording only. Traces use the original topic.
 
@@ -265,7 +268,7 @@ type TopicAttributeTransformer func(context.Context, string) string
 ```
 
 <a name="UseMiddleware"></a>
-## type [UseMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L21-L25)
+## type [UseMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L22-L26)
 
 UseMiddleware is an interface that defines the methods to apply middlewares to a courier.Client or similar instance.
 

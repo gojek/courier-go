@@ -26,15 +26,17 @@ const (
 	subscribeMultipleErrMessage = "subscribe multiple error"
 
 	moduleNamedGroup = "module"
-	pkgFnNamedGroup  = "pkgfn"
+	pkgNamedGroup    = "pkg"
+	fnNamedGroup     = "fn"
 )
 
 var (
-	runtimeSpanNameExtractor = regexp.MustCompile(
-		fmt.Sprintf(`^(?P<%s>.*)?/(?P<%s>[^/]+)$`, moduleNamedGroup, pkgFnNamedGroup),
+	runtimeCallbackExtractor = regexp.MustCompile(
+		fmt.Sprintf(`^(?P<%s>.+?)\/(?P<%s>[^\/.]+)\.(?P<%s>.+)$`, moduleNamedGroup, pkgNamedGroup, fnNamedGroup),
 	)
-	pkgFnIndex = runtimeSpanNameExtractor.SubexpIndex(pkgFnNamedGroup)
-	_          = runtimeSpanNameExtractor.SubexpIndex(moduleNamedGroup) // unused at the moment
+	moduleIndex = runtimeCallbackExtractor.SubexpIndex(moduleNamedGroup)
+	pkgIndex    = runtimeCallbackExtractor.SubexpIndex(pkgNamedGroup)
+	fnIndex     = runtimeCallbackExtractor.SubexpIndex(fnNamedGroup)
 )
 
 // SubscriberMiddleware is a courier.SubscriberMiddlewareFunc for tracing subscribe calls.
@@ -118,19 +120,26 @@ func (t *OTel) instrumentCallback(in courier.MessageHandler) courier.MessageHand
 	}
 
 	return func(ctx context.Context, pubSub courier.PubSub, msg *courier.Message) {
-		attrs := []attribute.KeyValue{
-			semconv.ServiceNameKey.String(t.service),
-			MQTTQoS.Int(int(msg.QoS)),
-			MQTTRetained.Bool(msg.Retained),
-		}
-
 		spanName := "UnknownSubscribeCallback"
+		pkgName := "Unknown"
+		fnName := "UnknownFunc"
 
 		if fnPtr := runtime.FuncForPC(reflect.ValueOf(in).Pointer()); fnPtr != nil {
 			fullName := fnPtr.Name()
-			if matches := runtimeSpanNameExtractor.FindStringSubmatch(fullName); len(matches) > 0 {
-				spanName = matches[pkgFnIndex]
+
+			if matches := runtimeCallbackExtractor.FindStringSubmatch(fullName); len(matches) > 0 {
+				spanName = matches[fnIndex]
+				pkgName = fmt.Sprintf("%s/%s", matches[moduleIndex], matches[pkgIndex])
+				fnName = matches[fnIndex]
 			}
+		}
+
+		attrs := []attribute.KeyValue{
+			semconv.ServiceNameKey.String(t.service),
+			semconv.CodeNamespace(pkgName),
+			semconv.CodeFunction(fnName),
+			MQTTQoS.Int(int(msg.QoS)),
+			MQTTRetained.Bool(msg.Retained),
 		}
 
 		if t.textMapCarrierFunc != nil {
@@ -138,7 +147,6 @@ func (t *OTel) instrumentCallback(in courier.MessageHandler) courier.MessageHand
 		}
 
 		metricAttrs := metric.WithAttributes(append(attrs,
-			CallbackName.String(spanName),
 			MQTTTopic.String(t.topicTransformer(ctx, msg.Topic)),
 		)...)
 

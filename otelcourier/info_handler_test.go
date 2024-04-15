@@ -41,12 +41,8 @@ func TestConnectedClientMetric(t *testing.T) {
 	require.NoError(t, err)
 	mp := metric.NewMeterProvider(metric.WithReader(exporter))
 
-	ot := New("test-service", WithMeterProvider(mp))
-
-	c, err := courier.NewClient(append(defOpts, &courier.ClientInfoEmitterConfig{
-		Interval: time.Second,
-		Emitter:  ot,
-	})...)
+	c, err := courier.NewClient(defOpts...)
+	_ = New("test-service", WithMeterProvider(mp), WithInfoHandlerFrom(c))
 	assert.NoError(t, err)
 
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)

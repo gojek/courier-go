@@ -25,10 +25,17 @@ func (t *OTel) initRecorders() {
 		t.rc[path] = t.newRecorder(flow)
 	}
 
+	if t.infoHandler != nil {
+		t.initInfoHandler()
+	}
+}
+
+func (t *OTel) initInfoHandler() {
 	if _, err := t.meter.Int64ObservableUpDownCounter(
 		"courier.client.connected",
 		metric.WithDescription("Tells if a client is connected or not, partitioned by client ID."),
-		metric.WithInt64Callback(t.emitter.callback(semconv.ServiceNameKey.String(t.service))),
+		metric.WithInt64Callback(infoHandler(t.infoHandler.ServeHTTP).
+			callback(semconv.ServiceNameKey.String(t.service))),
 	); err != nil {
 		panic(err)
 	}

@@ -2,6 +2,7 @@ package otelcourier
 
 import (
 	"context"
+	"net/http"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
@@ -38,6 +39,12 @@ func WithTextMapPropagator(propagator propagation.TextMapPropagator) Option {
 // extract propagation.TextMapCarrier from the ongoing context.Context.
 func WithTextMapCarrierExtractFunc(fn func(context.Context) propagation.TextMapCarrier) Option {
 	return optFn(func(opts *traceOptions) { opts.textMapCarrierExtractor = fn })
+}
+
+// WithInfoHandlerFrom is used to specify the handler which should be used to
+// extract client information from the courier.Client instance.
+func WithInfoHandlerFrom(c interface{ InfoHandler() http.Handler }) Option {
+	return optFn(func(opts *traceOptions) { opts.infoHandler = c.InfoHandler() })
 }
 
 // DisableCallbackTracing disables implicit tracing on subscription callbacks.
@@ -85,6 +92,7 @@ type traceOptions struct {
 	textMapCarrierExtractor func(context.Context) propagation.TextMapCarrier
 	tracePaths              tracePath
 	topicTransformer        TopicAttributeTransformer
+	infoHandler             http.Handler
 }
 
 type tracePath uint

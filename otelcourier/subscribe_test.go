@@ -278,7 +278,7 @@ func Test_instrumentCallback(t *testing.T) {
 
 	t.Run("Span", func(t *testing.T) {
 		assert.Equal(t, "c8e801456e8232f618c49c6f65f101db", span.SpanContext().TraceID().String())
-		assert.Equal(t, "otelcourier.Test_instrumentCallback.func2", span.Name())
+		assert.Equal(t, "Test_instrumentCallback.func2", span.Name())
 	})
 
 	t.Run("Attributes", func(t *testing.T) {
@@ -288,6 +288,8 @@ func Test_instrumentCallback(t *testing.T) {
 			MQTTQoS.Int(int(courier.QOSOne)),
 			MQTTRetained.Bool(true),
 			semconv.ServiceNameKey.String("test-service"),
+			semconv.CodeFunction("Test_instrumentCallback.func2"),
+			semconv.CodeNamespace("github.com/gojek/courier-go/otelcourier"),
 			attribute.String("test-attr", "test-value"),
 		}...)
 
@@ -310,10 +312,10 @@ func Test_instrumentCallback(t *testing.T) {
 		vsn := courier.Version()
 		buf := bytes.NewBufferString(fmt.Sprintf(`# HELP courier_subscribe_callback_attempts_total Number of subscribe.callback attempts
 # TYPE courier_subscribe_callback_attempts_total counter
-courier_subscribe_callback_attempts_total{callback_name="otelcourier.Test_instrumentCallback.func2",mqtt_qos="1",mqtt_retained="true",mqtt_topic="test-topic",otel_scope_name="github.com/gojek/courier-go/otelcourier",otel_scope_version="semver:%s",service_name="test-service"} 1
+courier_subscribe_callback_attempts_total{code_function="Test_instrumentCallback.func2",code_namespace="github.com/gojek/courier-go/otelcourier",mqtt_qos="1",mqtt_retained="true",mqtt_topic="test-topic",otel_scope_name="github.com/gojek/courier-go/otelcourier",otel_scope_version="semver:%s",service_name="test-service"} 1
 # HELP courier_subscribe_callback_failures_total Number of subscribe.callback failures
 # TYPE courier_subscribe_callback_failures_total counter
-courier_subscribe_callback_failures_total{callback_name="otelcourier.Test_instrumentCallback.func2",mqtt_qos="1",mqtt_retained="true",mqtt_topic="test-topic",otel_scope_name="github.com/gojek/courier-go/otelcourier",otel_scope_version="semver:%s",service_name="test-service"} 1
+courier_subscribe_callback_failures_total{code_function="Test_instrumentCallback.func2",code_namespace="github.com/gojek/courier-go/otelcourier",mqtt_qos="1",mqtt_retained="true",mqtt_topic="test-topic",otel_scope_name="github.com/gojek/courier-go/otelcourier",otel_scope_version="semver:%s",service_name="test-service"} 1
 `, vsn, vsn))
 
 		assert.NoError(t, testutil.GatherAndCompare(reg, buf,

@@ -3,6 +3,7 @@ package otelcourier
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"go.opentelemetry.io/otel/metric"
@@ -33,7 +34,7 @@ type OTel struct {
 	propagator         propagation.TextMapPropagator
 	textMapCarrierFunc func(context.Context) propagation.TextMapCarrier
 	topicTransformer   TopicAttributeTransformer
-	emitter            *infoEmitter
+	infoHandler        http.Handler
 
 	rc   recorder
 	tnow func() time.Time
@@ -65,8 +66,8 @@ func New(service string, opts ...Option) *OTel {
 		textMapCarrierFunc: to.textMapCarrierExtractor,
 		topicTransformer:   to.topicTransformer,
 		tracePaths:         to.tracePaths,
+		infoHandler:        to.infoHandler,
 		rc:                 make(recorder),
-		emitter:            newInfoEmitter(),
 		tnow:               time.Now,
 	}
 

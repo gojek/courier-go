@@ -15,6 +15,4 @@ const (
 	MQTTRetained = attribute.Key("mqtt.retained")
 	// MQTTClientID is the attribute key for tracing mqtt client id
 	MQTTClientID = attribute.Key("mqtt.clientid")
-	// CallbackName is the attribute key for tracing message handler function name
-	CallbackName = attribute.Key("callback.name")
 )

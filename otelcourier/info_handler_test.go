@@ -2,6 +2,7 @@ package otelcourier
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -111,4 +112,16 @@ func Test_boolInt64(t *testing.T) {
 			assert.EqualValuesf(t, tt.want, boolInt64(tt.connected), "boolInt64(%v)", tt.connected)
 		})
 	}
+}
+
+func TestInfoHandler_callback_error(t *testing.T) {
+	ih := infoHandler(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("invalid json"))
+	})
+
+	cb := ih.callback()
+	err := cb(context.Background(), nil)
+	assert.EqualError(t, err, "invalid character 'i' looking for beginning of value")
+
+	assert.EqualError(t, cb(nil, nil), "net/http: nil Context")
 }

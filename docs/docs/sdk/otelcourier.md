@@ -13,6 +13,7 @@ Package otelcourier instruments the github.com/gojek/courier\-go package.
 - [Constants](#constants)
 - [Variables](#variables)
 - [func DefaultTopicAttributeTransformer\(\_ context.Context, topic string\) string](#DefaultTopicAttributeTransformer)
+- [type BucketBoundaries](#BucketBoundaries)
 - [type OTel](#OTel)
   - [func New\(service string, opts ...Option\) \*OTel](#New)
   - [func \(t \*OTel\) ApplyMiddlewares\(c UseMiddleware\)](#OTel.ApplyMiddlewares)
@@ -82,6 +83,17 @@ func DefaultTopicAttributeTransformer(_ context.Context, topic string) string
 ```
 
 DefaultTopicAttributeTransformer is the default transformer for topic attribute.
+
+<a name="BucketBoundaries"></a>
+## type [BucketBoundaries](https://github.com/gojek/courier-go/blob/main/otelcourier/options.go#L66-L68)
+
+BucketBoundaries helps override default histogram bucket boundaries for metrics.
+
+```go
+type BucketBoundaries struct {
+    Publisher, Subscriber, Unsubscriber, Callback []float64
+}
+```
 
 <a name="OTel"></a>
 ## type [OTel](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L29-L41)

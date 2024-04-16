@@ -11,7 +11,7 @@ import (
 )
 
 // Option helps configure trace options.
-type Option interface{ apply(*traceOptions) }
+type Option interface{ apply(*options) }
 
 // TopicAttributeTransformer helps transform topic before making an attribute for it.
 // It is used in metric recording only. Traces use the original topic.
@@ -20,31 +20,31 @@ type TopicAttributeTransformer func(context.Context, string) string
 // WithTracerProvider specifies a tracer provider to use for creating a tracer.
 // If none is specified, the global provider is used.
 func WithTracerProvider(provider oteltrace.TracerProvider) Option {
-	return optFn(func(opts *traceOptions) { opts.tracerProvider = provider })
+	return optFn(func(opts *options) { opts.tracerProvider = provider })
 }
 
 // WithMeterProvider specifies a meter provider to use for creating a meter.
 // If none is specified, the global provider is used.
 func WithMeterProvider(provider metric.MeterProvider) Option {
-	return optFn(func(opts *traceOptions) { opts.meterProvider = provider })
+	return optFn(func(opts *options) { opts.meterProvider = provider })
 }
 
 // WithTextMapPropagator specifies the propagator to use for extracting/injecting key-value texts.
 // If none is specified, the global provider is used.
 func WithTextMapPropagator(propagator propagation.TextMapPropagator) Option {
-	return optFn(func(opts *traceOptions) { opts.propagator = propagator })
+	return optFn(func(opts *options) { opts.propagator = propagator })
 }
 
 // WithTextMapCarrierExtractFunc is used to specify the function which should be used to
 // extract propagation.TextMapCarrier from the ongoing context.Context.
 func WithTextMapCarrierExtractFunc(fn func(context.Context) propagation.TextMapCarrier) Option {
-	return optFn(func(opts *traceOptions) { opts.textMapCarrierExtractor = fn })
+	return optFn(func(opts *options) { opts.textMapCarrierExtractor = fn })
 }
 
 // WithInfoHandlerFrom is used to specify the handler which should be used to
 // extract client information from the courier.Client instance.
 func WithInfoHandlerFrom(c interface{ InfoHandler() http.Handler }) Option {
-	return optFn(func(opts *traceOptions) { opts.infoHandler = c.InfoHandler() })
+	return optFn(func(opts *options) { opts.infoHandler = c.InfoHandler() })
 }
 
 // DisableCallbackTracing disables implicit tracing on subscription callbacks.
@@ -62,19 +62,25 @@ var DisableUnsubscriberTracing = &disableTracePathOpt{traceUnsubscriber}
 // DefaultTopicAttributeTransformer is the default transformer for topic attribute.
 func DefaultTopicAttributeTransformer(_ context.Context, topic string) string { return topic }
 
+// BucketBoundaries helps override default histogram bucket boundaries for metrics.
+type BucketBoundaries struct {
+	Publisher, Subscriber, Unsubscriber, Callback []float64
+}
+
 /// private types and functions
 
-type optFn func(*traceOptions)
+type optFn func(*options)
 
-func (fn optFn) apply(opts *traceOptions) { fn(opts) }
+func (fn optFn) apply(opts *options) { fn(opts) }
 
-func defaultOptions() *traceOptions {
-	return &traceOptions{
-		tracerProvider:   otel.GetTracerProvider(),
-		meterProvider:    otel.GetMeterProvider(),
-		propagator:       otel.GetTextMapPropagator(),
-		tracePaths:       tracePublisher + traceSubscriber + traceUnsubscriber + traceCallback,
-		topicTransformer: DefaultTopicAttributeTransformer,
+func defaultOptions() *options {
+	return &options{
+		tracerProvider:      otel.GetTracerProvider(),
+		meterProvider:       otel.GetMeterProvider(),
+		propagator:          otel.GetTextMapPropagator(),
+		tracePaths:          tracePublisher + traceSubscriber + traceUnsubscriber + traceCallback,
+		topicTransformer:    DefaultTopicAttributeTransformer,
+		histogramBoundaries: defBucketBoundaries,
 	}
 }
 
@@ -85,7 +91,7 @@ const (
 	traceCallback
 )
 
-type traceOptions struct {
+type options struct {
 	tracerProvider          oteltrace.TracerProvider
 	meterProvider           metric.MeterProvider
 	propagator              propagation.TextMapPropagator
@@ -93,6 +99,7 @@ type traceOptions struct {
 	tracePaths              tracePath
 	topicTransformer        TopicAttributeTransformer
 	infoHandler             http.Handler
+	histogramBoundaries     map[tracePath][]float64
 }
 
 type tracePath uint
@@ -101,6 +108,24 @@ func (tp tracePath) match(o tracePath) bool { return tp&o != 0 }
 
 type disableTracePathOpt struct{ tracePath }
 
-func (o *disableTracePathOpt) apply(opts *traceOptions) { opts.tracePaths &^= o.tracePath }
+func (o *disableTracePathOpt) apply(opts *options) { opts.tracePaths &^= o.tracePath }
 
-func (t TopicAttributeTransformer) apply(opts *traceOptions) { opts.topicTransformer = t }
+func (t TopicAttributeTransformer) apply(opts *options) { opts.topicTransformer = t }
+
+func (b BucketBoundaries) apply(opts *options) {
+	if b.Publisher != nil {
+		opts.histogramBoundaries[tracePublisher] = b.Publisher
+	}
+
+	if b.Subscriber != nil {
+		opts.histogramBoundaries[traceSubscriber] = b.Subscriber
+	}
+
+	if b.Unsubscriber != nil {
+		opts.histogramBoundaries[traceUnsubscriber] = b.Unsubscriber
+	}
+
+	if b.Callback != nil {
+		opts.histogramBoundaries[traceCallback] = b.Callback
+	}
+}

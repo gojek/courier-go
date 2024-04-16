@@ -10,23 +10,30 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
-var metricFlows = map[tracePath]struct {
-	name       string
-	boundaries []float64
-}{
-	tracePublisher:    {name: "publish", boundaries: prom.ExponentialBucketsRange(0.0001, 1, 10)},
-	traceSubscriber:   {name: "subscribe", boundaries: prom.ExponentialBucketsRange(0.001, 1, 7)},
-	traceUnsubscriber: {name: "unsubscribe", boundaries: prom.ExponentialBucketsRange(0.001, 1, 7)},
-	traceCallback:     {name: "subscribe.callback", boundaries: prom.ExponentialBucketsRange(0.001, 10, 15)},
-}
+var (
+	defaultBoundaries   = prom.ExponentialBucketsRange(0.001, 1, 7)
+	defBucketBoundaries = map[tracePath][]float64{
+		tracePublisher:    prom.ExponentialBucketsRange(0.0001, 1, 10),
+		traceSubscriber:   defaultBoundaries,
+		traceUnsubscriber: defaultBoundaries,
+		traceCallback:     prom.ExponentialBucketsRange(0.001, 10, 15),
+	}
 
-func (t *OTel) initRecorders() {
+	metricFlows = map[tracePath]string{
+		tracePublisher:    "publish",
+		traceSubscriber:   "subscribe",
+		traceUnsubscriber: "unsubscribe",
+		traceCallback:     "subscribe.callback",
+	}
+)
+
+func (t *OTel) initRecorders(histogramBoundaries map[tracePath][]float64) {
 	for path, flow := range metricFlows {
 		if !t.tracePaths.match(path) {
 			continue
 		}
 
-		t.rc[path] = t.newRecorder(flow.name, flow.boundaries)
+		t.rc[path] = t.newRecorder(flow, histogramBoundaries[path])
 	}
 
 	if t.infoHandler != nil {

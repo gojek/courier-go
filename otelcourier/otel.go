@@ -42,18 +42,18 @@ type OTel struct {
 
 // New creates a new OTel with Option(s).
 func New(service string, opts ...Option) *OTel {
-	to := defaultOptions()
+	o := defaultOptions()
 
 	for _, opt := range opts {
-		opt.apply(to)
+		opt.apply(o)
 	}
 
 	vsn := fmt.Sprintf("semver:%s", courier.Version())
-	tracer := to.tracerProvider.Tracer(
+	tracer := o.tracerProvider.Tracer(
 		tracerName,
 		trace.WithInstrumentationVersion(vsn),
 	)
-	meter := to.meterProvider.Meter(
+	meter := o.meterProvider.Meter(
 		tracerName,
 		metric.WithInstrumentationVersion(vsn),
 	)
@@ -62,16 +62,16 @@ func New(service string, opts ...Option) *OTel {
 		service:            service,
 		tracer:             tracer,
 		meter:              meter,
-		propagator:         to.propagator,
-		textMapCarrierFunc: to.textMapCarrierExtractor,
-		topicTransformer:   to.topicTransformer,
-		tracePaths:         to.tracePaths,
-		infoHandler:        to.infoHandler,
+		propagator:         o.propagator,
+		textMapCarrierFunc: o.textMapCarrierExtractor,
+		topicTransformer:   o.topicTransformer,
+		tracePaths:         o.tracePaths,
+		infoHandler:        o.infoHandler,
 		rc:                 make(recorder),
 		tnow:               time.Now,
 	}
 
-	t.initRecorders()
+	t.initRecorders(o.histogramBoundaries)
 
 	return t
 }

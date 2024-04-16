@@ -5,24 +5,28 @@ import (
 	"fmt"
 	"time"
 
+	prom "github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
-var metricFlowNames = map[tracePath]string{
-	tracePublisher:    "publish",
-	traceSubscriber:   "subscribe",
-	traceUnsubscriber: "unsubscribe",
-	traceCallback:     "subscribe.callback",
+var metricFlows = map[tracePath]struct {
+	name       string
+	boundaries []float64
+}{
+	tracePublisher:    {name: "publish", boundaries: prom.ExponentialBucketsRange(0.0001, 1, 10)},
+	traceSubscriber:   {name: "subscribe", boundaries: prom.ExponentialBucketsRange(0.001, 1, 7)},
+	traceUnsubscriber: {name: "unsubscribe", boundaries: prom.ExponentialBucketsRange(0.001, 1, 7)},
+	traceCallback:     {name: "subscribe.callback", boundaries: prom.ExponentialBucketsRange(0.001, 10, 15)},
 }
 
 func (t *OTel) initRecorders() {
-	for path, flow := range metricFlowNames {
+	for path, flow := range metricFlows {
 		if !t.tracePaths.match(path) {
 			continue
 		}
 
-		t.rc[path] = t.newRecorder(flow)
+		t.rc[path] = t.newRecorder(flow.name, flow.boundaries)
 	}
 
 	if t.infoHandler != nil {
@@ -43,7 +47,7 @@ func (t *OTel) initInfoHandler() {
 
 type recordersOp func(*recorders) error
 
-func (t *OTel) newRecorder(flow string) *recorders {
+func (t *OTel) newRecorder(flow string, boundaries []float64) *recorders {
 	var rs recorders
 
 	for _, op := range []recordersOp{
@@ -70,6 +74,7 @@ func (t *OTel) newRecorder(flow string) *recorders {
 				fmt.Sprintf("courier.%s.latency", flow),
 				metric.WithDescription(fmt.Sprintf("Latency of %s calls", flow)),
 				metric.WithUnit("s"),
+				metric.WithExplicitBucketBoundaries(boundaries...),
 			)
 			r.latency = lt
 

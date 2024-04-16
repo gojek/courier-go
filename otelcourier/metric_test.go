@@ -22,5 +22,5 @@ func Test_recorderOpsWithoutInitialization(t *testing.T) {
 func Test_recorderPanicsWithInvalidFlowName(t *testing.T) {
 	ot := &OTel{meter: metric.NewMeterProvider().Meter(tracerName)}
 
-	assert.Panics(t, func() { _ = ot.newRecorder("invalid%flow") })
+	assert.Panics(t, func() { _ = ot.newRecorder("invalid%flow", nil) })
 }

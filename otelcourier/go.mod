@@ -3,7 +3,7 @@ module github.com/gojek/courier-go/otelcourier
 go 1.20
 
 require (
-	github.com/gojek/courier-go v0.5.3
+	github.com/gojek/courier-go v0.6.0
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/otel v1.24.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.46.0

@@ -27,13 +27,19 @@ func TestWithLogger(t *testing.T) {
 
 func TestWithLoggerWrite(t *testing.T) {
 	buf := &bytes.Buffer{}
-	h := slog.NewTextHandler(buf, &slog.HandlerOptions{})
+	h := slog.NewTextHandler(buf, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})
 	logger := New(h)
 
 	logger.Info(context.TODO(), "test", map[string]any{"key": "value"})
 	logger.Error(context.TODO(), courier.ErrClientNotInitialized, map[string]any{"key": "value"})
+	logger.Warn(context.TODO(), "test", map[string]any{"key": "value"})
+	logger.Debug(context.TODO(), "test", map[string]any{"key": "value"})
 
 	out := buf.String()
 	assert.Contains(t, out, "level=INFO msg=test key=value")
 	assert.Contains(t, out, "level=ERROR msg=\"courier: client not initialized\" key=value")
+	assert.Contains(t, out, "level=WARN msg=test key=value")
+	assert.Contains(t, out, "level=DEBUG msg=test key=value")
 }

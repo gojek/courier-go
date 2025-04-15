@@ -247,7 +247,6 @@ func TestNewClientWithCredentialFetcher(t *testing.T) {
 		credErr := errors.New("error")
 		mcf.On("Credentials", mock.Anything).Return(nil, credErr)
 		ml.On("Error", mock.Anything, credErr, map[string]any{"message": "failed to fetch credentials"})
-		ml.On("Debug", mock.Anything, mock.Anything, mock.Anything)
 
 		c, err := NewClient(append(defOpts, WithCredentialFetcher(mcf), WithLogger(ml))...)
 		assert.NoError(t, err)

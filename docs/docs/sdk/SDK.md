@@ -255,7 +255,7 @@ func (c *Client) InfoHandler() http.Handler
 InfoHandler returns a http.Handler that exposes the connected clients information
 
 <a name="Client.IsConnected"></a>
-### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L84)
+### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L94)
 
 ```go
 func (c *Client) IsConnected() bool
@@ -273,7 +273,7 @@ func (c *Client) Publish(ctx context.Context, topic string, message interface{},
 Publish allows to publish messages to an MQTT broker
 
 <a name="Client.Run"></a>
-### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L112)
+### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L122)
 
 ```go
 func (c *Client) Run(ctx context.Context) error
@@ -282,7 +282,7 @@ func (c *Client) Run(ctx context.Context) error
 Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package. https://pkg.go.dev/github.com/gojekfarm/xrun
 
 <a name="Client.Start"></a>
-### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L97)
+### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L107)
 
 ```go
 func (c *Client) Start() error
@@ -291,7 +291,7 @@ func (c *Client) Start() error
 Start will attempt to connect to the broker.
 
 <a name="Client.Stop"></a>
-### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L108)
+### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L118)
 
 ```go
 func (c *Client) Stop()
@@ -501,7 +501,7 @@ func WithKeepAlive(duration time.Duration) ClientOption
 WithKeepAlive will set the amount of time \(in seconds\) that the client should wait before sending a PING request to the broker. This will allow the client to know that a connection has not been lost with the server. Deprecated: Use KeepAlive instead.
 
 <a name="WithLogger"></a>
-### func [WithLogger](https://github.com/gojek/courier-go/blob/main/log.go#L6)
+### func [WithLogger](https://github.com/gojek/courier-go/blob/main/log.go#L9)
 
 ```go
 func WithLogger(l Logger) ClientOption
@@ -742,14 +742,16 @@ type KeepAlive time.Duration
 ```
 
 <a name="Logger"></a>
-## type [Logger](https://github.com/gojek/courier-go/blob/main/log.go#L9-L12)
+## type [Logger](https://github.com/gojek/courier-go/blob/main/log.go#L12-L17)
 
 Logger is the interface that wraps the Info and Error methods.
 
 ```go
 type Logger interface {
-    Info(ctx context.Context, msg string, attrs map[string]any)
     Error(ctx context.Context, err error, attrs map[string]any)
+    Warn(ctx context.Context, msg string, attrs map[string]any)
+    Info(ctx context.Context, msg string, attrs map[string]any)
+    Debug(ctx context.Context, msg string, attrs map[string]any)
 }
 ```
 

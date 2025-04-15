@@ -176,7 +176,7 @@ func WaitForConnection(c ConnectionInformer, waitFor time.Duration, tick time.Du
 WaitForConnection checks if the Client is connected, it calls ConnectionInformer.IsConnected after every tick and waitFor is the maximum duration it can block. Returns true only when ConnectionInformer.IsConnected returns true
 
 <a name="Client"></a>
-## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L22-L43)
+## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L23-L44)
 
 Client allows to communicate with an MQTT broker
 
@@ -187,7 +187,7 @@ type Client struct {
 ```
 
 <a name="NewClient"></a>
-### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L48)
+### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L49)
 
 ```go
 func NewClient(opts ...ClientOption) (*Client, error)
@@ -255,7 +255,7 @@ func (c *Client) InfoHandler() http.Handler
 InfoHandler returns a http.Handler that exposes the connected clients information
 
 <a name="Client.IsConnected"></a>
-### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L94)
+### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L95)
 
 ```go
 func (c *Client) IsConnected() bool
@@ -273,7 +273,7 @@ func (c *Client) Publish(ctx context.Context, topic string, message interface{},
 Publish allows to publish messages to an MQTT broker
 
 <a name="Client.Run"></a>
-### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L122)
+### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L123)
 
 ```go
 func (c *Client) Run(ctx context.Context) error
@@ -282,7 +282,7 @@ func (c *Client) Run(ctx context.Context) error
 Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package. https://pkg.go.dev/github.com/gojekfarm/xrun
 
 <a name="Client.Start"></a>
-### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L107)
+### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L108)
 
 ```go
 func (c *Client) Start() error
@@ -291,7 +291,7 @@ func (c *Client) Start() error
 Start will attempt to connect to the broker.
 
 <a name="Client.Stop"></a>
-### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L118)
+### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L119)
 
 ```go
 func (c *Client) Stop()

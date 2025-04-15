@@ -77,7 +77,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	c.subscriber = subscriberFuncs(c)
 	c.unsubscriber = unsubscriberHandler(c)
 
-	if c.options.logger != nil {
+	if c.options.logger != nil && mqtt.WARN == nil {
 		wpl := &pahoLogger{logger: c.options.logger, level: warnLevel}
 		epl := &pahoLogger{logger: c.options.logger, level: errorLevel}
 		dpl := &pahoLogger{logger: c.options.logger, level: debugLevel}

@@ -258,6 +258,8 @@ func TestNewClientWithCredentialFetcher(t *testing.T) {
 			return ml.AssertExpectations(t)
 		}, 10*time.Second, 250*time.Millisecond)
 
+		commsErr := errors.New("[client]   Connect comms goroutine - error triggered EOF\n")
+		ml.On("Error", mock.Anything, commsErr, nil).Maybe()
 		c.Stop()
 
 		mcf.AssertExpectations(t)

@@ -264,6 +264,9 @@ func TestNewClientWithCredentialFetcher(t *testing.T) {
 
 		mcf.AssertExpectations(t)
 
+		// wait for mocked logger calling goroutines to finish
+		time.Sleep(1 * time.Second)
+		// restore paho logger back to default logger
 		mqtt.CRITICAL = mqtt.NOOPLogger{}
 		mqtt.ERROR = mqtt.NOOPLogger{}
 		mqtt.WARN = mqtt.NOOPLogger{}

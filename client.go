@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -77,16 +76,6 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	c.publisher = publishHandler(c)
 	c.subscriber = subscriberFuncs(c)
 	c.unsubscriber = unsubscriberHandler(c)
-
-	if c.options.logger != nil && reflect.TypeOf(mqtt.WARN) == reflect.TypeOf(mqtt.NOOPLogger{}) {
-		wpl := &pahoLogger{logger: c.options.logger, level: warnLevel}
-		epl := &pahoLogger{logger: c.options.logger, level: errorLevel}
-		dpl := &pahoLogger{logger: c.options.logger, level: debugLevel}
-		mqtt.WARN = wpl
-		mqtt.ERROR = epl
-		mqtt.CRITICAL = epl
-		mqtt.DEBUG = dpl
-	}
 
 	return c, nil
 }

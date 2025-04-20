@@ -261,6 +261,11 @@ func TestNewClientWithCredentialFetcher(t *testing.T) {
 		c.Stop()
 
 		mcf.AssertExpectations(t)
+
+		mqtt.CRITICAL = mqtt.NOOPLogger{}
+		mqtt.ERROR = mqtt.NOOPLogger{}
+		mqtt.WARN = mqtt.NOOPLogger{}
+		mqtt.DEBUG = mqtt.NOOPLogger{}
 	})
 }
 

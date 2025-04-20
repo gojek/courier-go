@@ -56,6 +56,13 @@ func Test_pahoLogger_Println(t *testing.T) {
 		mockFunc func(l *mockLogger)
 	}{
 		{
+			name:  "CriticalLevel",
+			level: criticalLevel,
+			mockFunc: func(l *mockLogger) {
+				l.On("Error", mock.Anything, mock.Anything, mock.Anything).Return()
+			},
+		},
+		{
 			name:  "ErrorLevel",
 			level: errorLevel,
 			mockFunc: func(l *mockLogger) {
@@ -101,6 +108,17 @@ func Test_pahoLogger_Printf(t *testing.T) {
 		format   string
 		args     []interface{}
 	}{
+		{
+			name:  "CriticalLevel",
+			level: criticalLevel,
+			mockFunc: func(l *mockLogger) {
+				l.On("Error", mock.Anything, mock.MatchedBy(func(err error) bool {
+					return err.Error() == "test error"
+				}), mock.Anything).Return()
+			},
+			format: "test %s",
+			args:   []interface{}{"error"},
+		},
 		{
 			name:  "ErrorLevel",
 			level: errorLevel,

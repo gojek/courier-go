@@ -273,7 +273,8 @@ func toClientOptions(c *Client, o *clientOptions, idSuffix string) *mqtt.ClientO
 		SetMaxReconnectInterval(o.maxReconnectInterval).
 		SetReconnectingHandler(reconnectHandler(c, o)).
 		SetConnectionLostHandler(connectionLostHandler(c, o)).
-		SetOnConnectHandler(onConnectHandler(c, o))
+		SetOnConnectHandler(onConnectHandler(c, o)).
+		SetWriteTimeout(o.writeTimeout)
 
 	return opts
 }

@@ -247,6 +247,7 @@ func TestNewClientWithCredentialFetcher(t *testing.T) {
 		credErr := errors.New("error")
 		mcf.On("Credentials", mock.Anything).Return(nil, credErr)
 		ml.On("Error", mock.Anything, credErr, map[string]any{"message": "failed to fetch credentials"})
+		ml.On("Debug", mock.Anything, mock.Anything, mock.Anything)
 
 		c, err := NewClient(append(defOpts, WithCredentialFetcher(mcf), WithLogger(ml))...)
 		assert.NoError(t, err)
@@ -257,9 +258,19 @@ func TestNewClientWithCredentialFetcher(t *testing.T) {
 			return ml.AssertExpectations(t)
 		}, 10*time.Second, 250*time.Millisecond)
 
+		commsErr := errors.New("[client]   Connect comms goroutine - error triggered EOF\n")
+		ml.On("Error", mock.Anything, commsErr, nil).Maybe()
 		c.Stop()
 
 		mcf.AssertExpectations(t)
+
+		// wait for mocked logger calling goroutines to finish
+		time.Sleep(1 * time.Second)
+		// restore paho logger back to default logger
+		mqtt.CRITICAL = mqtt.NOOPLogger{}
+		mqtt.ERROR = mqtt.NOOPLogger{}
+		mqtt.WARN = mqtt.NOOPLogger{}
+		mqtt.DEBUG = mqtt.NOOPLogger{}
 	})
 }
 

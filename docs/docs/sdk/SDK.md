@@ -501,7 +501,7 @@ func WithKeepAlive(duration time.Duration) ClientOption
 WithKeepAlive will set the amount of time \(in seconds\) that the client should wait before sending a PING request to the broker. This will allow the client to know that a connection has not been lost with the server. Deprecated: Use KeepAlive instead.
 
 <a name="WithLogger"></a>
-### func [WithLogger](https://github.com/gojek/courier-go/blob/main/log.go#L6)
+### func [WithLogger](https://github.com/gojek/courier-go/blob/main/log.go#L14)
 
 ```go
 func WithLogger(l Logger) ClientOption
@@ -742,14 +742,16 @@ type KeepAlive time.Duration
 ```
 
 <a name="Logger"></a>
-## type [Logger](https://github.com/gojek/courier-go/blob/main/log.go#L9-L12)
+## type [Logger](https://github.com/gojek/courier-go/blob/main/log.go#L23-L28)
 
 Logger is the interface that wraps the Info and Error methods.
 
 ```go
 type Logger interface {
-    Info(ctx context.Context, msg string, attrs map[string]any)
     Error(ctx context.Context, err error, attrs map[string]any)
+    Warn(ctx context.Context, msg string, attrs map[string]any)
+    Info(ctx context.Context, msg string, attrs map[string]any)
+    Debug(ctx context.Context, msg string, attrs map[string]any)
 }
 ```
 

@@ -27,6 +27,14 @@ func (sw *slogWrapper) Error(ctx context.Context, err error, attrs map[string]an
 	sw.log.LogAttrs(ctx, slog.LevelError, err.Error(), sw.mapAttrs(attrs)...)
 }
 
+func (sw *slogWrapper) Warn(ctx context.Context, msg string, attrs map[string]any) {
+	sw.log.LogAttrs(ctx, slog.LevelWarn, msg, sw.mapAttrs(attrs)...)
+}
+
+func (sw *slogWrapper) Debug(ctx context.Context, msg string, attrs map[string]any) {
+	sw.log.LogAttrs(ctx, slog.LevelDebug, msg, sw.mapAttrs(attrs)...)
+}
+
 func (sw *slogWrapper) mapAttrs(attrs map[string]any) []slog.Attr {
 	logAttrs := make([]slog.Attr, 0, len(attrs))
 

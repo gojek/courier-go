@@ -8,6 +8,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.6.1]
+
+- Fix WriteTimeout not working
+
 ## [0.6.0]
 
 ### Added
@@ -110,6 +114,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 Initial Release
 
 [Unreleased]: https://github.com/gojek/courier-go/compare/v0.6.0...HEAD
+[0.6.1]: https://github.com/gojek/courier-go/releases/tag/v0.6.1
 [0.6.0]: https://github.com/gojek/courier-go/releases/tag/v0.6.0
 [0.5.3]: https://github.com/gojek/courier-go/releases/tag/v0.5.3
 [0.5.2]: https://github.com/gojek/courier-go/releases/tag/v0.5.2

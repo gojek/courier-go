@@ -3,7 +3,7 @@ module github.com/gojek/courier-go/slog
 go 1.21
 
 require (
-	github.com/gojek/courier-go v0.6.0
+	github.com/gojek/courier-go v0.6.1
 	github.com/stretchr/testify v1.9.0
 )
 

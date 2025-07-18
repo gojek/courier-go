@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
 // Publish allows to publish messages to an MQTT broker

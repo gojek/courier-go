@@ -57,7 +57,7 @@ fix-md-href:
 # ========= Helpers ===========
 
 golangci-lint:
-	$(call install-if-needed,GOLANGCI_LINT,github.com/golangci/golangci-lint/cmd/golangci-lint,v1.53.3)
+	$(call install-if-needed,GOLANGCI_LINT,github.com/golangci/golangci-lint/cmd/golangci-lint,v1.64.8)
 
 gci:
 	$(call install-if-needed,GCI_BIN,github.com/daixiang0/gci,v0.10.1)

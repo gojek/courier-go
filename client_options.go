@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
 var inMemoryPersistence = NewMemoryStore()
@@ -268,6 +270,7 @@ type clientOptions struct {
 	sharedSubscriptionPredicate SharedSubscriptionPredicate
 	logger                      Logger
 	infoEmitterCfg              *ClientInfoEmitterConfig
+	pahoLogLevel                mqtt.LogLevel
 
 	newEncoder EncoderFunc
 	newDecoder DecoderFunc
@@ -299,5 +302,6 @@ func defaultClientOptions() *clientOptions {
 		store:                       inMemoryPersistence,
 		sharedSubscriptionPredicate: defaultSharedSubscriptionPredicate,
 		logger:                      defaultLogger,
+		pahoLogLevel:                defaultPahoLogLevel,
 	}
 }

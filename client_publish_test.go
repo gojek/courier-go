@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
+	mqtt "github.com/gojek/paho.mqtt.golang"
 	"github.com/gojekfarm/xtools/generic/slice"
 )
 

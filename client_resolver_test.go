@@ -9,11 +9,12 @@ import (
 	"testing"
 	"time"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/hashicorp/go-multierror"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
 func TestClient_newClient_singleConnMode(t *testing.T) {

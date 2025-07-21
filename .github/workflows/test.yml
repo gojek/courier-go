@@ -9,10 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    container: golang:1.21
-    strategy:
-      matrix:
-        go-version: [1.20.x, 1.21.x]
+    container: golang:1.24
     services:
       mqtt:
         image: emqx/emqx:latest

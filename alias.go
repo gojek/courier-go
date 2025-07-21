@@ -1,7 +1,7 @@
 package courier
 
 import (
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
 // Store is an interface which can be used to provide implementations

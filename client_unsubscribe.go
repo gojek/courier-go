@@ -3,7 +3,7 @@ package courier
 import (
 	"context"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
 // Unsubscribe removes any subscription to messages from an MQTT broker

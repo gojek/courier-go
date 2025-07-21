@@ -4,8 +4,7 @@ import (
 	"bytes"
 	"context"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
-
+	mqtt "github.com/gojek/paho.mqtt.golang"
 	"github.com/gojekfarm/xtools/generic/slice"
 )
 

@@ -232,6 +232,7 @@ func (s *ClientOptionSuite) Test_defaultOptions() {
 		store:                       inMemoryPersistence,
 		logger:                      defaultLogger,
 		sharedSubscriptionPredicate: defaultSharedSubscriptionPredicate,
+		pahoLogLevel:                defaultPahoLogLevel,
 	}
 
 	val1 := fmt.Sprintf("%v", o)

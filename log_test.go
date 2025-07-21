@@ -38,3 +38,21 @@ func Test_noOpLogger(t *testing.T) {
 	l.Info(context.Background(), "", nil)
 	l.Error(context.Background(), nil, nil)
 }
+
+func TestWithPahoLogLevel(t *testing.T) {
+	c, err := NewClient(append(defOpts, WithPahoLogLevel(LogLevelDefault))...)
+	assert.NoError(t, err)
+	assert.Equal(t, LogLevelDefault.toPahoLogLevel(), c.options.pahoLogLevel)
+
+	c, err = NewClient(append(defOpts, WithPahoLogLevel(LogLevelDebug))...)
+	assert.NoError(t, err)
+	assert.Equal(t, LogLevelDebug.toPahoLogLevel(), c.options.pahoLogLevel)
+
+	c, err = NewClient(append(defOpts, WithPahoLogLevel(LogLevelWarn))...)
+	assert.NoError(t, err)
+	assert.Equal(t, LogLevelWarn.toPahoLogLevel(), c.options.pahoLogLevel)
+
+	c, err = NewClient(append(defOpts, WithPahoLogLevel(LogLevelError))...)
+	assert.NoError(t, err)
+	assert.Equal(t, LogLevelError.toPahoLogLevel(), c.options.pahoLogLevel)
+}

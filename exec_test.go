@@ -3,8 +3,9 @@ package courier
 import (
 	"testing"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/stretchr/testify/assert"
+
+	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
 func TestOptionsImplementInterface(t *testing.T) {

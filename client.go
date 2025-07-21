@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
 // ErrClientNotInitialized is returned when the client is not initialized
@@ -274,7 +274,8 @@ func toClientOptions(c *Client, o *clientOptions, idSuffix string) *mqtt.ClientO
 		SetReconnectingHandler(reconnectHandler(c, o)).
 		SetConnectionLostHandler(connectionLostHandler(c, o)).
 		SetOnConnectHandler(onConnectHandler(c, o)).
-		SetWriteTimeout(o.writeTimeout)
+		SetWriteTimeout(o.writeTimeout).
+		SetLogLevel(o.pahoLogLevel)
 
 	return opts
 }

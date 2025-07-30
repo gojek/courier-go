@@ -56,3 +56,21 @@ func TestWithPahoLogLevel(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, LogLevelError.toPahoLogLevel(), c.options.pahoLogLevel)
 }
+
+func TestParseLogLevel(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected LogLevel
+	}{
+		{"", LogLevelDefault},
+		{"debug", LogLevelDebug},
+		{"warn", LogLevelWarn},
+		{"error", LogLevelError},
+		{"invalid", LogLevelDefault},
+	}
+
+	for _, test := range tests {
+		result := ParseLogLevel(test.input)
+		assert.Equal(t, test.expected, result)
+	}
+}

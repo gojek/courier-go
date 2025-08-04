@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
 	"github.com/gojek/courier-go"
 	consulapi "github.com/hashicorp/consul/api"
 )
@@ -15,35 +16,34 @@ type Resolver struct {
 	dataCenter  string            // The data center to use for service discovery
 	tags        []string          // Tags to filter services
 
-
 	updateChan chan []courier.TCPAddress // Channel to send updates on service addresses
 	doneChan   chan struct{}             // Channel to signal when the resolver is done
 
 	// Configuration
-	watchInterval time.Duration // How often to poll Consul for updates
+	watchInterval time.Duration // Maximum time Consul waits for changes (blocking query timeout)
 	healthyOnly   bool          // Only return healthy services &  Prevents connections to failing brokers
 
 	// State management for consul
-	mu sync.RWMutex // Mutex to protect state changes 
-	lastIndex uint64 // Last Consul index used for long polling 
-	isRunning bool // Whether the resolver is currently running
-	stopOnce sync.Once // Ensures Stop() can only be called once
+	mu        sync.RWMutex // Mutex to protect state changes
+	lastIndex uint64       // Last Consul index used for long polling
+	isRunning bool         // Whether the resolver is currently running
+	stopOnce  sync.Once    // Ensures Stop() can only be called once
 }
 
 // Config holds configuration for Consul resolver
 type Config struct {
 	// Consul client configuration
 	ConsulAddress string // Address of the Consul server
-	ConsulToken string // ACL token for Consul (optional)
-	DataCenter  string // Data center to use for service discovery (optional) 
+	ConsulToken   string // ACL token for Consul (optional)
+	DataCenter    string // Data center to use for service discovery (optional)
 
 	// Service discovery configuration
-	ServiceName string // Name of the service to discover
+	ServiceName string   // Name of the service to discover
 	Tags        []string // Tags to filter services (optional)
 	HealthyOnly bool     // Only return healthy services
 
 	// Watch configuration
-	WatchInterval time.Duration // How often to poll Consul for updates
+	WatchInterval time.Duration // Maximum time Consul waits for changes before returning (blocking query timeout)
 
 	// TLS configuration
 	TLSConfig *consulapi.TLSConfig // Optional TLS configuration for secure connections
@@ -118,13 +118,11 @@ func (r *Resolver) Stop() {
 	})
 }
 
-// watch continuously monitors Consul for service changes
+// watch continuously monitors Consul for service changes using long polling
 func (r *Resolver) watch() {
 	r.mu.Lock()
 	r.isRunning = true
 	r.mu.Unlock()
-	ticker := time.NewTicker(r.watchInterval) // Poll Consul at regular intervals
-	defer ticker.Stop()                       // Stop ticker when done cleanup
 
 	// Initial discovery
 	// Users expect immediate broker discovery
@@ -136,10 +134,18 @@ func (r *Resolver) watch() {
 		select {
 		case <-r.doneChan: // Stop watching if done
 			return
-		case <-ticker.C: // Check for updates at regular intervals
+		default:
+			// Use long polling - discoverServices will block until changes or timeout
 			if err := r.discoverServices(); err != nil {
-				// Log error but continue watching
+				// On error, wait briefly before retrying to avoid tight loop
+				select {
+				case <-r.doneChan:
+					return
+				case <-time.After(time.Second * 5):
+					// Continue after brief pause
+				}
 			}
+			// No additional waiting needed - Consul's blocking query handles the timing
 		}
 	}
 }
@@ -147,20 +153,20 @@ func (r *Resolver) watch() {
 // discoverServices queries Consul for service instances and sends updates
 func (r *Resolver) discoverServices() error {
 	queryOpts := &consulapi.QueryOptions{
-		WaitIndex: r.lastIndex,		// for making blocking connection this is the flag for consul
-		WaitTime:  r.watchInterval,
+		WaitIndex: r.lastIndex,     // Enable blocking queries for efficient change detection
+		WaitTime:  r.watchInterval, // How long Consul should wait for changes
 	}
-	if r.dataCenter != "" { 
+	if r.dataCenter != "" {
 		queryOpts.Datacenter = r.dataCenter
 	}
-	//Prepare variables for Consul API response 
+	//Prepare variables for Consul API response
 	var services []*consulapi.ServiceEntry
 	var meta *consulapi.QueryMeta
 	var err error
 
 	//Query Consul for services with or without health filtering
 	if r.healthyOnly {
-		services, meta, err = r.client.Health().Service(r.serviceName, "", true, queryOpts)// ONLY HEALTHY RETURN
+		services, meta, err = r.client.Health().Service(r.serviceName, "", true, queryOpts) // ONLY HEALTHY RETURN
 	} else {
 		services, meta, err = r.client.Health().Service(r.serviceName, "", false, queryOpts)
 	}
@@ -172,7 +178,7 @@ func (r *Resolver) discoverServices() error {
 	//Store Consul index for next long-polling request
 	r.lastIndex = meta.LastIndex
 
-	//Apply client-side tag filtering 
+	//Apply client-side tag filtering
 	if len(r.tags) > 0 {
 		services = r.filterByTags(services)
 	}
@@ -182,7 +188,7 @@ func (r *Resolver) discoverServices() error {
 
 	// Send update to the existing courier resolver flow
 	select {
-	case r.updateChan <- addresses: 
+	case r.updateChan <- addresses:
 	case <-r.doneChan:
 		return nil
 	default:

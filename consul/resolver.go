@@ -1,3 +1,4 @@
+// Package consul provides a Consul-based service discovery resolver for courier-go.
 package consul
 
 import (
@@ -11,9 +12,9 @@ import (
 
 // Resolver implements courier.Resolver interface using Consul for service discovery.
 type Resolver struct {
-	client      *consulapi.Client //The actual Consul API client that communicates with Consul server Usage: Makes HTTP API calls to Consul to discover services
+	client      *consulapi.Client //The actual Consul API client that communicates with Consul server
 	serviceName string            // The name of the service to discover
-	dataCenter  string            // The data center to use for service discovery
+	dataCentre  string            // The data centre to use for service discovery
 	tags        []string          // Tags to filter services
 
 	updateChan chan []courier.TCPAddress // Channel to send updates on service addresses
@@ -35,7 +36,7 @@ type Config struct {
 	// Consul client configuration
 	ConsulAddress string // Address of the Consul server
 	ConsulToken   string // ACL token for Consul (optional)
-	DataCenter    string // Data center to use for service discovery (optional)
+	DataCentre    string // Data centre to use for service discovery (optional)
 
 	// Service discovery configuration
 	ServiceName string   // Name of the service to discover
@@ -61,8 +62,8 @@ func NewResolver(config *Config) (*Resolver, error) {
 		consulConfig.Token = config.ConsulToken
 	}
 
-	if config.DataCenter != "" {
-		consulConfig.Datacenter = config.DataCenter
+	if config.DataCentre != "" {
+		consulConfig.Datacenter = config.DataCentre
 	}
 
 	if config.TLSConfig != nil {
@@ -77,7 +78,7 @@ func NewResolver(config *Config) (*Resolver, error) {
 	resolver := &Resolver{
 		client:        client,
 		serviceName:   config.ServiceName,
-		dataCenter:    config.DataCenter,
+		dataCentre:    config.DataCentre,
 		tags:          config.Tags,
 		healthyOnly:   config.HealthyOnly,
 		watchInterval: config.WatchInterval,
@@ -104,7 +105,6 @@ func (r *Resolver) Done() <-chan struct{} {
 // Stop gracefully stops the resolver and releases resources
 func (r *Resolver) Stop() {
 	r.stopOnce.Do(func() { // Ensure Stop() can only be called once
-
 		r.mu.Lock()         // Lock to safely change state
 		defer r.mu.Unlock() // Unlock after changing state
 		//Even though sync.Once prevents multiple executions,
@@ -128,6 +128,7 @@ func (r *Resolver) watch() {
 	// Users expect immediate broker discovery
 	if err := r.discoverServices(); err != nil {
 		// Log error but continue watching
+		// TODO: Add proper logging
 	}
 
 	for {
@@ -156,12 +157,15 @@ func (r *Resolver) discoverServices() error {
 		WaitIndex: r.lastIndex,     // Enable blocking queries for efficient change detection
 		WaitTime:  r.watchInterval, // How long Consul should wait for changes
 	}
-	if r.dataCenter != "" {
-		queryOpts.Datacenter = r.dataCenter
+	if r.dataCentre != "" {
+		queryOpts.Datacenter = r.dataCentre
 	}
+
 	//Prepare variables for Consul API response
 	var services []*consulapi.ServiceEntry
+
 	var meta *consulapi.QueryMeta
+
 	var err error
 
 	//Query Consul for services with or without health filtering
@@ -233,7 +237,7 @@ func (r *Resolver) hasAllTags(serviceTags []string) bool {
 
 // convertToTCPAddresses converts Consul service entries to courier.TCPAddress
 func (r *Resolver) convertToTCPAddresses(services []*consulapi.ServiceEntry) []courier.TCPAddress {
-	var addresses []courier.TCPAddress
+	addresses := make([]courier.TCPAddress, 0, len(services))
 
 	for _, service := range services {
 		address := courier.TCPAddress{

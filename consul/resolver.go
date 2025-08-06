@@ -3,6 +3,7 @@ package consul
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ type Resolver struct {
 	serviceName string            // The name of the service to discover
 	dataCentre  string            // The data centre to use for service discovery
 	tags        []string          // Tags to filter services
+	logger      *log.Logger       // Logger for error and debug messages
 
 	updateChan chan []courier.TCPAddress // Channel to send updates on service addresses
 	doneChan   chan struct{}             // Channel to signal when the resolver is done
@@ -48,6 +50,9 @@ type Config struct {
 
 	// TLS configuration
 	TLSConfig *consulapi.TLSConfig // Optional TLS configuration for secure connections
+
+	// Logging configuration
+	Logger *log.Logger // Optional logger for error and debug messages (uses default if nil)
 }
 
 func NewResolver(config *Config) (*Resolver, error) {
@@ -75,6 +80,12 @@ func NewResolver(config *Config) (*Resolver, error) {
 		return nil, fmt.Errorf("consul: failed to create client: %w", err)
 	}
 
+	// Use provided logger or create a default one
+	logger := config.Logger
+	if logger == nil {
+		logger = log.New(log.Writer(), "[consul-resolver] ", log.LstdFlags)
+	}
+
 	resolver := &Resolver{
 		client:        client,
 		serviceName:   config.ServiceName,
@@ -82,6 +93,7 @@ func NewResolver(config *Config) (*Resolver, error) {
 		tags:          config.Tags,
 		healthyOnly:   config.HealthyOnly,
 		watchInterval: config.WatchInterval,
+		logger:        logger,
 		updateChan:    make(chan []courier.TCPAddress, 1),
 		doneChan:      make(chan struct{}),
 	}
@@ -127,8 +139,7 @@ func (r *Resolver) watch() {
 	// Initial discovery
 	// Users expect immediate broker discovery
 	if err := r.discoverServices(); err != nil {
-		// Log error but continue watching
-		// TODO: Add proper logging
+		r.logger.Printf("Initial service discovery failed: %v (continuing to watch)", err)
 	}
 
 	for {
@@ -138,6 +149,7 @@ func (r *Resolver) watch() {
 		default:
 			// Use long polling - discoverServices will block until changes or timeout
 			if err := r.discoverServices(); err != nil {
+				r.logger.Printf("Service discovery failed: %v (retrying in 5 seconds)", err)
 				// On error, wait briefly before retrying to avoid tight loop
 				select {
 				case <-r.doneChan:
@@ -189,6 +201,8 @@ func (r *Resolver) discoverServices() error {
 
 	//Convert Consul format to courier-go format [extract port and host]
 	addresses := r.convertToTCPAddresses(services)
+
+	r.logger.Printf("Discovered %d service instances for service '%s'", len(addresses), r.serviceName)
 
 	// Send update to the existing courier resolver flow
 	select {

@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gojek/courier-go"
 	consulapi "github.com/hashicorp/consul/api"
+
+	"github.com/gojek/courier-go"
 )
 
 // Resolver implements courier.Resolver interface using Consul for service discovery.

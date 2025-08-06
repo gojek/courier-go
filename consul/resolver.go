@@ -155,10 +155,8 @@ func (r *Resolver) watch() {
 				case <-r.doneChan:
 					return
 				case <-time.After(time.Second * 5):
-					// Continue after brief pause
 				}
 			}
-			// No additional waiting needed - Consul's blocking query handles the timing
 		}
 	}
 }
@@ -210,7 +208,6 @@ func (r *Resolver) discoverServices() error {
 	case <-r.doneChan:
 		return nil
 	default:
-		// Channel is full, skip this update
 	}
 
 	return nil

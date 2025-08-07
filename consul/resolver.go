@@ -34,31 +34,9 @@ type Resolver struct {
 	stopOnce  sync.Once    // Ensures Stop() can only be called once
 }
 
-// Config holds configuration for Consul resolver
-type Config struct {
-	// Consul client configuration
-	ConsulAddress string // Address of the Consul server
-	ConsulToken   string // ACL token for Consul (optional)
-	DataCentre    string // Data centre to use for service discovery (optional)
-
-	// Service discovery configuration
-	ServiceName string   // Name of the service to discover
-	Tags        []string // Tags to filter services (optional)
-	HealthyOnly bool     // Only return healthy services
-
-	// Watch configuration
-	WatchInterval time.Duration // Maximum time Consul waits for changes before returning (blocking query timeout)
-
-	// TLS configuration
-	TLSConfig *consulapi.TLSConfig // Optional TLS configuration for secure connections
-
-	// Logging configuration
-	Logger *log.Logger // Optional logger for error and debug messages (uses default if nil)
-}
-
 func NewResolver(config *Config) (*Resolver, error) {
-	if config.ServiceName == "" {
-		return nil, fmt.Errorf("consul: service name is required")
+	if err := config.Validate(); err != nil {
+		return nil, err
 	}
 
 	consulConfig := consulapi.DefaultConfig()

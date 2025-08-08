@@ -278,21 +278,22 @@ func (r *Resolver) watchKV() {
 		select {
 		case <-r.doneChan:
 			return
-		case <-ticker.C:
-			// Get current service name from KV
+		case <-ticker.C: // Get current service name from KV
 			pair, _, err := r.client.KV().Get(r.kvKey, nil)
 			if err != nil {
 				r.logger.Printf("KV watch error: %v", err)
-				continue
-			}
-			if pair == nil {
+
 				continue
 			}
 
+			if pair == nil {
+				continue
+			}
 			// Parse serviceName from JSON
 			var kvData map[string]interface{}
 			if err := json.Unmarshal(pair.Value, &kvData); err != nil {
 				r.logger.Printf("KV parse error: %v", err)
+
 				continue
 			}
 

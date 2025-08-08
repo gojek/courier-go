@@ -20,6 +20,7 @@ func GetTestConsulValue() (map[string]interface{}, error) {
 	// Get the value for key "testConsul"
 	kv := client.KV()
 	pair, _, err := kv.Get("testConsul", nil)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get key testConsul: %w", err)
 	}
@@ -51,6 +52,7 @@ func PrintTestConsulValue() error {
 	}
 
 	fmt.Printf("testConsul value:\n%s\n", string(prettyJSON))
+
 	return nil
 }
 

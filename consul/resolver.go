@@ -2,6 +2,7 @@
 package consul
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -32,6 +33,10 @@ type Resolver struct {
 	lastIndex uint64       // Last Consul index used for long polling
 	isRunning bool         // Whether the resolver is currently running
 	stopOnce  sync.Once    // Ensures Stop() can only be called once
+
+	// KV watching (optional)
+	kvKey       string        // If set, watch this KV key for service name changes
+	triggerChan chan struct{} // Channel to trigger immediate service discovery
 }
 
 func NewResolver(config *Config) (*Resolver, error) {
@@ -75,10 +80,17 @@ func NewResolver(config *Config) (*Resolver, error) {
 		logger:        logger,
 		updateChan:    make(chan []courier.TCPAddress, 1),
 		doneChan:      make(chan struct{}),
+		kvKey:         config.KVKey,           // Add KV key if provided
+		triggerChan:   make(chan struct{}, 1), // Buffered to prevent blocking
 	}
 
-	// Start watching for service changes
+	// Start watching for service changes (existing goroutine)
 	go resolver.watch()
+
+	// Start KV watcher if KV key is provided (new goroutine)
+	if resolver.kvKey != "" {
+		go resolver.watchKV()
+	}
 
 	return resolver, nil
 }
@@ -105,6 +117,7 @@ func (r *Resolver) Stop() {
 			r.isRunning = false
 			close(r.doneChan)
 			close(r.updateChan)
+			close(r.triggerChan)
 		}
 	})
 }
@@ -125,6 +138,11 @@ func (r *Resolver) watch() {
 		select {
 		case <-r.doneChan: // Stop watching if done
 			return
+		case <-r.triggerChan: // Immediate discovery triggered by service name change
+			// Note: lastIndex is already reset to 0 in watchKV() when service name changes
+			if err := r.discoverServices(); err != nil {
+				r.logger.Printf("Triggered service discovery failed: %v", err)
+			}
 		default:
 			// Use long polling - discoverServices will block until changes or timeout
 			if err := r.discoverServices(); err != nil {
@@ -150,6 +168,11 @@ func (r *Resolver) discoverServices() error {
 		queryOpts.Datacenter = r.dataCentre
 	}
 
+	// Read serviceName with proper locking to avoid race conditions
+	r.mu.RLock()
+	currentServiceName := r.serviceName
+	r.mu.RUnlock()
+
 	//Prepare variables for Consul API response
 	var services []*consulapi.ServiceEntry
 
@@ -159,9 +182,9 @@ func (r *Resolver) discoverServices() error {
 
 	//Query Consul for services with or without health filtering
 	if r.healthyOnly {
-		services, meta, err = r.client.Health().Service(r.serviceName, "", true, queryOpts) // ONLY HEALTHY RETURN
+		services, meta, err = r.client.Health().Service(currentServiceName, "", true, queryOpts) // ONLY HEALTHY RETURN
 	} else {
-		services, meta, err = r.client.Health().Service(r.serviceName, "", false, queryOpts)
+		services, meta, err = r.client.Health().Service(currentServiceName, "", false, queryOpts)
 	}
 
 	if err != nil {
@@ -179,7 +202,7 @@ func (r *Resolver) discoverServices() error {
 	//Convert Consul format to courier-go format [extract port and host]
 	addresses := r.convertToTCPAddresses(services)
 
-	r.logger.Printf("Discovered %d service instances for service '%s'", len(addresses), r.serviceName)
+	r.logger.Printf("Discovered %d service instances for service '%s'", len(addresses), currentServiceName)
 
 	// Send update to the existing courier resolver flow
 	select {
@@ -244,4 +267,56 @@ func (r *Resolver) convertToTCPAddresses(services []*consulapi.ServiceEntry) []c
 	}
 
 	return addresses
+}
+
+// watchKV monitors the KV key for service name changes (simple goroutine 2)
+func (r *Resolver) watchKV() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-r.doneChan:
+			return
+		case <-ticker.C:
+			// Get current service name from KV
+			pair, _, err := r.client.KV().Get(r.kvKey, nil)
+			if err != nil {
+				r.logger.Printf("KV watch error: %v", err)
+				continue
+			}
+			if pair == nil {
+				continue
+			}
+
+			// Parse serviceName from JSON
+			var kvData map[string]interface{}
+			if err := json.Unmarshal(pair.Value, &kvData); err != nil {
+				r.logger.Printf("KV parse error: %v", err)
+				continue
+			}
+
+			serviceName, ok := kvData["serviceName"].(string)
+			if !ok {
+				continue
+			}
+
+			// Update service name if changed
+			r.mu.Lock()
+			if serviceName != r.serviceName {
+				r.logger.Printf("Service name changed from '%s' to '%s'", r.serviceName, serviceName)
+				r.serviceName = serviceName
+				r.lastIndex = 0 // Reset index since we're switching to a different service with different indices
+				r.mu.Unlock()
+
+				// Trigger immediate discovery
+				select {
+				case r.triggerChan <- struct{}{}:
+				default:
+				}
+			} else {
+				r.mu.Unlock()
+			}
+		}
+	}
 }

@@ -21,6 +21,9 @@ type Config struct {
 	Tags        []string // Tags to filter services (optional)
 	HealthyOnly bool     // Only return healthy services
 
+	// KV watching (optional)
+	KVKey string // If set, watch this KV key for service name changes
+
 	// Watch configuration
 	WatchInterval time.Duration // Maximum time Consul waits for changes before returning (blocking query timeout)
 

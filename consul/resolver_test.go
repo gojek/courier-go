@@ -63,7 +63,7 @@ func TestResolverServiceDiscovery(t *testing.T) {
 		ConsulAddress: "localhost:8500",
 		ServiceName:   "consul", // Use consul service as it should always exist
 		HealthyOnly:   true,
-		WatchInterval: 5 * time.Second,
+		WatchInterval: 30 * time.Second,
 	}
 
 	resolver, err := NewResolver(config)

@@ -15,28 +15,27 @@ import (
 
 // Resolver implements courier.Resolver interface using Consul for service discovery.
 type Resolver struct {
-	client      *consulapi.Client //The actual Consul API client that communicates with Consul server
-	serviceName string            // The name of the service to discover
-	dataCentre  string            // The data centre to use for service discovery
-	tags        []string          // Tags to filter services
-	logger      *log.Logger       // Logger for error and debug messages
+	client      *consulapi.Client
+	serviceName string
+	dataCentre  string
+	tags        []string
+	logger      *log.Logger
 
-	updateChan chan []courier.TCPAddress // Channel to send updates on service addresses
-	doneChan   chan struct{}             // Channel to signal when the resolver is done
+	updateChan chan []courier.TCPAddress
+	doneChan   chan struct{}
 
 	// Configuration
-	watchInterval time.Duration // Maximum time Consul waits for changes (blocking query timeout)
-	healthyOnly   bool          // Only return healthy services &  Prevents connections to failing brokers
+	watchInterval time.Duration
+	healthyOnly   bool
 
-	// State management for consul
-	mu        sync.RWMutex // Mutex to protect state changes
-	lastIndex uint64       // Last Consul index used for long polling
-	isRunning bool         // Whether the resolver is currently running
-	stopOnce  sync.Once    // Ensures Stop() can only be called once
+	// State management
+	mu        sync.RWMutex
+	lastIndex uint64
+	isRunning bool
+	stopOnce  sync.Once
 
-	// KV watching (optional)
-	kvKey       string        // If set, watch this KV key for service name changes
-	triggerChan chan struct{} // Channel to trigger immediate service discovery
+	// KV watching
+	kvKey string
 }
 
 func NewResolver(config *Config) (*Resolver, error) {
@@ -64,13 +63,12 @@ func NewResolver(config *Config) (*Resolver, error) {
 		return nil, fmt.Errorf("consul: failed to create client: %w", err)
 	}
 
-	// Use provided logger or create a default one
 	logger := config.Logger
 	if logger == nil {
 		logger = log.New(log.Writer(), "[consul-resolver] ", log.LstdFlags)
 	}
 
-	resolver := &Resolver{
+	r := &Resolver{
 		client:        client,
 		serviceName:   config.ServiceName,
 		dataCentre:    config.DataCentre,
@@ -80,149 +78,194 @@ func NewResolver(config *Config) (*Resolver, error) {
 		logger:        logger,
 		updateChan:    make(chan []courier.TCPAddress, 1),
 		doneChan:      make(chan struct{}),
-		kvKey:         config.KVKey,           // Add KV key if provided
-		triggerChan:   make(chan struct{}, 1), // Buffered to prevent blocking
+		kvKey:         config.KVKey,
 	}
 
-	// Start watching for service changes (existing goroutine)
-	go resolver.watch()
+	go r.run()
 
-	// Start KV watcher if KV key is provided (new goroutine)
-	if resolver.kvKey != "" {
-		go resolver.watchKV()
-	}
-
-	return resolver, nil
+	return r, nil
 }
 
-// UpdateChan returns a channel where TCPAddress updates can be received.
+// UpdateChan returns a channel that provides service address updates.
 func (r *Resolver) UpdateChan() <-chan []courier.TCPAddress {
 	return r.updateChan
 }
 
-// Done returns a channel which is closed when the Resolver is no longer running.
+// Done returns a channel that is closed when the resolver is stopped.
 func (r *Resolver) Done() <-chan struct{} {
 	return r.doneChan
 }
 
-// Stop gracefully stops the resolver and releases resources
+// Stop gracefully stops the resolver.
 func (r *Resolver) Stop() {
-	r.stopOnce.Do(func() { // Ensure Stop() can only be called once
-		r.mu.Lock()         // Lock to safely change state
-		defer r.mu.Unlock() // Unlock after changing state
-		//Even though sync.Once prevents multiple executions,
-		// we still need the mutex to protect shared state that other
-		//  goroutines might be accessing.
+	r.stopOnce.Do(func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+
 		if r.isRunning {
 			r.isRunning = false
 			close(r.doneChan)
-			close(r.updateChan)
-			close(r.triggerChan)
 		}
 	})
 }
 
-// watch continuously monitors Consul for service changes using long polling
-func (r *Resolver) watch() {
+// run starts the resolver's main loop for service discovery and KV watching.
+func (r *Resolver) run() {
 	r.mu.Lock()
 	r.isRunning = true
 	r.mu.Unlock()
 
-	// Initial discovery
-	// Users expect immediate broker discovery
-	if err := r.discoverServices(); err != nil {
-		r.logger.Printf("Initial service discovery failed: %v (continuing to watch)", err)
+	// Initial service discovery
+	if err := r.discover(); err != nil {
+		r.logger.Printf("Initial service discovery failed: %v", err)
 	}
 
+	var wg sync.WaitGroup
+
+	// Start service watcher
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		r.watchServices()
+	}()
+
+	// Start KV watcher if a key is provided
+	if r.kvKey != "" {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			r.watchKV()
+		}()
+	}
+
+	wg.Wait()
+
+	close(r.updateChan)
+}
+
+// watchServices continuously monitors Consul for service changes.
+func (r *Resolver) watchServices() {
 	for {
 		select {
-		case <-r.doneChan: // Stop watching if done
+		case <-r.doneChan:
 			return
-		case <-r.triggerChan: // Immediate discovery triggered by service name change
-			// Note: lastIndex is already reset to 0 in watchKV() when service name changes
-			if err := r.discoverServices(); err != nil {
-				r.logger.Printf("Triggered service discovery failed: %v", err)
-			}
 		default:
-			// Use long polling - discoverServices will block until changes or timeout
-			if err := r.discoverServices(); err != nil {
-				r.logger.Printf("Service discovery failed: %v (retrying in 5 seconds)", err)
-				// On error, wait briefly before retrying to avoid tight loop
+			if err := r.discover(); err != nil {
+				r.logger.Printf("Service discovery failed: %v", err)
+				// Backoff before retrying
 				select {
+				case <-time.After(5 * time.Second):
 				case <-r.doneChan:
 					return
-				case <-time.After(time.Second * 5):
 				}
 			}
 		}
 	}
 }
 
-// discoverServices queries Consul for service instances and sends updates
-func (r *Resolver) discoverServices() error {
-	queryOpts := &consulapi.QueryOptions{
-		WaitIndex: r.lastIndex,     // Enable blocking queries for efficient change detection
-		WaitTime:  r.watchInterval, // How long Consul should wait for changes
-	}
-	if r.dataCentre != "" {
-		queryOpts.Datacenter = r.dataCentre
-	}
-
-	// Read serviceName with proper locking to avoid race conditions
+// discover performs a blocking query to find service instances.
+func (r *Resolver) discover() error {
 	r.mu.RLock()
-	currentServiceName := r.serviceName
+	serviceName := r.serviceName
+	queryOpts := &consulapi.QueryOptions{
+		WaitIndex:  r.lastIndex,
+		WaitTime:   r.watchInterval,
+		Datacenter: r.dataCentre,
+	}
 	r.mu.RUnlock()
 
-	//Prepare variables for Consul API response
-	var services []*consulapi.ServiceEntry
-
-	var meta *consulapi.QueryMeta
-
-	var err error
-
-	//Query Consul for services with or without health filtering
-	if r.healthyOnly {
-		services, meta, err = r.client.Health().Service(currentServiceName, "", true, queryOpts) // ONLY HEALTHY RETURN
-	} else {
-		services, meta, err = r.client.Health().Service(currentServiceName, "", false, queryOpts)
-	}
-
+	services, meta, err := r.client.Health().Service(serviceName, "", r.healthyOnly, queryOpts)
 	if err != nil {
-		return fmt.Errorf("consul: failed to query services: %w", err)
+		return fmt.Errorf("failed to query services: %w", err)
 	}
 
-	//Store Consul index for next long-polling request
+	r.mu.Lock()
 	r.lastIndex = meta.LastIndex
+	r.mu.Unlock()
 
-	//Apply client-side tag filtering
-	if len(r.tags) > 0 {
-		services = r.filterByTags(services)
-	}
+	addresses := r.convertToTCPAddresses(r.filterByTags(services))
+	r.logger.Printf("Discovered %d instances for service '%s'", len(addresses), serviceName)
 
-	//Convert Consul format to courier-go format [extract port and host]
-	addresses := r.convertToTCPAddresses(services)
-
-	r.logger.Printf("Discovered %d service instances for service '%s'", len(addresses), currentServiceName)
-
-	// Send update to the existing courier resolver flow
 	select {
 	case r.updateChan <- addresses:
 	case <-r.doneChan:
 		return nil
-	default:
 	}
 
 	return nil
 }
 
-// filterByTags filters services by required tags
+// watchKV continuously monitors a KV key for changes to the service name.
+func (r *Resolver) watchKV() {
+	var lastKVIndex uint64
+
+	for {
+		select {
+		case <-r.doneChan:
+			return
+		default:
+			pair, meta, err := r.client.KV().Get(r.kvKey, &consulapi.QueryOptions{
+				WaitIndex: lastKVIndex,
+				WaitTime:  r.watchInterval,
+			})
+			if err != nil {
+				r.logger.Printf("KV watch error: %v", err)
+				// Backoff before retrying
+				select {
+				case <-time.After(5 * time.Second):
+				case <-r.doneChan:
+					return
+				}
+
+				continue
+			}
+
+			if meta != nil {
+				lastKVIndex = meta.LastIndex
+			}
+
+			if pair == nil || len(pair.Value) == 0 {
+				continue
+			}
+
+			var kvData struct {
+				ServiceName string `json:"serviceName"`
+			}
+
+			if err := json.Unmarshal(pair.Value, &kvData); err != nil {
+				r.logger.Printf("KV parse error: %v", err)
+
+				continue
+			}
+
+			r.mu.Lock()
+			if kvData.ServiceName != "" && kvData.ServiceName != r.serviceName {
+				r.logger.Printf("Service name changed from '%s' to '%s'", r.serviceName, kvData.ServiceName)
+				r.serviceName = kvData.ServiceName
+				r.lastIndex = 0 // Reset index for the new service
+				r.mu.Unlock()
+
+				// Trigger immediate rediscovery
+				if err := r.discover(); err != nil {
+					r.logger.Printf("Triggered service discovery failed: %v", err)
+				}
+			} else {
+				r.mu.Unlock()
+			}
+		}
+	}
+}
+
+// filterByTags filters a list of services based on the resolver's tags.
 func (r *Resolver) filterByTags(services []*consulapi.ServiceEntry) []*consulapi.ServiceEntry {
 	if len(r.tags) == 0 {
 		return services
 	}
 
 	var filtered []*consulapi.ServiceEntry
-	//Keep only services that have ALL required tag
+
 	for _, service := range services {
 		if r.hasAllTags(service.Service.Tags) {
 			filtered = append(filtered, service)
@@ -232,15 +275,15 @@ func (r *Resolver) filterByTags(services []*consulapi.ServiceEntry) []*consulapi
 	return filtered
 }
 
-// hasAllTags checks if service has all required tags
+// hasAllTags checks if a service has all the required tags.
 func (r *Resolver) hasAllTags(serviceTags []string) bool {
-	tagSet := make(map[string]bool)
+	tagSet := make(map[string]struct{}, len(serviceTags))
 	for _, tag := range serviceTags {
-		tagSet[tag] = true
+		tagSet[tag] = struct{}{}
 	}
 
 	for _, requiredTag := range r.tags {
-		if !tagSet[requiredTag] {
+		if _, ok := tagSet[requiredTag]; !ok {
 			return false
 		}
 	}
@@ -248,76 +291,21 @@ func (r *Resolver) hasAllTags(serviceTags []string) bool {
 	return true
 }
 
-// convertToTCPAddresses converts Consul service entries to courier.TCPAddress
+// convertToTCPAddresses converts Consul service entries to courier.TCPAddress.
 func (r *Resolver) convertToTCPAddresses(services []*consulapi.ServiceEntry) []courier.TCPAddress {
 	addresses := make([]courier.TCPAddress, 0, len(services))
 
 	for _, service := range services {
-		address := courier.TCPAddress{
-			Host: service.Service.Address,
+		host := service.Service.Address
+		if host == "" {
+			host = service.Node.Address
+		}
+
+		addresses = append(addresses, courier.TCPAddress{
+			Host: host,
 			Port: uint16(service.Service.Port),
-		}
-
-		// Use node address if service address is empty
-		if address.Host == "" {
-			address.Host = service.Node.Address
-		}
-
-		addresses = append(addresses, address)
+		})
 	}
 
 	return addresses
-}
-
-// watchKV monitors the KV key for service name changes (simple goroutine 2)
-func (r *Resolver) watchKV() {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-r.doneChan:
-			return
-		case <-ticker.C: // Get current service name from KV
-			pair, _, err := r.client.KV().Get(r.kvKey, nil)
-			if err != nil {
-				r.logger.Printf("KV watch error: %v", err)
-
-				continue
-			}
-
-			if pair == nil {
-				continue
-			}
-			// Parse serviceName from JSON
-			var kvData map[string]interface{}
-			if err := json.Unmarshal(pair.Value, &kvData); err != nil {
-				r.logger.Printf("KV parse error: %v", err)
-
-				continue
-			}
-
-			serviceName, ok := kvData["serviceName"].(string)
-			if !ok {
-				continue
-			}
-
-			// Update service name if changed
-			r.mu.Lock()
-			if serviceName != r.serviceName {
-				r.logger.Printf("Service name changed from '%s' to '%s'", r.serviceName, serviceName)
-				r.serviceName = serviceName
-				r.lastIndex = 0 // Reset index since we're switching to a different service with different indices
-				r.mu.Unlock()
-
-				// Trigger immediate discovery
-				select {
-				case r.triggerChan <- struct{}{}:
-				default:
-				}
-			} else {
-				r.mu.Unlock()
-			}
-		}
-	}
 }

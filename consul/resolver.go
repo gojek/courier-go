@@ -182,10 +182,13 @@ func (r *Resolver) discover() error {
 	}
 
 	r.mu.Lock()
+
 	if serviceName != r.serviceName {
 		r.mu.Unlock()
-		return nil 
+
+		return nil
 	}
+
 	r.lastIndex = meta.LastIndex
 	r.mu.Unlock()
 

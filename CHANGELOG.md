@@ -8,6 +8,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.7.1]
+
+### Added
+
+- Add `ParseLogLevel` func to parse string log levels ([#50](https://github.com/gojek/courier-go/pull/50))
+
 ## [0.7.0]
 
 ### Added
@@ -120,7 +126,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Initial Release
 
-[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/gojek/courier-go/releases/tag/v0.7.1
 [0.7.0]: https://github.com/gojek/courier-go/releases/tag/v0.7.0
 [0.6.1]: https://github.com/gojek/courier-go/releases/tag/v0.6.1
 [0.6.0]: https://github.com/gojek/courier-go/releases/tag/v0.6.0

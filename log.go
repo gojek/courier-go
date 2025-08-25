@@ -54,3 +54,20 @@ func (l LogLevel) toPahoLogLevel() mqtt.LogLevel {
 		return mqtt.LogLevelDefault
 	}
 }
+
+// ParseLogLevel parses a string and returns the corresponding LogLevel.
+// If the input is unrecognised, LogLevelDefault is returned.
+func ParseLogLevel(level string) LogLevel {
+	switch level {
+	case "none":
+		return LogLevelDefault
+	case "debug":
+		return LogLevelDebug
+	case "warn":
+		return LogLevelWarn
+	case "error":
+		return LogLevelError
+	default:
+		return LogLevelDefault
+	}
+}

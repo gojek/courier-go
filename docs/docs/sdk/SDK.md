@@ -70,6 +70,7 @@ Package courier contains the client that can be used to interact with the courie
 - [type EncoderFunc](#EncoderFunc)
 - [type KeepAlive](#KeepAlive)
 - [type LogLevel](#LogLevel)
+  - [func ParseLogLevel\(level string\) LogLevel](#ParseLogLevel)
 - [type Logger](#Logger)
 - [type MQTTClientInfo](#MQTTClientInfo)
 - [type Message](#Message)
@@ -771,6 +772,15 @@ const (
     LogLevelError
 )
 ```
+
+<a name="ParseLogLevel"></a>
+### func [ParseLogLevel](https://github.com/gojek/courier-go/blob/main/log.go#L60)
+
+```go
+func ParseLogLevel(level string) LogLevel
+```
+
+ParseLogLevel parses a string and returns the corresponding LogLevel. If the input is unrecognised, LogLevelDefault is returned.
 
 <a name="Logger"></a>
 ## type [Logger](https://github.com/gojek/courier-go/blob/main/log.go#L20-L23)

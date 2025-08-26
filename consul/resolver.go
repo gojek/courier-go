@@ -109,7 +109,7 @@ func (r *Resolver) Stop() {
 	})
 }
 
-// run starts the resolver's main loop for service discovery and KV watching.
+// Start the resolver's main loop for service discovery and KV watching.
 func (r *Resolver) Start() {
 	r.mu.Lock()
 	r.isRunning = true

@@ -81,7 +81,7 @@ func NewResolver(config *Config) (*Resolver, error) {
 		kvKey:         config.KVKey,
 	}
 
-	go r.run()
+	go r.Start()
 
 	return r, nil
 }
@@ -110,7 +110,7 @@ func (r *Resolver) Stop() {
 }
 
 // run starts the resolver's main loop for service discovery and KV watching.
-func (r *Resolver) run() {
+func (r *Resolver) Start() {
 	r.mu.Lock()
 	r.isRunning = true
 	r.mu.Unlock()

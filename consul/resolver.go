@@ -81,8 +81,6 @@ func NewResolver(config *Config) (*Resolver, error) {
 		kvKey:         config.KVKey,
 	}
 
-	go r.Start()
-
 	return r, nil
 }
 

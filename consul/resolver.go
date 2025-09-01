@@ -76,7 +76,7 @@ func NewResolver(config *Config) (*Resolver, error) {
 		healthyOnly:   config.HealthyOnly,
 		watchInterval: config.WatchInterval,
 		logger:        logger,
-		updateChan:    make(chan []courier.TCPAddress, 1),
+		updateChan:    make(chan []courier.TCPAddress, 3),
 		doneChan:      make(chan struct{}),
 		kvKey:         config.KVKey,
 	}

@@ -192,7 +192,11 @@ func (c *Client) runResolver() error {
 	fmt.Printf("top: Client coptions, %+v\n", c.options)
 	fmt.Printf("top: Client runResolver connect timeout, %+v\n", c.options.connectTimeout)
 
-	addrs := <-c.options.resolver.UpdateChan()
+	addrs := []TCPAddress{
+		{Host: "10.108.0.99", Port: 1882},
+		{Host: "10.108.0.238", Port: 1882},
+	}
+
 	fmt.Printf("top: Client runResolver received update, %+v\n", addrs)
 
 	if err := c.attemptConnections(addrs); err != nil {

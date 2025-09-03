@@ -195,6 +195,7 @@ func (c *Client) runResolver() error {
 	}
 
 	c.handleInfoEmitter()
+
 	go c.watchAddressUpdates(c.options.resolver)
 
 	return nil

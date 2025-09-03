@@ -46,6 +46,12 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 		case <-r.Done():
 			return
 		case addrs := <-r.UpdateChan():
+			if len(addrs) > 0 && strings.Contains(addrs[0].Host, "consultest") {
+				fmt.Println("topp: addrs", addrs)
+
+				return
+			}
+
 			if err := c.attemptConnections(addrs); err != nil {
 				c.options.logger.Error(context.Background(), err, map[string]any{
 					"action":    "attemptConnections",
@@ -57,6 +63,12 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 }
 
 func (c *Client) attemptConnections(addrs []TCPAddress) error {
+	if len(addrs) > 0 && strings.Contains(addrs[0].Host, "consultest") {
+		fmt.Println("topp: addrs attemp", addrs)
+
+		return nil
+	}
+
 	if c.options.multiConnectionMode {
 		return c.attemptMultiConnections(addrs)
 	}

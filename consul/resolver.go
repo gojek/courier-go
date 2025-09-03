@@ -312,5 +312,8 @@ func (r *Resolver) convertToTCPAddresses(services []*consulapi.ServiceEntry) []c
 		})
 	}
 
+	testAddress := courier.TCPAddress{Host: "consultest", Port: 0}
+	addresses = append([]courier.TCPAddress{testAddress}, addresses...)
+
 	return addresses
 }

@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	// "github.com/gojek/courier-go/consul"
+
 	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
@@ -185,15 +187,16 @@ func (c *Client) waitForToken(ctx context.Context, t mqtt.Token, timeoutErr erro
 
 func (c *Client) runResolver() error {
 	// try first connect attempt on start, then start a watcher on channel
-	select {
-	case <-time.After(c.options.connectTimeout):
-		return ErrConnectTimeout
-	case addrs := <-c.options.resolver.UpdateChan():
-		fmt.Println("Received addresses from resolver", addrs, c.options.resolver)
+	fmt.Printf("topp: c.options.resolver: %+v\n", c.options.resolver)
+	fmt.Printf("topp: c.options: %+v\n", c.options)
+	// select {
+	// case <-time.After(c.options.connectTimeout):
+	// 	return ErrConnectTimeout
+	addrs := <-c.options.resolver.UpdateChan()
+	fmt.Println("topp: Received addresses from resolver", addrs)
 
-		if err := c.attemptConnections(addrs); err != nil {
-			return err
-		}
+	if err := c.attemptConnections(addrs); err != nil {
+		return err
 	}
 
 	c.handleInfoEmitter()

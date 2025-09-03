@@ -95,8 +95,6 @@ func (c *Client) IsConnected() bool {
 
 // Start will attempt to connect to the broker.
 func (c *Client) Start() error {
-	fmt.Println("Client Start called, ", c)
-
 	if c.options.resolver != nil {
 		return c.runResolver()
 	}
@@ -187,17 +185,10 @@ func (c *Client) waitForToken(ctx context.Context, t mqtt.Token, timeoutErr erro
 
 func (c *Client) runResolver() error {
 	// try first connect attempt on start, then start a watcher on channel
-	fmt.Printf("Client runResolver called, %+v\n", c)
-	fmt.Printf("Client coptions, %+v\n", c.options)
-
 	select {
 	case <-time.After(c.options.connectTimeout):
-		fmt.Println("Client runResolver connect timeout, ", c.options.connectTimeout)
-
 		return ErrConnectTimeout
 	case addrs := <-c.options.resolver.UpdateChan():
-		fmt.Println("Client runResolver received update, ", addrs)
-
 		if err := c.attemptConnections(addrs); err != nil {
 			return err
 		}

@@ -189,6 +189,8 @@ func (c *Client) runResolver() error {
 	case <-time.After(c.options.connectTimeout):
 		return ErrConnectTimeout
 	case addrs := <-c.options.resolver.UpdateChan():
+		fmt.Println("Received addresses from resolver", addrs, c.options.resolver)
+
 		if err := c.attemptConnections(addrs); err != nil {
 			return err
 		}

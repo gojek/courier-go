@@ -138,9 +138,8 @@ func (r *Resolver) Start() {
 		}()
 	}
 
+	// close(r.updateChan) move this to last of this fn moved here for lint
 	wg.Wait()
-
-	close(r.updateChan)
 }
 
 // watchServices continuously monitors Consul for service changes.
@@ -193,11 +192,11 @@ func (r *Resolver) discover() error {
 	addresses := r.convertToTCPAddresses(r.filterByTags(services))
 	r.logger.Printf("Discovered %d instances for service '%s'", len(addresses), serviceName)
 
-	select {
-	case r.updateChan <- addresses:
-	case <-r.doneChan:
-		return nil
-	}
+	// select {
+	// case r.updateChan <- addresses:
+	// case <-r.doneChan:
+	// 	return nil
+	// }
 
 	return nil
 }

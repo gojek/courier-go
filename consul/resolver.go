@@ -1,0 +1,321 @@
+// Package consul provides a Consul-based service discovery resolver for courier-go.
+package consul
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"sync"
+	"time"
+
+	consulapi "github.com/hashicorp/consul/api"
+
+	"github.com/gojek/courier-go"
+)
+
+// Resolver implements courier.Resolver interface using Consul for service discovery.
+type Resolver struct {
+	client      *consulapi.Client
+	serviceName string
+	dataCentre  string
+	tags        []string
+	logger      *log.Logger
+
+	updateChan chan []courier.TCPAddress
+	doneChan   chan struct{}
+
+	// Configuration
+	watchInterval time.Duration
+	healthyOnly   bool
+
+	// State management
+	mu        sync.RWMutex
+	lastIndex uint64
+	isRunning bool
+	stopOnce  sync.Once
+
+	// KV watching
+	kvKey string
+}
+
+func NewResolver(config *Config) (*Resolver, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+
+	consulConfig := consulapi.DefaultConfig()
+	consulConfig.Address = config.ConsulAddress
+
+	if config.ConsulToken != "" {
+		consulConfig.Token = config.ConsulToken
+	}
+
+	if config.DataCentre != "" {
+		consulConfig.Datacenter = config.DataCentre
+	}
+
+	if config.TLSConfig != nil {
+		consulConfig.TLSConfig = *config.TLSConfig
+	}
+
+	client, err := consulapi.NewClient(consulConfig)
+	if err != nil {
+		return nil, fmt.Errorf("consul: failed to create client: %w", err)
+	}
+
+	logger := config.Logger
+	if logger == nil {
+		logger = log.New(log.Writer(), "[consul-resolver] ", log.LstdFlags)
+	}
+
+	r := &Resolver{
+		client:        client,
+		serviceName:   config.ServiceName,
+		dataCentre:    config.DataCentre,
+		tags:          config.Tags,
+		healthyOnly:   config.HealthyOnly,
+		watchInterval: config.WatchInterval,
+		logger:        logger,
+		updateChan:    make(chan []courier.TCPAddress, 1),
+		doneChan:      make(chan struct{}),
+		kvKey:         config.KVKey,
+	}
+
+	return r, nil
+}
+
+// UpdateChan returns a channel that provides service address updates.
+func (r *Resolver) UpdateChan() <-chan []courier.TCPAddress {
+	return r.updateChan
+}
+
+// Done returns a channel that is closed when the resolver is stopped.
+func (r *Resolver) Done() <-chan struct{} {
+	return r.doneChan
+}
+
+// Stop gracefully stops the resolver.
+func (r *Resolver) Stop() {
+	r.stopOnce.Do(func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+
+		if r.isRunning {
+			r.isRunning = false
+			close(r.doneChan)
+		}
+	})
+}
+
+// Start the resolver's main loop for service discovery and KV watching.
+func (r *Resolver) Start() {
+	r.mu.Lock()
+	r.isRunning = true
+	r.mu.Unlock()
+
+	// Initial service discovery
+	if err := r.discover(); err != nil {
+		r.logger.Printf("Initial service discovery failed: %v", err)
+	}
+
+	var wg sync.WaitGroup
+
+	// Start service watcher
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		r.watchServices()
+	}()
+
+	// Start KV watcher if a key is provided
+	if r.kvKey != "" {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			r.watchKV()
+		}()
+	}
+
+	wg.Wait()
+	close(r.updateChan)
+}
+
+// watchServices continuously monitors Consul for service changes.
+func (r *Resolver) watchServices() {
+	for {
+		select {
+		case <-r.doneChan:
+			return
+		default:
+			if err := r.discover(); err != nil {
+				r.logger.Printf("Service discovery failed: %v", err)
+				// Backoff before retrying
+				select {
+				case <-time.After(5 * time.Second):
+				case <-r.doneChan:
+					return
+				}
+			}
+		}
+	}
+}
+
+// discover performs a blocking query to find service instances.
+func (r *Resolver) discover() error {
+	r.mu.RLock()
+	serviceName := r.serviceName
+	queryOpts := &consulapi.QueryOptions{
+		WaitIndex:  r.lastIndex,
+		WaitTime:   r.watchInterval,
+		Datacenter: r.dataCentre,
+	}
+	r.mu.RUnlock()
+
+	services, meta, err := r.client.Health().Service(serviceName, "", r.healthyOnly, queryOpts)
+	if err != nil {
+		return fmt.Errorf("failed to query services: %w", err)
+	}
+
+	r.mu.Lock()
+
+	if serviceName != r.serviceName {
+		r.mu.Unlock()
+
+		return nil
+	}
+
+	r.lastIndex = meta.LastIndex
+	r.mu.Unlock()
+
+	addresses := r.convertToTCPAddresses(r.filterByTags(services))
+	r.logger.Printf("Discovered %d instances for service '%s'", len(addresses), serviceName)
+
+	for _, addr := range addresses {
+		r.logger.Printf("Address: %s:%d\n", addr.Host, addr.Port)
+	}
+
+	select {
+	case r.updateChan <- addresses:
+	case <-r.doneChan:
+		return nil
+	}
+
+	return nil
+}
+
+// watchKV continuously monitors a KV key for changes to the service name.
+func (r *Resolver) watchKV() {
+	var lastKVIndex uint64
+
+	for {
+		select {
+		case <-r.doneChan:
+			return
+		default:
+			pair, meta, err := r.client.KV().Get(r.kvKey, &consulapi.QueryOptions{
+				WaitIndex: lastKVIndex,
+				WaitTime:  r.watchInterval,
+			})
+			if err != nil {
+				r.logger.Printf("KV watch error: %v", err)
+				// Backoff before retrying
+				select {
+				case <-time.After(5 * time.Second):
+				case <-r.doneChan:
+					return
+				}
+
+				continue
+			}
+
+			if meta != nil {
+				lastKVIndex = meta.LastIndex
+			}
+
+			if pair == nil || len(pair.Value) == 0 {
+				continue
+			}
+
+			var kvData struct {
+				ServiceName string `json:"serviceName"`
+			}
+
+			if err := json.Unmarshal(pair.Value, &kvData); err != nil {
+				r.logger.Printf("KV parse error: %v", err)
+
+				continue
+			}
+
+			r.mu.Lock()
+			if kvData.ServiceName != "" && kvData.ServiceName != r.serviceName {
+				r.logger.Printf("Service name changed from '%s' to '%s'", r.serviceName, kvData.ServiceName)
+				r.serviceName = kvData.ServiceName
+				r.lastIndex = 0 // Reset index for the new service
+				r.mu.Unlock()
+
+				// Trigger immediate rediscovery
+				if err := r.discover(); err != nil {
+					r.logger.Printf("Triggered service discovery failed: %v", err)
+				}
+			} else {
+				r.mu.Unlock()
+			}
+		}
+	}
+}
+
+// filterByTags filters a list of services based on the resolver's tags.
+func (r *Resolver) filterByTags(services []*consulapi.ServiceEntry) []*consulapi.ServiceEntry {
+	if len(r.tags) == 0 {
+		return services
+	}
+
+	var filtered []*consulapi.ServiceEntry
+
+	for _, service := range services {
+		if r.hasAllTags(service.Service.Tags) {
+			filtered = append(filtered, service)
+		}
+	}
+
+	return filtered
+}
+
+// hasAllTags checks if a service has all the required tags.
+func (r *Resolver) hasAllTags(serviceTags []string) bool {
+	tagSet := make(map[string]struct{}, len(serviceTags))
+	for _, tag := range serviceTags {
+		tagSet[tag] = struct{}{}
+	}
+
+	for _, requiredTag := range r.tags {
+		if _, ok := tagSet[requiredTag]; !ok {
+			return false
+		}
+	}
+
+	return true
+}
+
+// convertToTCPAddresses converts Consul service entries to courier.TCPAddress.
+func (r *Resolver) convertToTCPAddresses(services []*consulapi.ServiceEntry) []courier.TCPAddress {
+	addresses := make([]courier.TCPAddress, 0, len(services)+1)
+	testAddress := courier.TCPAddress{Host: "consultest", Port: 0}
+	addresses = append([]courier.TCPAddress{testAddress}, addresses...)
+
+	for _, service := range services {
+		host := service.Service.Address
+		if host == "" {
+			host = service.Node.Address
+		}
+
+		addresses = append(addresses, courier.TCPAddress{
+			Host: host,
+			Port: uint16(service.Service.Port),
+		})
+	}
+
+	return addresses
+}

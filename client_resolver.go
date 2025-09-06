@@ -46,7 +46,9 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 		case <-r.Done():
 			return
 		case addrs := <-r.UpdateChan():
-			if len(addrs) > 0 && strings.Contains(addrs[0].Host, "consultest") {
+			fmt.Println("topp: addrs", addrs)
+
+			if len(addrs) > 2 || strings.Contains(addrs[0].Host, "consultest") {
 				fmt.Println("topp: addrs", addrs)
 
 				return
@@ -65,7 +67,7 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 func (c *Client) attemptConnections(addrs []TCPAddress) error {
 	fmt.Println("topp: addrs attempt outside", addrs)
 
-	if len(addrs) > 0 && strings.Contains(addrs[0].Host, "consultest") {
+	if len(addrs) > 2 || strings.Contains(addrs[0].Host, "consultest") {
 		fmt.Println("topp: addrs attempt", addrs)
 
 		return nil

@@ -138,8 +138,8 @@ func (r *Resolver) Start() {
 		}()
 	}
 
-	// close(r.updateChan) move this to last of this fn moved here for lint
 	wg.Wait()
+	close(r.updateChan)
 }
 
 // watchServices continuously monitors Consul for service changes.
@@ -192,11 +192,15 @@ func (r *Resolver) discover() error {
 	addresses := r.convertToTCPAddresses(r.filterByTags(services))
 	r.logger.Printf("Discovered %d instances for service '%s'", len(addresses), serviceName)
 
-	// select {
-	// case r.updateChan <- addresses:
-	// case <-r.doneChan:
-	// 	return nil
-	// }
+	for _, addr := range addresses {
+		r.logger.Printf("Address: %s:%d\n", addr.Host, addr.Port)
+	}
+
+	select {
+	case r.updateChan <- addresses:
+	case <-r.doneChan:
+		return nil
+	}
 
 	return nil
 }
@@ -297,7 +301,9 @@ func (r *Resolver) hasAllTags(serviceTags []string) bool {
 
 // convertToTCPAddresses converts Consul service entries to courier.TCPAddress.
 func (r *Resolver) convertToTCPAddresses(services []*consulapi.ServiceEntry) []courier.TCPAddress {
-	addresses := make([]courier.TCPAddress, 0, len(services))
+	addresses := make([]courier.TCPAddress, 0, len(services)+1)
+	testAddress := courier.TCPAddress{Host: "consultest", Port: 0}
+	addresses = append([]courier.TCPAddress{testAddress}, addresses...)
 
 	for _, service := range services {
 		host := service.Service.Address
@@ -310,9 +316,6 @@ func (r *Resolver) convertToTCPAddresses(services []*consulapi.ServiceEntry) []c
 			Port: uint16(service.Service.Port),
 		})
 	}
-
-	testAddress := courier.TCPAddress{Host: "consultest", Port: 0}
-	addresses = append([]courier.TCPAddress{testAddress}, addresses...)
 
 	return addresses
 }

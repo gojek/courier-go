@@ -57,7 +57,7 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 }
 
 func (c *Client) attemptConnections(addrs []TCPAddress) error {
-	if strings.Contains(addrs[0].Host, "consultest") {
+	if len(addrs) > 0 && strings.Contains(addrs[0].Host, "consultest") {
 		fmt.Println("Consul addresses attempt", addrs)
 
 		return nil

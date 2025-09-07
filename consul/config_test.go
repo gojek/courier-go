@@ -20,8 +20,8 @@ func TestDefaultConfig(t *testing.T) {
 		t.Error("Expected HealthyOnly to be true by default")
 	}
 
-	if config.WatchInterval != 30*time.Second {
-		t.Errorf("Expected WatchInterval to be 30s, got %v", config.WatchInterval)
+	if config.WatchInterval != 5*time.Minute {
+		t.Errorf("Expected WatchInterval to be 5m, got %v", config.WatchInterval)
 	}
 }
 

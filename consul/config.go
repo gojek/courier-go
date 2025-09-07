@@ -39,7 +39,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		ConsulAddress: "localhost:8500",
 		HealthyOnly:   true,
-		WatchInterval: 30 * time.Second,
+		WatchInterval: 5 * time.Minute,
 	}
 }
 

@@ -46,6 +46,10 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 		case <-r.Done():
 			return
 		case addrs := <-r.UpdateChan():
+			if len(addrs) > 0 && strings.Contains(addrs[0].Host, "consultest") {
+				continue
+			}
+
 			if err := c.attemptConnections(addrs); err != nil {
 				c.options.logger.Error(context.Background(), err, map[string]any{
 					"action":    "attemptConnections",
@@ -57,6 +61,8 @@ func (c *Client) watchAddressUpdates(r Resolver) {
 }
 
 func (c *Client) attemptConnections(addrs []TCPAddress) error {
+	fmt.Println("Outside Consul addresses attempt", addrs)
+
 	if len(addrs) > 0 && strings.Contains(addrs[0].Host, "consultest") {
 		fmt.Println("Consul addresses attempt", addrs)
 

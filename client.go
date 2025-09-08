@@ -185,8 +185,6 @@ func (c *Client) waitForToken(ctx context.Context, t mqtt.Token, timeoutErr erro
 
 func (c *Client) runResolver() error {
 	// try first connect attempt on start, then start a watcher on channel
-	fmt.Printf("topp: c.options.resolver: %+v\n", c.options.resolver)
-	fmt.Printf("topp: c.options: %+v\n", c.options)
 	select {
 	case <-time.After(c.options.connectTimeout):
 		return ErrConnectTimeout

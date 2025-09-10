@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -192,12 +191,6 @@ func (c *Client) runResolver() error {
 	case <-time.After(c.options.connectTimeout):
 		return ErrConnectTimeout
 	case addrs := <-c.options.resolver.UpdateChan():
-		fmt.Println("Outside Consul addresses attempt 1", addrs)
-
-		if len(addrs) > 0 && strings.Contains(addrs[0].Host, "consultest") {
-			return nil
-		}
-
 		if err := c.attemptConnections(addrs); err != nil {
 			return err
 		}

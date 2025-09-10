@@ -192,10 +192,6 @@ func (r *Resolver) discover() error {
 	addresses := r.convertToTCPAddresses(r.filterByTags(services))
 	r.logger.Printf("Discovered %d instances for service '%s'", len(addresses), serviceName)
 
-	for _, addr := range addresses {
-		r.logger.Printf("Address: %s:%d\n", addr.Host, addr.Port)
-	}
-
 	select {
 	case r.updateChan <- addresses:
 	case <-r.doneChan:
@@ -301,9 +297,7 @@ func (r *Resolver) hasAllTags(serviceTags []string) bool {
 
 // convertToTCPAddresses converts Consul service entries to courier.TCPAddress.
 func (r *Resolver) convertToTCPAddresses(services []*consulapi.ServiceEntry) []courier.TCPAddress {
-	addresses := make([]courier.TCPAddress, 0, len(services)+1)
-	testAddress := courier.TCPAddress{Host: "consultest", Port: 0}
-	addresses = append([]courier.TCPAddress{testAddress}, addresses...)
+	addresses := make([]courier.TCPAddress, 0, len(services))
 
 	for _, service := range services {
 		host := service.Service.Address

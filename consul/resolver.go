@@ -194,6 +194,7 @@ func (r *Resolver) discover() error {
 
 	select {
 	case r.updateChan <- addresses:
+		fmt.Println("Sent addresses update", addresses)
 	case <-r.doneChan:
 		return nil
 	}

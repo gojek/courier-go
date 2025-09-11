@@ -95,8 +95,6 @@ func (c *Client) IsConnected() bool {
 
 // Start will attempt to connect to the broker.
 func (c *Client) Start() error {
-	fmt.Printf("resolver: %+v\n", c.options.resolver)
-
 	if c.options.resolver != nil {
 		return c.runResolver()
 	}

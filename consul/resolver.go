@@ -46,18 +46,6 @@ func NewResolver(config *Config) (*Resolver, error) {
 	consulConfig := consulapi.DefaultConfig()
 	consulConfig.Address = config.ConsulAddress
 
-	if config.ConsulToken != "" {
-		consulConfig.Token = config.ConsulToken
-	}
-
-	if config.DataCentre != "" {
-		consulConfig.Datacenter = config.DataCentre
-	}
-
-	if config.TLSConfig != nil {
-		consulConfig.TLSConfig = *config.TLSConfig
-	}
-
 	client, err := consulapi.NewClient(consulConfig)
 	if err != nil {
 		return nil, fmt.Errorf("consul: failed to create client: %w", err)
@@ -71,7 +59,6 @@ func NewResolver(config *Config) (*Resolver, error) {
 	r := &Resolver{
 		client:        client,
 		serviceName:   config.ServiceName,
-		dataCentre:    config.DataCentre,
 		tags:          config.Tags,
 		healthyOnly:   config.HealthyOnly,
 		watchInterval: config.WatchInterval,
@@ -113,6 +100,12 @@ func (r *Resolver) Start() {
 	r.isRunning = true
 	r.mu.Unlock()
 
+	if err := r.updateServiceNameFromKV(); err != nil {
+		r.logger.Printf("Failed to update service name from KV: %v", err)
+	}
+
+	fmt.Println("Starting resolver for service:", r.serviceName)
+
 	// Initial service discovery
 	if err := r.discover(); err != nil {
 		r.logger.Printf("Initial service discovery failed: %v", err)
@@ -140,6 +133,37 @@ func (r *Resolver) Start() {
 
 	wg.Wait()
 	close(r.updateChan)
+}
+
+func (r *Resolver) updateServiceNameFromKV() error {
+	pair, _, err := r.client.KV().Get(r.kvKey, nil)
+	if err != nil {
+		return fmt.Errorf("KV get error for key '%s': %w", r.kvKey, err)
+	}
+
+	if pair == nil || len(pair.Value) == 0 {
+		return fmt.Errorf("KV key '%s' not found or is empty", r.kvKey)
+	}
+
+	var kvData struct {
+		ServiceName string `json:"serviceName"`
+	}
+
+	if err := json.Unmarshal(pair.Value, &kvData); err != nil {
+		return fmt.Errorf("KV parse error for key '%s': %w", r.kvKey, err)
+	}
+
+	if kvData.ServiceName != "" {
+		r.mu.Lock()
+		if kvData.ServiceName != r.serviceName {
+			r.logger.Printf("Initial Service name updated from '%s' to '%s' from KV", r.serviceName, kvData.ServiceName)
+			r.serviceName = kvData.ServiceName
+			r.lastIndex = 0 // Reset index for the new service
+		}
+		r.mu.Unlock()
+	}
+
+	return nil
 }
 
 // watchServices continuously monitors Consul for service changes.

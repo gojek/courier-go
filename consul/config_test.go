@@ -4,8 +4,6 @@ import (
 	"log"
 	"testing"
 	"time"
-
-	consulapi "github.com/hashicorp/consul/api"
 )
 
 // TestDefaultConfig tests that DefaultConfig returns valid defaults
@@ -71,19 +69,12 @@ func TestConfigValidate(t *testing.T) {
 // TestConfigWithAllOptions tests config with all options set
 func TestConfigWithAllOptions(t *testing.T) {
 	logger := log.New(log.Writer(), "[test] ", log.LstdFlags)
-	tlsConfig := &consulapi.TLSConfig{
-		Address: "consul.example.com",
-	}
-
 	config := &Config{
 		ConsulAddress: "consul.example.com:8500",
-		ConsulToken:   "test-token",
-		DataCentre:    "dc1",
 		ServiceName:   "test-service",
 		Tags:          []string{"env:prod", "version:v1"},
 		HealthyOnly:   true,
 		WatchInterval: 60 * time.Second,
-		TLSConfig:     tlsConfig,
 		Logger:        logger,
 	}
 
@@ -94,12 +85,6 @@ func TestConfigWithAllOptions(t *testing.T) {
 	// Verify all fields are set correctly
 	if config.ConsulAddress != "consul.example.com:8500" {
 		t.Errorf("ConsulAddress mismatch")
-	}
-	if config.ConsulToken != "test-token" {
-		t.Errorf("ConsulToken mismatch")
-	}
-	if config.DataCentre != "dc1" {
-		t.Errorf("DataCentre mismatch")
 	}
 	if config.ServiceName != "test-service" {
 		t.Errorf("ServiceName mismatch")
@@ -112,9 +97,6 @@ func TestConfigWithAllOptions(t *testing.T) {
 	}
 	if config.WatchInterval != 60*time.Second {
 		t.Errorf("WatchInterval mismatch")
-	}
-	if config.TLSConfig != tlsConfig {
-		t.Error("TLSConfig mismatch")
 	}
 	if config.Logger != logger {
 		t.Error("Logger mismatch")

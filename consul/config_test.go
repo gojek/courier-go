@@ -35,7 +35,7 @@ func TestConfigValidate(t *testing.T) {
 			config: &Config{
 				ServiceName: "test-service",
 			},
-			expectErr: false,
+			expectErr: true,
 		},
 		{
 			name: "missing service name",
@@ -72,7 +72,7 @@ func TestConfigWithAllOptions(t *testing.T) {
 	config := &Config{
 		ConsulAddress: "consul.example.com:8500",
 		ServiceName:   "test-service",
-		Tags:          []string{"env:prod", "version:v1"},
+		KVKey:         "testConsul",
 		HealthyOnly:   true,
 		WatchInterval: 60 * time.Second,
 		Logger:        logger,
@@ -86,11 +86,11 @@ func TestConfigWithAllOptions(t *testing.T) {
 	if config.ConsulAddress != "consul.example.com:8500" {
 		t.Errorf("ConsulAddress mismatch")
 	}
+	if config.KVKey != "testConsul" {
+		t.Errorf("Key value mismatch")
+	}
 	if config.ServiceName != "test-service" {
 		t.Errorf("ServiceName mismatch")
-	}
-	if len(config.Tags) != 2 {
-		t.Errorf("Expected 2 tags, got %d", len(config.Tags))
 	}
 	if !config.HealthyOnly {
 		t.Error("HealthyOnly should be true")

@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// TestNewResolver tests creating a new resolver with valid config
 func TestNewResolver(t *testing.T) {
 	config := &Config{
 		ConsulAddress: "localhost:8500",
@@ -21,12 +20,10 @@ func TestNewResolver(t *testing.T) {
 	}
 	defer resolver.Stop()
 
-	// Verify resolver was created properly
 	if resolver == nil {
 		t.Fatal("Expected resolver to be created, got nil")
 	}
 
-	// Verify channels are available
 	updateChan := resolver.UpdateChan()
 	if updateChan == nil {
 		t.Fatal("Expected UpdateChan to be available")
@@ -38,11 +35,9 @@ func TestNewResolver(t *testing.T) {
 	}
 }
 
-// TestNewResolverInvalidConfig tests error handling for invalid config
 func TestNewResolverInvalidConfig(t *testing.T) {
 	config := &Config{
 		ConsulAddress: "localhost:8500",
-		// Missing ServiceName - should cause error
 		HealthyOnly:   true,
 		WatchInterval: 5 * time.Minute,
 	}
@@ -57,11 +52,10 @@ func TestNewResolverInvalidConfig(t *testing.T) {
 	}
 }
 
-// TestResolverServiceDiscovery tests the resolver's service discovery functionality
 func TestResolverServiceDiscovery(t *testing.T) {
 	config := &Config{
 		ConsulAddress: "localhost:8500",
-		ServiceName:   "consul", // Use consul service as it should always exist
+		ServiceName:   "consul",
 		HealthyOnly:   true,
 		WatchInterval: 5 * time.Minute,
 	}
@@ -73,7 +67,6 @@ func TestResolverServiceDiscovery(t *testing.T) {
 	}
 	defer resolver.Stop()
 
-	// Wait for initial service discovery
 	select {
 	case addresses := <-resolver.UpdateChan():
 		t.Logf("Discovered %d service addresses", len(addresses))

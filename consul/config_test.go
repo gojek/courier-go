@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// TestDefaultConfig tests that DefaultConfig returns valid defaults
 func TestDefaultConfig(t *testing.T) {
 	config := DefaultConfig()
 
@@ -23,7 +22,6 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
-// TestConfigValidate tests configuration validation
 func TestConfigValidate(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -66,7 +64,6 @@ func TestConfigValidate(t *testing.T) {
 	}
 }
 
-// TestConfigWithAllOptions tests config with all options set
 func TestConfigWithAllOptions(t *testing.T) {
 	logger := log.New(log.Writer(), "[test] ", log.LstdFlags)
 	config := &Config{
@@ -82,7 +79,6 @@ func TestConfigWithAllOptions(t *testing.T) {
 		t.Errorf("Expected valid config, got error: %v", err)
 	}
 
-	// Verify all fields are set correctly
 	if config.ConsulAddress != "consul.example.com:8500" {
 		t.Errorf("ConsulAddress mismatch")
 	}

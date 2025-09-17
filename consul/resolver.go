@@ -1,4 +1,4 @@
-// Package consul provides a Consul-based service discovery resolver for courier-go.
+// Package consul
 package consul
 
 import (
@@ -13,7 +13,6 @@ import (
 	"github.com/gojek/courier-go"
 )
 
-// Resolver implements courier.Resolver interface using Consul for service discovery.
 type Resolver struct {
 	client      *consulapi.Client
 	serviceName string
@@ -69,17 +68,14 @@ func NewResolver(config *Config) (*Resolver, error) {
 	return r, nil
 }
 
-// UpdateChan returns a channel that provides service address updates.
 func (r *Resolver) UpdateChan() <-chan []courier.TCPAddress {
 	return r.updateChan
 }
 
-// Done returns a channel that is closed when the resolver is stopped.
 func (r *Resolver) Done() <-chan struct{} {
 	return r.doneChan
 }
 
-// Stop gracefully stops the resolver.
 func (r *Resolver) Stop() {
 	r.stopOnce.Do(func() {
 		r.mu.Lock()
@@ -92,7 +88,6 @@ func (r *Resolver) Stop() {
 	})
 }
 
-// Start the resolver's main loop for service discovery and KV watching.
 func (r *Resolver) Start() {
 	r.mu.Lock()
 	r.isRunning = true
@@ -119,7 +114,7 @@ func (r *Resolver) Start() {
 		r.watchServices()
 	}()
 
-	// Start KV watcher if a key is provided
+	// Start service name watcher
 	if r.kvKey != "" {
 		wg.Add(1)
 

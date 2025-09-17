@@ -22,7 +22,7 @@ Package consul provides a Consul\-based service discovery resolver for courier\-
 
 
 <a name="Config"></a>
-## type [Config](https://github.com/gojek/courier-go/blob/main/consul/config.go#L9-L17)
+## type [Config](https://github.com/gojek/courier-go/blob/main/consul/config.go#L9-L16)
 
 
 
@@ -30,7 +30,6 @@ Package consul provides a Consul\-based service discovery resolver for courier\-
 type Config struct {
     ConsulAddress string
     ServiceName   string
-    Tags          []string
     HealthyOnly   bool
     KVKey         string
     WatchInterval time.Duration
@@ -39,7 +38,7 @@ type Config struct {
 ```
 
 <a name="DefaultConfig"></a>
-### func [DefaultConfig](https://github.com/gojek/courier-go/blob/main/consul/config.go#L19)
+### func [DefaultConfig](https://github.com/gojek/courier-go/blob/main/consul/config.go#L18)
 
 ```go
 func DefaultConfig() *Config
@@ -48,7 +47,7 @@ func DefaultConfig() *Config
 
 
 <a name="Config.Validate"></a>
-### func \(\*Config\) [Validate](https://github.com/gojek/courier-go/blob/main/consul/config.go#L27)
+### func \(\*Config\) [Validate](https://github.com/gojek/courier-go/blob/main/consul/config.go#L26)
 
 ```go
 func (c *Config) Validate() error
@@ -57,7 +56,7 @@ func (c *Config) Validate() error
 
 
 <a name="Resolver"></a>
-## type [Resolver](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L17-L39)
+## type [Resolver](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L17-L38)
 
 Resolver implements courier.Resolver interface using Consul for service discovery.
 
@@ -68,7 +67,7 @@ type Resolver struct {
 ```
 
 <a name="NewResolver"></a>
-### func [NewResolver](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L41)
+### func [NewResolver](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L40)
 
 ```go
 func NewResolver(config *Config) (*Resolver, error)
@@ -77,7 +76,7 @@ func NewResolver(config *Config) (*Resolver, error)
 
 
 <a name="Resolver.Done"></a>
-### func \(\*Resolver\) [Done](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L80)
+### func \(\*Resolver\) [Done](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L78)
 
 ```go
 func (r *Resolver) Done() <-chan struct{}
@@ -86,7 +85,7 @@ func (r *Resolver) Done() <-chan struct{}
 Done returns a channel that is closed when the resolver is stopped.
 
 <a name="Resolver.Start"></a>
-### func \(\*Resolver\) [Start](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L98)
+### func \(\*Resolver\) [Start](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L96)
 
 ```go
 func (r *Resolver) Start()
@@ -95,7 +94,7 @@ func (r *Resolver) Start()
 Start the resolver's main loop for service discovery and KV watching.
 
 <a name="Resolver.Stop"></a>
-### func \(\*Resolver\) [Stop](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L85)
+### func \(\*Resolver\) [Stop](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L83)
 
 ```go
 func (r *Resolver) Stop()
@@ -104,7 +103,7 @@ func (r *Resolver) Stop()
 Stop gracefully stops the resolver.
 
 <a name="Resolver.UpdateChan"></a>
-### func \(\*Resolver\) [UpdateChan](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L75)
+### func \(\*Resolver\) [UpdateChan](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L73)
 
 ```go
 func (r *Resolver) UpdateChan() <-chan []courier.TCPAddress

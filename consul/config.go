@@ -9,7 +9,6 @@ import (
 type Config struct {
 	ConsulAddress string
 	ServiceName   string
-	Tags          []string
 	HealthyOnly   bool
 	KVKey         string
 	WatchInterval time.Duration

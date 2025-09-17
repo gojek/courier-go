@@ -18,7 +18,6 @@ type Resolver struct {
 	client      *consulapi.Client
 	serviceName string
 	dataCentre  string
-	tags        []string
 	logger      *log.Logger
 
 	updateChan chan []courier.TCPAddress
@@ -59,7 +58,6 @@ func NewResolver(config *Config) (*Resolver, error) {
 	r := &Resolver{
 		client:        client,
 		serviceName:   config.ServiceName,
-		tags:          config.Tags,
 		healthyOnly:   config.HealthyOnly,
 		watchInterval: config.WatchInterval,
 		logger:        logger,
@@ -213,7 +211,7 @@ func (r *Resolver) discover() error {
 	r.lastIndex = meta.LastIndex
 	r.mu.Unlock()
 
-	addresses := r.convertToTCPAddresses(r.filterByTags(services))
+	addresses := r.convertToTCPAddresses(services)
 	r.logger.Printf("Discovered %d instances for service '%s'", len(addresses), serviceName)
 
 	select {
@@ -284,39 +282,6 @@ func (r *Resolver) watchKV() {
 			}
 		}
 	}
-}
-
-// filterByTags filters a list of services based on the resolver's tags.
-func (r *Resolver) filterByTags(services []*consulapi.ServiceEntry) []*consulapi.ServiceEntry {
-	if len(r.tags) == 0 {
-		return services
-	}
-
-	var filtered []*consulapi.ServiceEntry
-
-	for _, service := range services {
-		if r.hasAllTags(service.Service.Tags) {
-			filtered = append(filtered, service)
-		}
-	}
-
-	return filtered
-}
-
-// hasAllTags checks if a service has all the required tags.
-func (r *Resolver) hasAllTags(serviceTags []string) bool {
-	tagSet := make(map[string]struct{}, len(serviceTags))
-	for _, tag := range serviceTags {
-		tagSet[tag] = struct{}{}
-	}
-
-	for _, requiredTag := range r.tags {
-		if _, ok := tagSet[requiredTag]; !ok {
-			return false
-		}
-	}
-
-	return true
 }
 
 // convertToTCPAddresses converts Consul service entries to courier.TCPAddress.

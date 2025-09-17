@@ -3,7 +3,7 @@ module github.com/gojek/courier-go/consul
 go 1.24
 
 require (
-	github.com/gojek/courier-go v0.7.0
+	github.com/gojek/courier-go v0.7.1
 	github.com/hashicorp/consul/api v1.32.1
 )
 

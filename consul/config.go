@@ -11,7 +11,7 @@ type Config struct {
 	ServiceName   string
 	HealthyOnly   bool
 	KVKey         string
-	WatchInterval time.Duration
+	WaitTime      time.Duration
 	Logger        *log.Logger
 }
 
@@ -19,7 +19,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		ConsulAddress: "localhost:8500",
 		HealthyOnly:   true,
-		WatchInterval: 5 * time.Minute,
+		WaitTime:      5 * time.Minute,
 	}
 }
 

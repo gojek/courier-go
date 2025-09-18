@@ -23,8 +23,8 @@ type Resolver struct {
 	doneChan   chan struct{}
 
 	// Configuration
-	watchInterval time.Duration
-	healthyOnly   bool
+	waitTime    time.Duration
+	healthyOnly bool
 
 	// State management
 	mu        sync.RWMutex
@@ -55,14 +55,14 @@ func NewResolver(config *Config) (*Resolver, error) {
 	}
 
 	r := &Resolver{
-		client:        client,
-		serviceName:   config.ServiceName,
-		healthyOnly:   config.HealthyOnly,
-		watchInterval: config.WatchInterval,
-		logger:        logger,
-		updateChan:    make(chan []courier.TCPAddress, 1),
-		doneChan:      make(chan struct{}),
-		kvKey:         config.KVKey,
+		client:      client,
+		serviceName: config.ServiceName,
+		healthyOnly: config.HealthyOnly,
+		waitTime:    config.WaitTime,
+		logger:      logger,
+		updateChan:  make(chan []courier.TCPAddress, 1),
+		doneChan:    make(chan struct{}),
+		kvKey:       config.KVKey,
 	}
 
 	return r, nil
@@ -185,7 +185,7 @@ func (r *Resolver) discover() error {
 	serviceName := r.serviceName
 	queryOpts := &consulapi.QueryOptions{
 		WaitIndex:  r.lastIndex,
-		WaitTime:   r.watchInterval,
+		WaitTime:   r.waitTime,
 		Datacenter: r.dataCentre,
 	}
 	r.mu.RUnlock()
@@ -229,7 +229,7 @@ func (r *Resolver) watchKV() {
 		default:
 			pair, meta, err := r.client.KV().Get(r.kvKey, &consulapi.QueryOptions{
 				WaitIndex: lastKVIndex,
-				WaitTime:  r.watchInterval,
+				WaitTime:  r.waitTime,
 			})
 			if err != nil {
 				r.logger.Printf("KV watch error: %v", err)

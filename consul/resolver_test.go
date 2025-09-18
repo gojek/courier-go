@@ -10,7 +10,7 @@ func TestNewResolver(t *testing.T) {
 		ConsulAddress: "localhost:8500",
 		ServiceName:   "test-service",
 		HealthyOnly:   true,
-		WatchInterval: 5 * time.Minute,
+		WaitTime:      5 * time.Minute,
 	}
 
 	resolver, err := NewResolver(config)
@@ -39,7 +39,7 @@ func TestNewResolverInvalidConfig(t *testing.T) {
 	config := &Config{
 		ConsulAddress: "localhost:8500",
 		HealthyOnly:   true,
-		WatchInterval: 5 * time.Minute,
+		WaitTime:      5 * time.Minute,
 	}
 
 	resolver, err := NewResolver(config)
@@ -57,7 +57,7 @@ func TestResolverServiceDiscovery(t *testing.T) {
 		ConsulAddress: "localhost:8500",
 		ServiceName:   "consul",
 		HealthyOnly:   true,
-		WatchInterval: 5 * time.Minute,
+		WaitTime:      5 * time.Minute,
 	}
 
 	resolver, err := NewResolver(config)

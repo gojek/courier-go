@@ -17,8 +17,8 @@ func TestDefaultConfig(t *testing.T) {
 		t.Error("Expected HealthyOnly to be true by default")
 	}
 
-	if config.WatchInterval != 5*time.Minute {
-		t.Errorf("Expected WatchInterval to be 5m, got %v", config.WatchInterval)
+	if config.WaitTime != 5*time.Minute {
+		t.Errorf("Expected WaitTime to be 5m, got %v", config.WaitTime)
 	}
 }
 
@@ -71,7 +71,7 @@ func TestConfigWithAllOptions(t *testing.T) {
 		ServiceName:   "test-service",
 		KVKey:         "testConsul",
 		HealthyOnly:   true,
-		WatchInterval: 60 * time.Second,
+		WaitTime:      60 * time.Second,
 		Logger:        logger,
 	}
 
@@ -91,8 +91,8 @@ func TestConfigWithAllOptions(t *testing.T) {
 	if !config.HealthyOnly {
 		t.Error("HealthyOnly should be true")
 	}
-	if config.WatchInterval != 60*time.Second {
-		t.Errorf("WatchInterval mismatch")
+	if config.WaitTime != 60*time.Second {
+		t.Errorf("WaitTime mismatch")
 	}
 	if config.Logger != logger {
 		t.Error("Logger mismatch")

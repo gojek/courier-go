@@ -32,7 +32,7 @@ type Config struct {
     ServiceName   string
     HealthyOnly   bool
     KVKey         string
-    WatchInterval time.Duration
+    WaitTime      time.Duration
     Logger        *log.Logger
 }
 ```

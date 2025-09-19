@@ -29,23 +29,9 @@ func TestConfigValidate(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			name: "valid config",
-			config: &Config{
-				ServiceName: "test-service",
-			},
-			expectErr: true,
-		},
-		{
 			name: "missing service name",
 			config: &Config{
 				ConsulAddress: "localhost:8500",
-			},
-			expectErr: true,
-		},
-		{
-			name: "empty service name",
-			config: &Config{
-				ServiceName: "",
 			},
 			expectErr: true,
 		},
@@ -68,7 +54,6 @@ func TestConfigWithAllOptions(t *testing.T) {
 	logger := log.New(log.Writer(), "[test] ", log.LstdFlags)
 	config := &Config{
 		ConsulAddress: "consul.example.com:8500",
-		ServiceName:   "test-service",
 		KVKey:         "testConsul",
 		HealthyOnly:   true,
 		WaitTime:      60 * time.Second,
@@ -84,9 +69,6 @@ func TestConfigWithAllOptions(t *testing.T) {
 	}
 	if config.KVKey != "testConsul" {
 		t.Errorf("Key value mismatch")
-	}
-	if config.ServiceName != "test-service" {
-		t.Errorf("ServiceName mismatch")
 	}
 	if !config.HealthyOnly {
 		t.Error("HealthyOnly should be true")

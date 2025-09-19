@@ -16,7 +16,6 @@ import (
 type Resolver struct {
 	client      *consulapi.Client
 	serviceName string
-	dataCentre  string
 	logger      *log.Logger
 
 	updateChan chan []courier.TCPAddress
@@ -29,8 +28,6 @@ type Resolver struct {
 	// State management
 	mu        sync.RWMutex
 	lastIndex uint64
-	isRunning bool
-	stopOnce  sync.Once
 
 	// KV watching
 	kvKey string
@@ -56,7 +53,7 @@ func NewResolver(config *Config) (*Resolver, error) {
 
 	r := &Resolver{
 		client:      client,
-		serviceName: config.ServiceName,
+		serviceName: "",
 		healthyOnly: config.HealthyOnly,
 		waitTime:    config.WaitTime,
 		logger:      logger,
@@ -77,22 +74,10 @@ func (r *Resolver) Done() <-chan struct{} {
 }
 
 func (r *Resolver) Stop() {
-	r.stopOnce.Do(func() {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-
-		if r.isRunning {
-			r.isRunning = false
-			close(r.doneChan)
-		}
-	})
+	close(r.doneChan)
 }
 
 func (r *Resolver) Start() {
-	r.mu.Lock()
-	r.isRunning = true
-	r.mu.Unlock()
-
 	if err := r.updateServiceNameFromKV(); err != nil {
 		r.logger.Printf("Failed to update service name from KV: %v", err)
 	}
@@ -184,9 +169,8 @@ func (r *Resolver) discover() error {
 	r.mu.RLock()
 	serviceName := r.serviceName
 	queryOpts := &consulapi.QueryOptions{
-		WaitIndex:  r.lastIndex,
-		WaitTime:   r.waitTime,
-		Datacenter: r.dataCentre,
+		WaitIndex: r.lastIndex,
+		WaitTime:  r.waitTime,
 	}
 	r.mu.RUnlock()
 

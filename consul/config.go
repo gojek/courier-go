@@ -8,7 +8,6 @@ import (
 
 type Config struct {
 	ConsulAddress string
-	ServiceName   string
 	HealthyOnly   bool
 	KVKey         string
 	WaitTime      time.Duration

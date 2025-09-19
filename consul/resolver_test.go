@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gojek/courier-go"
 	consulapi "github.com/hashicorp/consul/api"
+
+	"github.com/gojek/courier-go"
 )
 
 func TestNewResolver(t *testing.T) {

@@ -8,6 +8,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.7.2]
+### Added
+
+- Add `Consul` for service discovery except MQTT connection spawning  ([#51](https://github.com/gojek/courier-go/pull/51))
+
 ## [0.7.1]
 
 ### Added

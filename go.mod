@@ -3,7 +3,7 @@ module github.com/gojek/courier-go
 go 1.24
 
 require (
-	github.com/gojek/paho.mqtt.golang v1.6.1
+	github.com/gojek/paho.mqtt.golang v1.7.0
 	github.com/gojekfarm/xtools/generic v0.7.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/stretchr/testify v1.9.0
@@ -11,7 +11,6 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/eclipse/paho.mqtt.golang v1.5.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/kr/text v0.2.0 // indirect

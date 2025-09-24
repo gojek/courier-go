@@ -30,6 +30,9 @@ func (t *OTel) PublisherMiddleware(next courier.Publisher) courier.Publisher {
 		attrs := append([]attribute.KeyValue{
 			semconv.ServiceNameKey.String(t.service),
 		}, mapAttributes(opts)...)
+
+		attrs = append(attrs, t.attributes...)
+
 		metricAttrs := metric.WithAttributes(append(attrs, MQTTTopic.String(t.topicTransformer(ctx, topic)))...)
 
 		defer func(ctx context.Context, now time.Time, attrs metric.MeasurementOption) {

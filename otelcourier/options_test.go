@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 )
 
@@ -160,5 +161,29 @@ func TestOption(t *testing.T) {
 		assert.Equal(t, []float64{4, 5, 6}, o.histogramBoundaries[traceSubscriber])
 		assert.Equal(t, []float64{7, 8, 9}, o.histogramBoundaries[traceUnsubscriber])
 		assert.Equal(t, []float64{10, 11, 12}, o.histogramBoundaries[traceCallback])
+	})
+
+	t.Run("WithAttributes", func(t *testing.T) {
+		opt := WithAttributes(
+			attribute.String("key", "value"),
+		)
+
+		opts := defaultOptions()
+		opt.apply(opts)
+
+		expected := []attribute.KeyValue{
+			attribute.String("key", "value"),
+		}
+
+		assert.Equal(t, expected, opts.attributes)
+	})
+
+	t.Run("WithAttributesEmpty", func(t *testing.T) {
+		opt := WithAttributes()
+
+		opts := defaultOptions()
+		opt.apply(opts)
+
+		assert.Empty(t, opts.attributes)
 	})
 }

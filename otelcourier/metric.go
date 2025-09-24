@@ -6,6 +6,7 @@ import (
 	"time"
 
 	prom "github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
@@ -42,14 +43,28 @@ func (t *OTel) initRecorders(histogramBoundaries map[tracePath][]float64) {
 }
 
 func (t *OTel) initInfoHandler() {
-	if _, err := t.meter.Int64ObservableUpDownCounter(
-		"courier.client.connected",
+	id := fmt.Sprintf("%d", time.Now().UnixNano())
+	metricName := fmt.Sprintf("courier.mqtt.%s.connected", id)
+
+	observable, err := t.meter.Int64ObservableUpDownCounter(
+		metricName,
 		metric.WithDescription("Tells if a client is connected or not, partitioned by client ID."),
-		metric.WithInt64Callback(infoHandler(t.infoHandler.ServeHTTP).
-			callback(semconv.ServiceNameKey.String(t.service))),
-	); err != nil {
+	)
+	if err != nil {
 		panic(err)
 	}
+
+	registration, err := t.meter.RegisterCallback(
+		infoHandler(t.infoHandler.ServeHTTP).callback(observable, append([]attribute.KeyValue{
+			semconv.ServiceNameKey.String(t.service),
+		}, t.attributes...)...),
+		observable,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	t.infoHandlerRegistration = registration
 }
 
 type recordersOp func(*recorders) error

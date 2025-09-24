@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	oteltrace "go.opentelemetry.io/otel/trace"
@@ -45,6 +46,11 @@ func WithTextMapCarrierExtractFunc(fn func(context.Context) propagation.TextMapC
 // extract client information from the courier.Client instance.
 func WithInfoHandlerFrom(c interface{ InfoHandler() http.Handler }) Option {
 	return optFn(func(opts *options) { opts.infoHandler = c.InfoHandler() })
+}
+
+// WithAttributes adds custom attributes to all spans and metrics created.
+func WithAttributes(attrs ...attribute.KeyValue) Option {
+	return optFn(func(opts *options) { opts.attributes = attrs })
 }
 
 // DisableCallbackTracing disables implicit tracing on subscription callbacks.
@@ -100,6 +106,7 @@ type options struct {
 	topicTransformer        TopicAttributeTransformer
 	infoHandler             http.Handler
 	histogramBoundaries     map[tracePath][]float64
+	attributes              []attribute.KeyValue
 }
 
 type tracePath uint

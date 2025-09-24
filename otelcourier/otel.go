@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -23,6 +24,7 @@ type UseMiddleware interface {
 	UsePublisherMiddleware(mwf ...courier.PublisherMiddlewareFunc)
 	UseSubscriberMiddleware(mwf ...courier.SubscriberMiddlewareFunc)
 	UseUnsubscriberMiddleware(mwf ...courier.UnsubscriberMiddlewareFunc)
+	UseStopMiddleware(mwf courier.StopMiddlewareFunc)
 }
 
 // OTel implements tracing & metric abilities using OpenTelemetry SDK.
@@ -36,8 +38,10 @@ type OTel struct {
 	topicTransformer   TopicAttributeTransformer
 	infoHandler        http.Handler
 
-	rc   recorder
-	tnow func() time.Time
+	rc                      recorder
+	tnow                    func() time.Time
+	infoHandlerRegistration metric.Registration
+	attributes              []attribute.KeyValue
 }
 
 // New creates a new OTel with Option(s).
@@ -69,6 +73,7 @@ func New(service string, opts ...Option) *OTel {
 		infoHandler:        o.infoHandler,
 		rc:                 make(recorder),
 		tnow:               time.Now,
+		attributes:         o.attributes,
 	}
 
 	t.initRecorders(o.histogramBoundaries)
@@ -89,5 +94,9 @@ func (t *OTel) ApplyMiddlewares(c UseMiddleware) {
 
 	if t.tracePaths.match(traceUnsubscriber) {
 		c.UseUnsubscriberMiddleware(t.UnsubscriberMiddleware)
+	}
+
+	if t.infoHandler != nil {
+		c.UseStopMiddleware(t.StopMiddleware)
 	}
 }

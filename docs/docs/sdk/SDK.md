@@ -26,6 +26,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func \(c \*Client\) SubscribeMultiple\(ctx context.Context, topicsWithQos map\[string\]QOSLevel, callback MessageHandler\) error](#Client.SubscribeMultiple)
   - [func \(c \*Client\) Unsubscribe\(ctx context.Context, topics ...string\) error](#Client.Unsubscribe)
   - [func \(c \*Client\) UsePublisherMiddleware\(mwf ...PublisherMiddlewareFunc\)](#Client.UsePublisherMiddleware)
+  - [func \(c \*Client\) UseStopMiddleware\(mwf StopMiddlewareFunc\)](#Client.UseStopMiddleware)
   - [func \(c \*Client\) UseSubscriberMiddleware\(mwf ...SubscriberMiddlewareFunc\)](#Client.UseSubscriberMiddleware)
   - [func \(c \*Client\) UseUnsubscriberMiddleware\(mwf ...UnsubscriberMiddlewareFunc\)](#Client.UseUnsubscriberMiddleware)
 - [type ClientInfoEmitter](#ClientInfoEmitter)
@@ -94,6 +95,11 @@ Package courier contains the client that can be used to interact with the courie
 - [type StartOption](#StartOption)
   - [func WithMaxInterval\(interval time.Duration\) StartOption](#WithMaxInterval)
   - [func WithOnRetry\(retryFunc func\(error\)\) StartOption](#WithOnRetry)
+- [type StopHandlerFunc](#StopHandlerFunc)
+  - [func \(f StopHandlerFunc\) Stop\(\) error](#StopHandlerFunc.Stop)
+- [type StopMiddlewareFunc](#StopMiddlewareFunc)
+  - [func \(smw StopMiddlewareFunc\) Middleware\(stopper Stopper\) Stopper](#StopMiddlewareFunc.Middleware)
+- [type Stopper](#Stopper)
 - [type Store](#Store)
   - [func NewMemoryStore\(\) Store](#NewMemoryStore)
 - [type Subscriber](#Subscriber)
@@ -179,7 +185,7 @@ func WaitForConnection(c ConnectionInformer, waitFor time.Duration, tick time.Du
 WaitForConnection checks if the Client is connected, it calls ConnectionInformer.IsConnected after every tick and waitFor is the maximum duration it can block. Returns true only when ConnectionInformer.IsConnected returns true
 
 <a name="Client"></a>
-## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L22-L43)
+## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L22-L45)
 
 Client allows to communicate with an MQTT broker
 
@@ -190,7 +196,7 @@ type Client struct {
 ```
 
 <a name="NewClient"></a>
-### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L48)
+### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L50)
 
 ```go
 func NewClient(opts ...ClientOption) (*Client, error)
@@ -258,7 +264,7 @@ func (c *Client) InfoHandler() http.Handler
 InfoHandler returns a http.Handler that exposes the connected clients information
 
 <a name="Client.IsConnected"></a>
-### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L84)
+### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L87)
 
 ```go
 func (c *Client) IsConnected() bool
@@ -276,7 +282,7 @@ func (c *Client) Publish(ctx context.Context, topic string, message interface{},
 Publish allows to publish messages to an MQTT broker
 
 <a name="Client.Run"></a>
-### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L112)
+### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L115)
 
 ```go
 func (c *Client) Run(ctx context.Context) error
@@ -285,7 +291,7 @@ func (c *Client) Run(ctx context.Context) error
 Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package. https://pkg.go.dev/github.com/gojekfarm/xrun
 
 <a name="Client.Start"></a>
-### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L97)
+### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L100)
 
 ```go
 func (c *Client) Start() error
@@ -294,7 +300,7 @@ func (c *Client) Start() error
 Start will attempt to connect to the broker.
 
 <a name="Client.Stop"></a>
-### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L108)
+### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L111)
 
 ```go
 func (c *Client) Stop()
@@ -337,6 +343,15 @@ func (c *Client) UsePublisherMiddleware(mwf ...PublisherMiddlewareFunc)
 ```
 
 UsePublisherMiddleware appends a PublisherMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip messages. They are executed in the order that they are applied to the Client.
+
+<a name="Client.UseStopMiddleware"></a>
+### func \(\*Client\) [UseStopMiddleware](https://github.com/gojek/courier-go/blob/main/client_stop.go#L4)
+
+```go
+func (c *Client) UseStopMiddleware(mwf StopMiddlewareFunc)
+```
+
+UseStopMiddleware allows setting a Stopper middleware to intercept Stop calls.
 
 <a name="Client.UseSubscriberMiddleware"></a>
 ### func \(\*Client\) [UseSubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L56)
@@ -1037,6 +1052,53 @@ func WithOnRetry(retryFunc func(error)) StartOption
 ```
 
 WithOnRetry sets the func which is called when there is an error in the previous Client.Start attempt
+
+<a name="StopHandlerFunc"></a>
+## type [StopHandlerFunc](https://github.com/gojek/courier-go/blob/main/stopper.go#L9)
+
+StopHandlerFunc defines signature of a Stop function.
+
+```go
+type StopHandlerFunc func() error
+```
+
+<a name="StopHandlerFunc.Stop"></a>
+### func \(StopHandlerFunc\) [Stop](https://github.com/gojek/courier-go/blob/main/stopper.go#L12)
+
+```go
+func (f StopHandlerFunc) Stop() error
+```
+
+Stop implements Stopper interface on StopHandlerFunc.
+
+<a name="StopMiddlewareFunc"></a>
+## type [StopMiddlewareFunc](https://github.com/gojek/courier-go/blob/main/stopper.go#L21)
+
+StopMiddlewareFunc functions are closures that intercept Stopper.Stop calls.
+
+```go
+type StopMiddlewareFunc func(Stopper) Stopper
+```
+
+<a name="StopMiddlewareFunc.Middleware"></a>
+### func \(StopMiddlewareFunc\) [Middleware](https://github.com/gojek/courier-go/blob/main/stopper.go#L24)
+
+```go
+func (smw StopMiddlewareFunc) Middleware(stopper Stopper) Stopper
+```
+
+Middleware allows StopMiddlewareFunc to implement the stopMiddleware interface.
+
+<a name="Stopper"></a>
+## type [Stopper](https://github.com/gojek/courier-go/blob/main/stopper.go#L4-L6)
+
+Stopper defines behaviour of an MQTT client stop.
+
+```go
+type Stopper interface {
+    Stop() error
+}
+```
 
 <a name="Store"></a>
 ## type [Store](https://github.com/gojek/courier-go/blob/main/alias.go#L16)

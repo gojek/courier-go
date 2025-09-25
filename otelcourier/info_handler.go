@@ -18,10 +18,13 @@ type infoResponse struct {
 	Clients []courier.MQTTClientInfo `json:"clients,omitempty"`
 }
 
-func (e infoHandler) callback(attrs ...attribute.KeyValue) metric.Int64Callback {
+func (e infoHandler) callback(
+	observable metric.Int64ObservableUpDownCounter,
+	attrs ...attribute.KeyValue,
+) metric.Callback {
 	hf := http.HandlerFunc(e)
 
-	return func(ctx context.Context, observer metric.Int64Observer) error {
+	return func(ctx context.Context, observer metric.Observer) error {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
 		if err != nil {
 			return err
@@ -37,7 +40,8 @@ func (e infoHandler) callback(attrs ...attribute.KeyValue) metric.Int64Callback 
 		}
 
 		for _, cl := range ir.Clients {
-			observer.Observe(
+			observer.ObserveInt64(
+				observable,
 				boolInt64(cl.Connected),
 				metric.WithAttributes(append(attrs, MQTTClientID.String(cl.ClientID))...),
 			)

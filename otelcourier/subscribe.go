@@ -46,6 +46,9 @@ func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber 
 			attrs := append([]attribute.KeyValue{
 				semconv.ServiceNameKey.String(t.service),
 			}, mapAttributes(opts)...)
+
+			attrs = append(attrs, t.attributes...)
+
 			metricAttrs := metric.WithAttributes(append(attrs, MQTTTopic.String(t.topicTransformer(ctx, topic)))...)
 
 			defer func(ctx context.Context, now time.Time, attrs metric.MeasurementOption) {
@@ -73,11 +76,11 @@ func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber 
 		func(ctx context.Context, topicsWithQos map[string]courier.QOSLevel, callback courier.MessageHandler) error {
 			unnestMetricAttrs := make([]metric.MeasurementOption, 0, len(topicsWithQos))
 			for topic, qos := range topicsWithQos {
-				unnestMetricAttrs = append(unnestMetricAttrs, metric.WithAttributes(
+				unnestMetricAttrs = append(unnestMetricAttrs, metric.WithAttributes(append([]attribute.KeyValue{
 					semconv.ServiceNameKey.String(t.service),
 					MQTTTopic.String(t.topicTransformer(ctx, topic)),
 					MQTTQoS.Int(int(qos)),
-				))
+				}, t.attributes...)...))
 			}
 
 			defer func(ctx context.Context, now time.Time, attrs ...metric.MeasurementOption) {
@@ -87,10 +90,10 @@ func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber 
 			}(ctx, t.tnow(), unnestMetricAttrs...)
 
 			ctx, span := t.tracer.Start(ctx, subscribeMultipleSpanName,
-				trace.WithAttributes(
+				trace.WithAttributes(append([]attribute.KeyValue{
 					semconv.ServiceNameKey.String(t.service),
 					MQTTTopicWithQoS.StringSlice(mapToArray(topicsWithQos)),
-				),
+				}, t.attributes...)...),
 				trace.WithSpanKind(trace.SpanKindClient),
 			)
 			defer span.End()
@@ -141,6 +144,9 @@ func (t *OTel) instrumentCallback(in courier.MessageHandler) courier.MessageHand
 			MQTTQoS.Int(int(msg.QoS)),
 			MQTTRetained.Bool(msg.Retained),
 		}
+
+		// Add custom attributes
+		attrs = append(attrs, t.attributes...)
 
 		if t.textMapCarrierFunc != nil {
 			ctx = t.propagator.Extract(ctx, t.textMapCarrierFunc(ctx))

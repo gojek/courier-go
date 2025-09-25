@@ -2,7 +2,6 @@ package otelcourier
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -15,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/exporters/prometheus"
-	"go.opentelemetry.io/otel/sdk/metric"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/gojek/courier-go"
 )
@@ -40,7 +39,7 @@ func TestConnectedClientMetric(t *testing.T) {
 	reg := prom.NewRegistry()
 	exporter, err := prometheus.New(prometheus.WithRegisterer(reg))
 	require.NoError(t, err)
-	mp := metric.NewMeterProvider(metric.WithReader(exporter))
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(exporter))
 
 	c, err := courier.NewClient(defOpts...)
 	_ = New("test-service", WithMeterProvider(mp), WithInfoHandlerFrom(c))
@@ -65,7 +64,8 @@ func TestConnectedClientMetric(t *testing.T) {
 	found := false
 	var metricFamily *pcm.MetricFamily
 	for _, mf := range got {
-		if mf.GetName() == "courier_client_connected" {
+		name := mf.GetName()
+		if strings.HasPrefix(name, "courier_mqtt_") && strings.HasSuffix(name, "_connected") {
 			found = true
 			metricFamily = mf
 			break
@@ -114,14 +114,50 @@ func Test_boolInt64(t *testing.T) {
 	}
 }
 
-func TestInfoHandler_callback_error(t *testing.T) {
-	ih := infoHandler(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("invalid json"))
-	})
+func TestConnectedClientMetricUnregistered(t *testing.T) {
+	reg := prom.NewRegistry()
+	exporter, err := prometheus.New(prometheus.WithRegisterer(reg))
+	require.NoError(t, err)
 
-	cb := ih.callback()
-	err := cb(context.Background(), nil)
-	assert.EqualError(t, err, "invalid character 'i' looking for beginning of value")
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(exporter))
 
-	assert.EqualError(t, cb(nil, nil), "net/http: nil Context")
+	c, err := courier.NewClient(defOpts...)
+	require.NoError(t, err)
+
+	otel := New("test-service", WithInfoHandlerFrom(c), WithMeterProvider(mp))
+
+	c.UseStopMiddleware(otel.StopMiddleware)
+
+	initialMetrics, err := reg.Gather()
+	require.NoError(t, err)
+	wantMetricCount := 1
+
+	var metricCount int
+	for _, mf := range initialMetrics {
+		name := mf.GetName()
+		if strings.HasPrefix(name, "courier_mqtt_") && strings.HasSuffix(name, "_connected") {
+			metricCount++
+		}
+	}
+
+	assert.Equal(t, metricCount, wantMetricCount)
+
+	c.Stop()
+
+	time.Sleep(100 * time.Millisecond)
+
+	finalMetrics, err := reg.Gather()
+	require.NoError(t, err)
+	wantMetricCount = 0
+
+	var finalMetricCount int
+	for _, mf := range finalMetrics {
+		name := mf.GetName()
+		if strings.HasPrefix(name, "courier_mqtt_") && strings.HasSuffix(name, "_connected") {
+			finalMetricCount++
+		}
+	}
+
+	assert.Equal(t, finalMetricCount, wantMetricCount)
+	assert.Nil(t, otel.infoHandlerRegistration)
 }

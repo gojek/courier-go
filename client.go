@@ -26,12 +26,14 @@ type Client struct {
 	mqttClient    mqtt.Client
 	mqttClients   map[string]*internalState
 
-	publisher     Publisher
-	subscriber    Subscriber
-	unsubscriber  Unsubscriber
-	pMiddlewares  []publishMiddleware
-	sMiddlewares  []subscribeMiddleware
-	usMiddlewares []unsubscribeMiddleware
+	publisher      Publisher
+	subscriber     Subscriber
+	unsubscriber   Unsubscriber
+	stopHandler    Stopper
+	pMiddlewares   []publishMiddleware
+	sMiddlewares   []subscribeMiddleware
+	usMiddlewares  []unsubscribeMiddleware
+	stopMiddleware stopMiddleware
 
 	rrCounter         *atomicCounter
 	multiConnRevision atomic.Uint64
@@ -76,6 +78,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	c.publisher = publishHandler(c)
 	c.subscriber = subscriberFuncs(c)
 	c.unsubscriber = unsubscriberHandler(c)
+	c.stopHandler = stopHandlerFunc(c)
 
 	return c, nil
 }
@@ -105,7 +108,7 @@ func (c *Client) Start() error {
 // Stop will disconnect from the broker and finish up any pending work on internal
 // communication workers. This can only block until the period configured with
 // the ClientOption WithGracefulShutdownPeriod.
-func (c *Client) Stop() { _ = c.stop() }
+func (c *Client) Stop() { _ = c.stopHandler.Stop() }
 
 // Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package.
 // https://pkg.go.dev/github.com/gojekfarm/xrun

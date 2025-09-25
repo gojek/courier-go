@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"reflect"
 	"sync"
 	"time"
 
@@ -30,7 +31,8 @@ type Resolver struct {
 	lastIndex uint64
 
 	// KV watching
-	kvKey string
+	kvKey         string
+	lastAddresses []courier.TCPAddress
 }
 
 func NewResolver(config *Config) (*Resolver, error) {
@@ -193,13 +195,35 @@ func (r *Resolver) discover() error {
 	addresses := r.convertToTCPAddresses(services)
 	r.logger.Printf("Discovered %d instances for service '%s'", len(addresses), serviceName)
 
-	select {
-	case r.updateChan <- addresses:
-	case <-r.doneChan:
-		return nil
+	if !areAddressesEqual(r.lastAddresses, addresses) {
+		r.lastAddresses = addresses
+		select {
+		case r.updateChan <- addresses:
+		case <-r.doneChan:
+			return nil
+		}
 	}
 
 	return nil
+}
+
+func areAddressesEqual(a, b []courier.TCPAddress) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	mapA := make(map[courier.TCPAddress]int)
+	mapB := make(map[courier.TCPAddress]int)
+
+	for _, addr := range a {
+		mapA[addr]++
+	}
+
+	for _, addr := range b {
+		mapB[addr]++
+	}
+
+	return reflect.DeepEqual(mapA, mapB)
 }
 
 // watchKV continuously monitors a KV key for changes to the service name.

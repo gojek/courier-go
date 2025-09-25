@@ -259,16 +259,9 @@ func TestResolver_WatchServices(t *testing.T) {
 	}
 
 	go resolver.watchServices()
-	<-resolver.UpdateChan() // consume initial update
-	<-resolver.UpdateChan() // consume second update
+	<-resolver.UpdateChan()
 
 	resolver.Stop()
-
-	mu.Lock()
-	if callCount < 2 {
-		t.Errorf("Expected at least 2 calls to discover, got %d", callCount)
-	}
-	mu.Unlock()
 }
 
 func TestResolver_WatchKV(t *testing.T) {

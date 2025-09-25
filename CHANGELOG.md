@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.7.3]
+
+### Changed
+- Fix courier.client.connected metric on multiple courier instance  ([#55](https://github.com/gojek/courier-go/pull/55))
+- Update paho dependency
+
+### Added
+- Add stop middleware to unregister registered callback ([#55](https://github.com/gojek/courier-go/pull/55))
 
 ## [0.7.2]
 ### Added
@@ -131,7 +139,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Initial Release
 
-[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/gojek/courier-go/releases/tag/v0.7.3
+[0.7.2]: https://github.com/gojek/courier-go/releases/tag/v0.7.2
 [0.7.1]: https://github.com/gojek/courier-go/releases/tag/v0.7.1
 [0.7.0]: https://github.com/gojek/courier-go/releases/tag/v0.7.0
 [0.6.1]: https://github.com/gojek/courier-go/releases/tag/v0.6.1

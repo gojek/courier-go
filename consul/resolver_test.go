@@ -321,3 +321,155 @@ func TestResolver_WatchKV(t *testing.T) {
 
 	resolver.Stop()
 }
+
+func TestAreAddressesEqual(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        []courier.TCPAddress
+		b        []courier.TCPAddress
+		expected bool
+	}{
+		{
+			name:     "both empty slices",
+			a:        []courier.TCPAddress{},
+			b:        []courier.TCPAddress{},
+			expected: true,
+		},
+		{
+			name:     "both nil slices",
+			a:        nil,
+			b:        nil,
+			expected: true,
+		},
+		{
+			name:     "one empty one nil",
+			a:        []courier.TCPAddress{},
+			b:        nil,
+			expected: true,
+		},
+		{
+			name: "identical single address",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			expected: true,
+		},
+		{
+			name: "identical multiple addresses same order",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+			},
+			expected: true,
+		},
+		{
+			name: "identical multiple addresses different order",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.2", Port: 8081},
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			expected: true,
+		},
+		{
+			name: "different lengths",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+			},
+			expected: false,
+		},
+		{
+			name: "different hosts same port",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.2", Port: 8080},
+			},
+			expected: false,
+		},
+		{
+			name: "same host different ports",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8081},
+			},
+			expected: false,
+		},
+		{
+			name: "duplicate addresses same count",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			expected: true,
+		},
+		{
+			name: "duplicate addresses different count",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+				{Host: "127.0.0.2", Port: 8081},
+			},
+			expected: false,
+		},
+		{
+			name: "one empty one non-empty",
+			a:    []courier.TCPAddress{},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			expected: false,
+		},
+		{
+			name: "complex case with multiple duplicates",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.3", Port: 8082},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.3", Port: 8082},
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := areAddressesEqual(tt.a, tt.b)
+			if result != tt.expected {
+				t.Errorf("areAddressesEqual() = %v, expected %v", result, tt.expected)
+			}
+		})
+	}
+}

@@ -473,3 +473,98 @@ func TestAreAddressesEqual(t *testing.T) {
 		})
 	}
 }
+
+func TestResolver_Discover_AreAddressesEqualScenario(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		var services []*consulapi.ServiceEntry
+
+		switch callCount {
+		case 1:
+			services = []*consulapi.ServiceEntry{
+				{
+					Node:    &consulapi.Node{Address: "127.0.0.1"},
+					Service: &consulapi.AgentService{Port: 8080},
+				},
+			}
+		case 2:
+			services = []*consulapi.ServiceEntry{
+				{
+					Node:    &consulapi.Node{Address: "127.0.0.1"},
+					Service: &consulapi.AgentService{Port: 8080},
+				},
+			}
+		case 3:
+			services = []*consulapi.ServiceEntry{
+				{
+					Node:    &consulapi.Node{Address: "127.0.0.1"},
+					Service: &consulapi.AgentService{Port: 8080},
+				},
+				{
+					Node:    &consulapi.Node{Address: "127.0.0.2"},
+					Service: &consulapi.AgentService{Port: 8081},
+				},
+			}
+		}
+
+		if err := json.NewEncoder(w).Encode(services); err != nil {
+			t.Fatalf("failed to encode services: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	config := &Config{
+		ConsulAddress: server.Listener.Addr().String(),
+		KVKey:         "test",
+	}
+	resolver, err := NewResolver(config)
+	if err != nil {
+		t.Fatalf("Failed to create resolver: %v", err)
+	}
+	defer resolver.Stop()
+
+	resolver.serviceName = "test-service"
+
+	go func() {
+		if err := resolver.discover(); err != nil {
+			t.Errorf("first discover failed: %v", err)
+		}
+	}()
+
+	select {
+	case addresses := <-resolver.UpdateChan():
+		if len(addresses) != 1 {
+			t.Fatalf("Expected 1 address in first update, got %d", len(addresses))
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timed out waiting for first update")
+	}
+
+	go func() {
+		if err := resolver.discover(); err != nil {
+			t.Errorf("second discover failed: %v", err)
+		}
+	}()
+
+	select {
+	case <-resolver.UpdateChan():
+		t.Fatal("Should not receive update when addresses are unchanged (areAddressesEqual returns true)")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	go func() {
+		if err := resolver.discover(); err != nil {
+			t.Errorf("third discover failed: %v", err)
+		}
+	}()
+
+	select {
+	case addresses := <-resolver.UpdateChan():
+		if len(addresses) != 2 {
+			t.Fatalf("Expected 2 addresses in third update, got %d", len(addresses))
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timed out waiting for third update")
+	}
+}

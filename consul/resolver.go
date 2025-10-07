@@ -206,7 +206,7 @@ func (r *Resolver) discover() error {
 	return nil
 }
 
-func areAddressesEqual(a, b []courier.TCPAddress) bool {
+func areAddressesEqual(a, b []courier.TCPAddress) bool {	//test
 	if len(a) != len(b) {
 		return false
 	}

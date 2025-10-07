@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"reflect"
 	"sync"
 	"time"
 
@@ -223,7 +222,13 @@ func areAddressesEqual(a, b []courier.TCPAddress) bool {
 		mapB[addr]++
 	}
 
-	return reflect.DeepEqual(mapA, mapB)
+	for addr, count := range mapA {
+		if mapB[addr] != count {
+			return false
+		}
+	}
+
+	return true
 }
 
 // watchKV continuously monitors a KV key for changes to the service name.

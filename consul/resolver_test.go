@@ -474,7 +474,7 @@ func TestAreAddressesEqual(t *testing.T) {
 	}
 }
 
-func TestResolver_Discover_AreAddressesEqualScenario(t *testing.T) {
+func TestResolver_Discover_AreAddressesEqual(t *testing.T) {
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++

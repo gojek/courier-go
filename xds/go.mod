@@ -4,7 +4,7 @@ go 1.24
 
 require (
 	github.com/envoyproxy/go-control-plane v0.12.0
-	github.com/gojek/courier-go v0.7.3
+	github.com/gojek/courier-go v0.7.4
 	github.com/golang/protobuf v1.5.4
 	github.com/stretchr/testify v1.9.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240227224415-6ceb2ff114de

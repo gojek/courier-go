@@ -259,16 +259,9 @@ func TestResolver_WatchServices(t *testing.T) {
 	}
 
 	go resolver.watchServices()
-	<-resolver.UpdateChan() // consume initial update
-	<-resolver.UpdateChan() // consume second update
+	<-resolver.UpdateChan()
 
 	resolver.Stop()
-
-	mu.Lock()
-	if callCount < 2 {
-		t.Errorf("Expected at least 2 calls to discover, got %d", callCount)
-	}
-	mu.Unlock()
 }
 
 func TestResolver_WatchKV(t *testing.T) {
@@ -327,4 +320,251 @@ func TestResolver_WatchKV(t *testing.T) {
 	resolver.mu.RUnlock()
 
 	resolver.Stop()
+}
+
+func TestAreAddressesEqual(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        []courier.TCPAddress
+		b        []courier.TCPAddress
+		expected bool
+	}{
+		{
+			name:     "both empty slices",
+			a:        []courier.TCPAddress{},
+			b:        []courier.TCPAddress{},
+			expected: true,
+		},
+		{
+			name:     "both nil slices",
+			a:        nil,
+			b:        nil,
+			expected: true,
+		},
+		{
+			name:     "one empty one nil",
+			a:        []courier.TCPAddress{},
+			b:        nil,
+			expected: true,
+		},
+		{
+			name: "identical single address",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			expected: true,
+		},
+		{
+			name: "identical multiple addresses same order",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+			},
+			expected: true,
+		},
+		{
+			name: "identical multiple addresses different order",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.2", Port: 8081},
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			expected: true,
+		},
+		{
+			name: "different lengths",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+			},
+			expected: false,
+		},
+		{
+			name: "different hosts same port",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.2", Port: 8080},
+			},
+			expected: false,
+		},
+		{
+			name: "same host different ports",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8081},
+			},
+			expected: false,
+		},
+		{
+			name: "duplicate addresses same count",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			expected: true,
+		},
+		{
+			name: "duplicate addresses different count",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+				{Host: "127.0.0.2", Port: 8081},
+			},
+			expected: false,
+		},
+		{
+			name: "one empty one non-empty",
+			a:    []courier.TCPAddress{},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			expected: false,
+		},
+		{
+			name: "complex case with multiple duplicates",
+			a: []courier.TCPAddress{
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.3", Port: 8082},
+			},
+			b: []courier.TCPAddress{
+				{Host: "127.0.0.3", Port: 8082},
+				{Host: "127.0.0.1", Port: 8080},
+				{Host: "127.0.0.2", Port: 8081},
+				{Host: "127.0.0.1", Port: 8080},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := areAddressesEqual(tt.a, tt.b)
+			if result != tt.expected {
+				t.Errorf("areAddressesEqual() = %v, expected %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestResolver_Discover_AreAddressesEqual(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		var services []*consulapi.ServiceEntry
+
+		switch callCount {
+		case 1:
+			services = []*consulapi.ServiceEntry{
+				{
+					Node:    &consulapi.Node{Address: "127.0.0.1"},
+					Service: &consulapi.AgentService{Port: 8080},
+				},
+			}
+		case 2:
+			services = []*consulapi.ServiceEntry{
+				{
+					Node:    &consulapi.Node{Address: "127.0.0.1"},
+					Service: &consulapi.AgentService{Port: 8080},
+				},
+			}
+		case 3:
+			services = []*consulapi.ServiceEntry{
+				{
+					Node:    &consulapi.Node{Address: "127.0.0.1"},
+					Service: &consulapi.AgentService{Port: 8080},
+				},
+				{
+					Node:    &consulapi.Node{Address: "127.0.0.2"},
+					Service: &consulapi.AgentService{Port: 8081},
+				},
+			}
+		}
+
+		if err := json.NewEncoder(w).Encode(services); err != nil {
+			t.Fatalf("failed to encode services: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	config := &Config{
+		ConsulAddress: server.Listener.Addr().String(),
+		KVKey:         "test",
+	}
+	resolver, err := NewResolver(config)
+	if err != nil {
+		t.Fatalf("Failed to create resolver: %v", err)
+	}
+	defer resolver.Stop()
+
+	resolver.serviceName = "test-service"
+
+	go func() {
+		if err := resolver.discover(); err != nil {
+			t.Errorf("first discover failed: %v", err)
+		}
+	}()
+
+	select {
+	case addresses := <-resolver.UpdateChan():
+		if len(addresses) != 1 {
+			t.Fatalf("Expected 1 address in first update, got %d", len(addresses))
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timed out waiting for first update")
+	}
+
+	go func() {
+		if err := resolver.discover(); err != nil {
+			t.Errorf("second discover failed: %v", err)
+		}
+	}()
+
+	select {
+	case <-resolver.UpdateChan():
+		t.Fatal("Should not receive update when addresses are unchanged (areAddressesEqual returns true)")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	go func() {
+		if err := resolver.discover(); err != nil {
+			t.Errorf("third discover failed: %v", err)
+		}
+	}()
+
+	select {
+	case addresses := <-resolver.UpdateChan():
+		if len(addresses) != 2 {
+			t.Fatalf("Expected 2 addresses in third update, got %d", len(addresses))
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timed out waiting for third update")
+	}
 }

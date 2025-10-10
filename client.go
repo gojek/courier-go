@@ -278,7 +278,8 @@ func toClientOptions(c *Client, o *clientOptions, idSuffix string) *mqtt.ClientO
 		SetConnectionLostHandler(connectionLostHandler(c, o)).
 		SetOnConnectHandler(onConnectHandler(c, o)).
 		SetWriteTimeout(o.writeTimeout).
-		SetLogLevel(o.pahoLogLevel)
+		SetLogLevel(o.pahoLogLevel).
+		SetAckTimeout(o.ackTimeout)
 
 	return opts
 }
@@ -377,4 +378,24 @@ func defaultNewClientFunc() *atomic.Value {
 	v.Store(mqtt.NewClient)
 
 	return v
+}
+
+// KeepAlive returns the keep alive duration configured for the client
+func (c *Client) KeepAlive() time.Duration {
+	return c.options.keepAlive
+}
+
+// WriteTimeout returns the write timeout duration configured for the client
+func (c *Client) WriteTimeout() time.Duration {
+	return c.options.writeTimeout
+}
+
+// ConnectTimeout returns the connect timeout duration configured for the client
+func (c *Client) ConnectTimeout() time.Duration {
+	return c.options.connectTimeout
+}
+
+// AckTimeout returns the ack timeout duration configured for the client
+func (c *Client) AckTimeout() time.Duration {
+	return c.options.ackTimeout
 }

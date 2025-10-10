@@ -278,7 +278,8 @@ func toClientOptions(c *Client, o *clientOptions, idSuffix string) *mqtt.ClientO
 		SetConnectionLostHandler(connectionLostHandler(c, o)).
 		SetOnConnectHandler(onConnectHandler(c, o)).
 		SetWriteTimeout(o.writeTimeout).
-		SetLogLevel(o.pahoLogLevel)
+		SetLogLevel(o.pahoLogLevel).
+		SetAckTimeout(o.ackTimeout)
 
 	return opts
 }

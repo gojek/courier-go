@@ -16,8 +16,11 @@ Package courier contains the client that can be used to interact with the courie
 - [func WaitForConnection\(c ConnectionInformer, waitFor time.Duration, tick time.Duration\) bool](#WaitForConnection)
 - [type Client](#Client)
   - [func NewClient\(opts ...ClientOption\) \(\*Client, error\)](#NewClient)
+  - [func \(c \*Client\) AckTimeout\(\) time.Duration](#Client.AckTimeout)
+  - [func \(c \*Client\) ConnectTimeout\(\) time.Duration](#Client.ConnectTimeout)
   - [func \(c \*Client\) InfoHandler\(\) http.Handler](#Client.InfoHandler)
   - [func \(c \*Client\) IsConnected\(\) bool](#Client.IsConnected)
+  - [func \(c \*Client\) KeepAlive\(\) time.Duration](#Client.KeepAlive)
   - [func \(c \*Client\) Publish\(ctx context.Context, topic string, message interface\{\}, opts ...Option\) error](#Client.Publish)
   - [func \(c \*Client\) Run\(ctx context.Context\) error](#Client.Run)
   - [func \(c \*Client\) Start\(\) error](#Client.Start)
@@ -29,10 +32,12 @@ Package courier contains the client that can be used to interact with the courie
   - [func \(c \*Client\) UseStopMiddleware\(mwf StopMiddlewareFunc\)](#Client.UseStopMiddleware)
   - [func \(c \*Client\) UseSubscriberMiddleware\(mwf ...SubscriberMiddlewareFunc\)](#Client.UseSubscriberMiddleware)
   - [func \(c \*Client\) UseUnsubscriberMiddleware\(mwf ...UnsubscriberMiddlewareFunc\)](#Client.UseUnsubscriberMiddleware)
+  - [func \(c \*Client\) WriteTimeout\(\) time.Duration](#Client.WriteTimeout)
 - [type ClientInfoEmitter](#ClientInfoEmitter)
 - [type ClientInfoEmitterConfig](#ClientInfoEmitterConfig)
 - [type ClientMeta](#ClientMeta)
 - [type ClientOption](#ClientOption)
+  - [func WithAckTimeout\(duration time.Duration\) ClientOption](#WithAckTimeout)
   - [func WithAddress\(host string, port uint16\) ClientOption](#WithAddress)
   - [func WithAutoReconnect\(autoReconnect bool\) ClientOption](#WithAutoReconnect)
   - [func WithCleanSession\(cleanSession bool\) ClientOption](#WithCleanSession)
@@ -254,6 +259,24 @@ c.Stop()
 </p>
 </details>
 
+<a name="Client.AckTimeout"></a>
+### func \(\*Client\) [AckTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L399)
+
+```go
+func (c *Client) AckTimeout() time.Duration
+```
+
+AckTimeout returns the ack timeout duration configured for the client
+
+<a name="Client.ConnectTimeout"></a>
+### func \(\*Client\) [ConnectTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L394)
+
+```go
+func (c *Client) ConnectTimeout() time.Duration
+```
+
+ConnectTimeout returns the connect timeout duration configured for the client
+
 <a name="Client.InfoHandler"></a>
 ### func \(\*Client\) [InfoHandler](https://github.com/gojek/courier-go/blob/main/http.go#L9)
 
@@ -271,6 +294,15 @@ func (c *Client) IsConnected() bool
 ```
 
 IsConnected checks whether the client is connected to the broker
+
+<a name="Client.KeepAlive"></a>
+### func \(\*Client\) [KeepAlive](https://github.com/gojek/courier-go/blob/main/client.go#L384)
+
+```go
+func (c *Client) KeepAlive() time.Duration
+```
+
+KeepAlive returns the keep alive duration configured for the client
 
 <a name="Client.Publish"></a>
 ### func \(\*Client\) [Publish](https://github.com/gojek/courier-go/blob/main/client_publish.go#L11)
@@ -371,6 +403,15 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc)
 
 UseUnsubscriberMiddleware appends a UnsubscriberMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip subscriptions. They are executed in the order that they are applied to the Client.
 
+<a name="Client.WriteTimeout"></a>
+### func \(\*Client\) [WriteTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L389)
+
+```go
+func (c *Client) WriteTimeout() time.Duration
+```
+
+WriteTimeout returns the write timeout duration configured for the client
+
 <a name="ClientInfoEmitter"></a>
 ## type [ClientInfoEmitter](https://github.com/gojek/courier-go/blob/main/metrics.go#L17-L19)
 
@@ -418,6 +459,15 @@ type ClientOption interface {
     // contains filtered or unexported methods
 }
 ```
+
+<a name="WithAckTimeout"></a>
+### func [WithAckTimeout](https://github.com/gojek/courier-go/blob/main/client_options.go#L216)
+
+```go
+func WithAckTimeout(duration time.Duration) ClientOption
+```
+
+
 
 <a name="WithAddress"></a>
 ### func [WithAddress](https://github.com/gojek/courier-go/blob/main/client_options.go#L122)
@@ -656,7 +706,7 @@ func WithWriteTimeout(duration time.Duration) ClientOption
 WithWriteTimeout limits how long the client will wait when trying to publish, subscribe or unsubscribe on topic when a context deadline is not set while calling Publisher.Publish, Subscriber.Subscribe, Subscriber.SubscribeMultiple or Unsubscriber.Unsubscribe.
 
 <a name="ConnectRetryInterval"></a>
-## type [ConnectRetryInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L218)
+## type [ConnectRetryInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L224)
 
 ConnectRetryInterval allows to configure the interval between connection retries. Default value is 10 seconds.
 
@@ -1018,7 +1068,7 @@ type Retained bool
 ```
 
 <a name="SharedSubscriptionPredicate"></a>
-## type [SharedSubscriptionPredicate](https://github.com/gojek/courier-go/blob/main/client_options.go#L227)
+## type [SharedSubscriptionPredicate](https://github.com/gojek/courier-go/blob/main/client_options.go#L233)
 
 SharedSubscriptionPredicate allows to configure the predicate function that determines whether a topic is a shared subscription topic.
 

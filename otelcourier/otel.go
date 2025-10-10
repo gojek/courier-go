@@ -99,4 +99,6 @@ func (t *OTel) ApplyMiddlewares(c UseMiddleware) {
 	if t.infoHandler != nil {
 		c.UseStopMiddleware(t.StopMiddleware)
 	}
+
+	t.initCourierConfig(c)
 }

@@ -9,6 +9,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
+
+	"github.com/gojek/courier-go"
 )
 
 var (
@@ -146,4 +148,74 @@ type recorders struct {
 	attempts metric.Int64Counter
 	failures metric.Int64Counter
 	latency  metric.Float64Histogram
+}
+
+func (t *OTel) initCourierConfig(c UseMiddleware) {
+	baseAttrs := append([]attribute.KeyValue{
+		attribute.String("service.name", t.service),
+	}, t.attributes...)
+
+	ctx := context.Background()
+	client := c.(*courier.Client)
+
+	connTimeout := client.ConnectTimeout().Seconds()
+	writeTimeout := client.WriteTimeout().Seconds()
+	keepAlive := client.KeepAlive().Seconds()
+	ackTimeout := client.AckTimeout().Seconds()
+
+	connTimeoutGauge, err := t.meter.Float64UpDownCounter(
+		"courier.client.connection_timeout",
+		metric.WithDescription("MQTT connection timeout in seconds"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	connTimeoutGauge.Add(ctx, connTimeout, metric.WithAttributes(baseAttrs...))
+
+	writeTimeoutGauge, err := t.meter.Float64UpDownCounter(
+		"courier.client.write_timeout",
+		metric.WithDescription("MQTT write timeout in seconds"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	writeTimeoutGauge.Add(ctx, writeTimeout, metric.WithAttributes(baseAttrs...))
+
+	keepAliveGauge, err := t.meter.Float64UpDownCounter(
+		"courier.client.keep_alive",
+		metric.WithDescription("MQTT keep alive in seconds"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	keepAliveGauge.Add(ctx, keepAlive, metric.WithAttributes(baseAttrs...))
+
+	versionGauge, err := t.meter.Float64UpDownCounter(
+		"courier.client.library_version",
+		metric.WithDescription("Courier library version"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	versionAttrs := append(baseAttrs, attribute.String("version", courier.Version()))
+
+	versionGauge.Add(ctx, 1.0, metric.WithAttributes(versionAttrs...))
+
+	ackTimeoutGauge, err := t.meter.Float64UpDownCounter(
+		"courier.client.ack_timeout",
+		metric.WithDescription("MQTT ack timeout in seconds"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	ackTimeoutGauge.Add(ctx, ackTimeout, metric.WithAttributes(baseAttrs...))
 }

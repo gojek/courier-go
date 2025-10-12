@@ -302,7 +302,6 @@ func defaultClientOptions() *clientOptions {
 		gracefulShutdownPeriod:      30 * time.Second,
 		keepAlive:                   60 * time.Second,
 		credentialFetchTimeout:      10 * time.Second,
-		ackTimeout:                  5 * time.Second,
 		connectRetryPolicy:          connectRetryPolicy{interval: 10 * time.Second},
 		newEncoder:                  DefaultEncoderFunc,
 		newDecoder:                  DefaultDecoderFunc,

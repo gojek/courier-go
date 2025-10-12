@@ -245,7 +245,6 @@ func (s *ClientOptionSuite) Test_defaultOptions() {
 		logger:                      defaultLogger,
 		sharedSubscriptionPredicate: defaultSharedSubscriptionPredicate,
 		pahoLogLevel:                defaultPahoLogLevel,
-		ackTimeout:                  5 * time.Second,
 	}
 
 	val1 := fmt.Sprintf("%v", o)

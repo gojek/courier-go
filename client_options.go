@@ -213,6 +213,12 @@ func WithExponentialStartOptions(options ...StartOption) ClientOption {
 	})
 }
 
+func WithAckTimeout(duration time.Duration) ClientOption {
+	return optionFunc(func(o *clientOptions) {
+		o.ackTimeout = duration
+	})
+}
+
 // ConnectRetryInterval allows to configure the interval between connection retries.
 // Default value is 10 seconds.
 type ConnectRetryInterval time.Duration
@@ -259,7 +265,7 @@ type clientOptions struct {
 
 	connectTimeout, writeTimeout, keepAlive,
 	maxReconnectInterval, gracefulShutdownPeriod,
-	credentialFetchTimeout time.Duration
+	credentialFetchTimeout, ackTimeout time.Duration
 
 	connectRetryPolicy connectRetryPolicy
 	startOptions       *startOptions

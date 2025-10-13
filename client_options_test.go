@@ -128,6 +128,13 @@ func (s *ClientOptionSuite) Test_apply() {
 			option: ResumeSubscriptions,
 			want:   &clientOptions{resumeSubscriptions: true},
 		},
+		{
+			name:   "WithAckTimeout",
+			option: WithAckTimeout(10 * time.Second),
+			want: &clientOptions{
+				ackTimeout: 10 * time.Second,
+			},
+		},
 	}
 
 	for _, t := range tests {
@@ -200,6 +207,11 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 			name:   "ConnectRetryInterval",
 			option: ConnectRetryInterval(time.Second),
 			want:   &clientOptions{connectRetryPolicy: connectRetryPolicy{enabled: true, interval: time.Second}},
+		},
+		{
+			name:   "WithAckTimeout",
+			option: WithAckTimeout(5 * time.Second),
+			want:   &clientOptions{ackTimeout: 5 * time.Second},
 		},
 	}
 

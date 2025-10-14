@@ -79,3 +79,35 @@ courier_client_write_timeout_seconds{otel_scope_name="github.com/gojek/courier-g
 		))
 	})
 }
+
+func Test_courierConfigMetrics_NonCourierConfigType(t *testing.T) {
+	reg := prom.NewRegistry()
+	exporter, err := prometheus.New(prometheus.WithRegisterer(reg))
+	require.NoError(t, err)
+	mp := metric.NewMeterProvider(metric.WithReader(exporter))
+
+	mw := New("test-service", WithMeterProvider(mp))
+
+	mockClient := &mockUseMiddleware{}
+
+	mw.ApplyMiddlewares(mockClient)
+
+	metricFamilies, err := reg.Gather()
+	require.NoError(t, err)
+
+	for _, mf := range metricFamilies {
+		metricName := mf.GetName()
+		assert.NotContains(t, metricName, "courier_client_connection_timeout")
+		assert.NotContains(t, metricName, "courier_client_write_timeout")
+		assert.NotContains(t, metricName, "courier_client_keep_alive")
+		assert.NotContains(t, metricName, "courier_client_ack_timeout")
+		assert.NotContains(t, metricName, "courier_client_library_version")
+	}
+}
+
+type mockUseMiddleware struct{}
+
+func (m *mockUseMiddleware) UsePublisherMiddleware(mwf ...courier.PublisherMiddlewareFunc)       {}
+func (m *mockUseMiddleware) UseSubscriberMiddleware(mwf ...courier.SubscriberMiddlewareFunc)     {}
+func (m *mockUseMiddleware) UseUnsubscriberMiddleware(mwf ...courier.UnsubscriberMiddlewareFunc) {}
+func (m *mockUseMiddleware) UseStopMiddleware(mwf courier.StopMiddlewareFunc)                    {}

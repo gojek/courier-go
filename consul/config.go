@@ -2,9 +2,10 @@ package consul
 
 import (
 	"fmt"
-	"go.opentelemetry.io/otel/metric"
 	"log"
 	"time"
+
+	"go.opentelemetry.io/otel/metric"
 )
 
 type Config struct {

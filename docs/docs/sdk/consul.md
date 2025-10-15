@@ -22,7 +22,7 @@ Package consul
 
 
 <a name="Config"></a>
-## type [Config](https://github.com/gojek/courier-go/blob/main/consul/config.go#L10-L17)
+## type [Config](https://github.com/gojek/courier-go/blob/main/consul/config.go#L11-L18)
 
 
 
@@ -38,7 +38,7 @@ type Config struct {
 ```
 
 <a name="DefaultConfig"></a>
-### func [DefaultConfig](https://github.com/gojek/courier-go/blob/main/consul/config.go#L19)
+### func [DefaultConfig](https://github.com/gojek/courier-go/blob/main/consul/config.go#L20)
 
 ```go
 func DefaultConfig() *Config
@@ -47,7 +47,7 @@ func DefaultConfig() *Config
 
 
 <a name="Config.Validate"></a>
-### func \(\*Config\) [Validate](https://github.com/gojek/courier-go/blob/main/consul/config.go#L27)
+### func \(\*Config\) [Validate](https://github.com/gojek/courier-go/blob/main/consul/config.go#L28)
 
 ```go
 func (c *Config) Validate() error

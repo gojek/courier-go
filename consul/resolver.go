@@ -2,6 +2,7 @@
 package consul
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,8 +10,25 @@ import (
 	"time"
 
 	consulapi "github.com/hashicorp/consul/api"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/gojek/courier-go"
+)
+
+const (
+	metricServiceDiscoveryErrors   = "courier.consul.service_discovery.errors"
+	metricServiceInstances         = "courier.consul.service_instances"
+	metricServiceDiscoveryDuration = "courier.consul.service_discovery.duration"
+
+	attrServiceName  = "service.name"
+	attrSource       = "source"
+	attrSuccess      = "success"
+	attrErrorType    = "error.type"
+	attrInstanceCnt  = "instance_count"
+
+	sourceConsul           = "consul"
+	errorTypeConsulAPI     = "consul_api_error"
 )
 
 type Resolver struct {
@@ -32,6 +50,11 @@ type Resolver struct {
 	// KV watching
 	kvKey         string
 	lastAddresses []courier.TCPAddress
+
+	serviceDiscoveryErrors metric.Int64Counter
+	serviceInstances metric.Int64UpDownCounter
+	serviceDiscoveryDuration metric.Float64Histogram
+	lastInstanceCount int64
 }
 
 func NewResolver(config *Config) (*Resolver, error) {
@@ -61,6 +84,36 @@ func NewResolver(config *Config) (*Resolver, error) {
 		updateChan:  make(chan []courier.TCPAddress, 1),
 		doneChan:    make(chan struct{}),
 		kvKey:       config.KVKey,
+	}
+
+	if config.Meter != nil {
+		var err error
+		r.serviceDiscoveryErrors, err = config.Meter.Int64Counter(
+			metricServiceDiscoveryErrors,
+			metric.WithDescription("Total number of service discovery errors encountered"),
+			metric.WithUnit("{error}"),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create service_discovery.errors metric: %w", err)
+		}
+
+		r.serviceInstances, err = config.Meter.Int64UpDownCounter(
+			metricServiceInstances,
+			metric.WithDescription("Current number of discovered healthy service instances"),
+			metric.WithUnit("{instance}"),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create service_instances metric: %w", err)
+		}
+
+		r.serviceDiscoveryDuration, err = config.Meter.Float64Histogram(
+			metricServiceDiscoveryDuration,
+			metric.WithDescription("Duration of service discovery operations"),
+			metric.WithUnit("s"),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create service_discovery.duration metric: %w", err)
+		}
 	}
 
 	return r, nil
@@ -167,6 +220,9 @@ func (r *Resolver) watchServices() {
 
 // discover performs a blocking query to find service instances.
 func (r *Resolver) discover() error {
+	startTime := time.Now()
+	ctx := context.Background()
+
 	r.mu.RLock()
 	serviceName := r.serviceName
 	queryOpts := &consulapi.QueryOptions{
@@ -177,8 +233,12 @@ func (r *Resolver) discover() error {
 
 	services, meta, err := r.client.Health().Service(serviceName, "", r.healthyOnly, queryOpts)
 	if err != nil {
+		r.recordError(ctx, serviceName, errorTypeConsulAPI)
+		r.recordDuration(ctx, serviceName, time.Since(startTime), false)
 		return fmt.Errorf("failed to query services: %w", err)
 	}
+
+	r.recordDuration(ctx, serviceName, time.Since(startTime), true)
 
 	r.mu.Lock()
 
@@ -189,13 +249,26 @@ func (r *Resolver) discover() error {
 	}
 
 	r.lastIndex = meta.LastIndex
+	addresses := r.convertToTCPAddresses(services)
+	currentCount := int64(len(addresses))
+
+	previousCount := r.lastInstanceCount
+	r.lastInstanceCount = currentCount
+
 	r.mu.Unlock()
 
-	addresses := r.convertToTCPAddresses(services)
+	r.recordInstanceCount(ctx, serviceName, currentCount, previousCount)
+
 	r.logger.Printf("Discovered %d instances for service '%s'", len(addresses), serviceName)
 
-	if !areAddressesEqual(r.lastAddresses, addresses) {
+	r.mu.Lock()
+	addressesChanged := !areAddressesEqual(r.lastAddresses, addresses)
+	if addressesChanged {
 		r.lastAddresses = addresses
+	}
+	r.mu.Unlock()
+
+	if addressesChanged {
 		select {
 		case r.updateChan <- addresses:
 		case <-r.doneChan:
@@ -309,4 +382,52 @@ func (r *Resolver) convertToTCPAddresses(services []*consulapi.ServiceEntry) []c
 	}
 
 	return addresses
+}
+
+func (r *Resolver) recordError(ctx context.Context, serviceName, errorType string) {
+	if r.serviceDiscoveryErrors == nil {
+		return
+	}
+
+	attrs := []attribute.KeyValue{
+		attribute.String(attrServiceName, serviceName),
+		attribute.String(attrSource, sourceConsul),
+		attribute.String(attrErrorType, errorType),
+		attribute.Bool(attrSuccess, false),
+	}
+
+	r.serviceDiscoveryErrors.Add(ctx, 1, metric.WithAttributes(attrs...))
+}
+
+func (r *Resolver) recordDuration(ctx context.Context, serviceName string, duration time.Duration, success bool) {
+	if r.serviceDiscoveryDuration == nil {
+		return
+	}
+
+	attrs := []attribute.KeyValue{
+		attribute.String(attrServiceName, serviceName),
+		attribute.String(attrSource, sourceConsul),
+		attribute.Bool(attrSuccess, success),
+	}
+
+	r.serviceDiscoveryDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(attrs...))
+}
+
+func (r *Resolver) recordInstanceCount(ctx context.Context, serviceName string, currentCount, previousCount int64) {
+	if r.serviceInstances == nil {
+		return
+	}
+
+	delta := currentCount - previousCount
+	if delta == 0 {
+		return
+	}
+
+	attrs := []attribute.KeyValue{
+		attribute.String(attrServiceName, serviceName),
+		attribute.String(attrSource, sourceConsul),
+		attribute.Int64(attrInstanceCnt, currentCount),
+	}
+
+	r.serviceInstances.Add(ctx, delta, metric.WithAttributes(attrs...))
 }

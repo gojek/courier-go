@@ -21,14 +21,11 @@ const (
 	metricServiceInstances         = "courier.consul.service_instances"
 	metricServiceDiscoveryDuration = "courier.consul.service_discovery.duration"
 
-	attrServiceName  = "service.name"
-	attrSource       = "source"
-	attrSuccess      = "success"
-	attrErrorType    = "error.type"
-	attrInstanceCnt  = "instance_count"
+	attrServiceName = "service.name"
+	attrSuccess     = "success"
+	attrErrorType   = "error.type"
 
-	sourceConsul           = "consul"
-	errorTypeConsulAPI     = "consul_api_error"
+	errorTypeConsulAPI = "consul_api_error"
 )
 
 type Resolver struct {
@@ -51,10 +48,10 @@ type Resolver struct {
 	kvKey         string
 	lastAddresses []courier.TCPAddress
 
-	serviceDiscoveryErrors metric.Int64Counter
-	serviceInstances metric.Int64UpDownCounter
+	serviceDiscoveryErrors   metric.Int64Counter
+	serviceInstances         metric.Int64UpDownCounter
 	serviceDiscoveryDuration metric.Float64Histogram
-	lastInstanceCount int64
+	lastInstanceCount        int64
 }
 
 func NewResolver(config *Config) (*Resolver, error) {
@@ -391,9 +388,7 @@ func (r *Resolver) recordError(ctx context.Context, serviceName, errorType strin
 
 	attrs := []attribute.KeyValue{
 		attribute.String(attrServiceName, serviceName),
-		attribute.String(attrSource, sourceConsul),
 		attribute.String(attrErrorType, errorType),
-		attribute.Bool(attrSuccess, false),
 	}
 
 	r.serviceDiscoveryErrors.Add(ctx, 1, metric.WithAttributes(attrs...))
@@ -406,7 +401,6 @@ func (r *Resolver) recordDuration(ctx context.Context, serviceName string, durat
 
 	attrs := []attribute.KeyValue{
 		attribute.String(attrServiceName, serviceName),
-		attribute.String(attrSource, sourceConsul),
 		attribute.Bool(attrSuccess, success),
 	}
 
@@ -425,8 +419,6 @@ func (r *Resolver) recordInstanceCount(ctx context.Context, serviceName string, 
 
 	attrs := []attribute.KeyValue{
 		attribute.String(attrServiceName, serviceName),
-		attribute.String(attrSource, sourceConsul),
-		attribute.Int64(attrInstanceCnt, currentCount),
 	}
 
 	r.serviceInstances.Add(ctx, delta, metric.WithAttributes(attrs...))

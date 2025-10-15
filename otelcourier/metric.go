@@ -150,18 +150,29 @@ type recorders struct {
 	latency  metric.Float64Histogram
 }
 
+type CourierConfig interface {
+	ConnectTimeout() time.Duration
+	WriteTimeout() time.Duration
+	KeepAlive() time.Duration
+	AckTimeout() time.Duration
+}
+
 func (t *OTel) initCourierConfig(c UseMiddleware) {
 	baseAttrs := append([]attribute.KeyValue{
 		attribute.String("service.name", t.service),
 	}, t.attributes...)
 
 	ctx := context.Background()
-	client := c.(*courier.Client)
 
-	connTimeout := client.ConnectTimeout().Seconds()
-	writeTimeout := client.WriteTimeout().Seconds()
-	keepAlive := client.KeepAlive().Seconds()
-	ackTimeout := client.AckTimeout().Seconds()
+	cCfg, ok := c.(CourierConfig)
+	if !ok {
+		return
+	}
+
+	connTimeout := cCfg.ConnectTimeout().Seconds()
+	writeTimeout := cCfg.WriteTimeout().Seconds()
+	keepAlive := cCfg.KeepAlive().Seconds()
+	ackTimeout := cCfg.AckTimeout().Seconds()
 
 	connTimeoutGauge, err := t.meter.Float64UpDownCounter(
 		"courier.client.connection_timeout",

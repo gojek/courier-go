@@ -2,9 +2,9 @@ package consul
 
 import (
 	"fmt"
+	"go.opentelemetry.io/otel/metric"
 	"log"
 	"time"
-	"go.opentelemetry.io/otel/metric" 
 )
 
 type Config struct {
@@ -13,7 +13,7 @@ type Config struct {
 	KVKey         string
 	WaitTime      time.Duration
 	Logger        *log.Logger
-	Meter         metric.Meter 
+	Meter         metric.Meter
 }
 
 func DefaultConfig() *Config {

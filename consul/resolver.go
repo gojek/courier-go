@@ -90,6 +90,7 @@ func NewResolver(config *Config) (*Resolver, error) {
 			metric.WithDescription("Total number of service discovery errors encountered"),
 			metric.WithUnit("{error}"),
 		)
+
 		if err != nil {
 			return nil, fmt.Errorf("failed to create service_discovery.errors metric: %w", err)
 		}
@@ -232,6 +233,7 @@ func (r *Resolver) discover() error {
 	if err != nil {
 		r.recordError(ctx, serviceName, errorTypeConsulAPI)
 		r.recordDuration(ctx, serviceName, time.Since(startTime), false)
+
 		return fmt.Errorf("failed to query services: %w", err)
 	}
 
@@ -260,6 +262,7 @@ func (r *Resolver) discover() error {
 
 	r.mu.Lock()
 	addressesChanged := !areAddressesEqual(r.lastAddresses, addresses)
+
 	if addressesChanged {
 		r.lastAddresses = addresses
 	}

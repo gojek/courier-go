@@ -17,10 +17,6 @@ import (
 )
 
 const (
-	metricServiceDiscoveryErrors   = "courier.consul.service_discovery.errors"
-	metricServiceInstances         = "courier.consul.service_instances"
-	metricServiceDiscoveryDuration = "courier.consul.service_discovery.duration"
-
 	attrServiceName = "service.name"
 	attrSuccess     = "success"
 	attrErrorType   = "error.type"
@@ -83,10 +79,12 @@ func NewResolver(config *Config) (*Resolver, error) {
 		kvKey:       config.KVKey,
 	}
 
-	if config.Meter != nil {
+	if config.OTel != nil {
+		meter := config.OTel.Meter()
+
 		var err error
-		r.serviceDiscoveryErrors, err = config.Meter.Int64Counter(
-			metricServiceDiscoveryErrors,
+		r.serviceDiscoveryErrors, err = meter.Int64Counter(
+			"courier.consul.service_discovery.errors",
 			metric.WithDescription("Total number of service discovery errors encountered"),
 			metric.WithUnit("{error}"),
 		)
@@ -95,8 +93,8 @@ func NewResolver(config *Config) (*Resolver, error) {
 			return nil, fmt.Errorf("failed to create service_discovery.errors metric: %w", err)
 		}
 
-		r.serviceInstances, err = config.Meter.Int64UpDownCounter(
-			metricServiceInstances,
+		r.serviceInstances, err = meter.Int64UpDownCounter(
+			"courier.consul.service_instances",
 			metric.WithDescription("Current number of discovered healthy service instances"),
 			metric.WithUnit("{instance}"),
 		)
@@ -104,8 +102,8 @@ func NewResolver(config *Config) (*Resolver, error) {
 			return nil, fmt.Errorf("failed to create service_instances metric: %w", err)
 		}
 
-		r.serviceDiscoveryDuration, err = config.Meter.Float64Histogram(
-			metricServiceDiscoveryDuration,
+		r.serviceDiscoveryDuration, err = meter.Float64Histogram(
+			"courier.consul.service_discovery.duration",
 			metric.WithDescription("Duration of service discovery operations"),
 			metric.WithUnit("s"),
 		)

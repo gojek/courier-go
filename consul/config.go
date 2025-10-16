@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"go.opentelemetry.io/otel/metric"
+	"github.com/gojek/courier-go/otelcourier"
 )
 
 type Config struct {
@@ -14,7 +14,7 @@ type Config struct {
 	KVKey         string
 	WaitTime      time.Duration
 	Logger        *log.Logger
-	Meter         metric.Meter
+	OTel          *otelcourier.OTel
 }
 
 func DefaultConfig() *Config {

@@ -17,6 +17,7 @@ Package otelcourier instruments the github.com/gojek/courier\-go package.
 - [type OTel](#OTel)
   - [func New\(service string, opts ...Option\) \*OTel](#New)
   - [func \(t \*OTel\) ApplyMiddlewares\(c UseMiddleware\)](#OTel.ApplyMiddlewares)
+  - [func \(t \*OTel\) Meter\(\) metric.Meter](#OTel.Meter)
   - [func \(t \*OTel\) PublisherMiddleware\(next courier.Publisher\) courier.Publisher](#OTel.PublisherMiddleware)
   - [func \(t \*OTel\) Stop\(\) error](#OTel.Stop)
   - [func \(t \*OTel\) StopMiddleware\(next courier.Stopper\) courier.Stopper](#OTel.StopMiddleware)
@@ -189,6 +190,15 @@ func (t *OTel) ApplyMiddlewares(c UseMiddleware)
 ```
 
 ApplyMiddlewares will instrument all the operations of a UseMiddleware instance according to Option\(s\) used.
+
+<a name="OTel.Meter"></a>
+### func \(\*OTel\) [Meter](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L109)
+
+```go
+func (t *OTel) Meter() metric.Meter
+```
+
+Meter returns the underlying OpenTelemetry meter used by this OTel instance. This allows other components \(like service discovery\) to create metrics using the same meter for consistency.
 
 <a name="OTel.PublisherMiddleware"></a>
 ### func \(\*OTel\) [PublisherMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/publish.go#L23)

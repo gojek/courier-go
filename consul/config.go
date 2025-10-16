@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"time"
+
+	"github.com/gojek/courier-go/otelcourier"
 )
 
 type Config struct {
@@ -12,6 +14,7 @@ type Config struct {
 	KVKey         string
 	WaitTime      time.Duration
 	Logger        *log.Logger
+	OTel          *otelcourier.OTel
 }
 
 func DefaultConfig() *Config {

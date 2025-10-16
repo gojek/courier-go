@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.7.6]
+
+### Changed
+- Replace direct courier.Client cast with CourierConfig interface for courier config metrics ([#63] https://github.com/gojek/courier-go/pull/63)
+
 ## [0.7.5]
 
 ### Added
@@ -150,7 +155,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Initial Release
 
-[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.5...HEAD
+[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.6...HEAD
+[0.7.6]: https://github.com/gojek/courier-go/releases/tag/v0.7.6
 [0.7.5]: https://github.com/gojek/courier-go/releases/tag/v0.7.5
 [0.7.4]: https://github.com/gojek/courier-go/releases/tag/v0.7.4
 [0.7.3]: https://github.com/gojek/courier-go/releases/tag/v0.7.3

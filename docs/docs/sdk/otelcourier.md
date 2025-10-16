@@ -207,13 +207,13 @@ func (t *OTel) ApplyMiddlewares(c UseMiddleware)
 ApplyMiddlewares will instrument all the operations of a UseMiddleware instance according to Option\(s\) used.
 
 <a name="OTel.Meter"></a>
-### func \(\*OTel\) [Meter](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L109)
+### func \(\*OTel\) [Meter](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L106)
 
 ```go
 func (t *OTel) Meter() metric.Meter
 ```
 
-Meter returns the underlying OpenTelemetry meter used by this OTel instance. This allows other components \(like service discovery\) to create metrics using the same meter for consistency.
+
 
 <a name="OTel.PublisherMiddleware"></a>
 ### func \(\*OTel\) [PublisherMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/publish.go#L23)

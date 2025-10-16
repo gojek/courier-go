@@ -14,6 +14,7 @@ Package otelcourier instruments the github.com/gojek/courier\-go package.
 - [Variables](#variables)
 - [func DefaultTopicAttributeTransformer\(\_ context.Context, topic string\) string](#DefaultTopicAttributeTransformer)
 - [type BucketBoundaries](#BucketBoundaries)
+- [type CourierConfig](#CourierConfig)
 - [type OTel](#OTel)
   - [func New\(service string, opts ...Option\) \*OTel](#New)
   - [func \(t \*OTel\) ApplyMiddlewares\(c UseMiddleware\)](#OTel.ApplyMiddlewares)
@@ -96,6 +97,20 @@ BucketBoundaries helps override default histogram bucket boundaries for metrics.
 ```go
 type BucketBoundaries struct {
     Publisher, Subscriber, Unsubscriber, Callback []float64
+}
+```
+
+<a name="CourierConfig"></a>
+## type [CourierConfig](https://github.com/gojek/courier-go/blob/main/otelcourier/metric.go#L153-L158)
+
+
+
+```go
+type CourierConfig interface {
+    ConnectTimeout() time.Duration
+    WriteTimeout() time.Duration
+    KeepAlive() time.Duration
+    AckTimeout() time.Duration
 }
 ```
 

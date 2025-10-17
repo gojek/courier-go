@@ -58,6 +58,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func WithPahoLogLevel\(level LogLevel\) ClientOption](#WithPahoLogLevel)
   - [func WithPassword\(password string\) ClientOption](#WithPassword)
   - [func WithPersistence\(store Store\) ClientOption](#WithPersistence)
+  - [func WithPoolSize\(size int\) ClientOption](#WithPoolSize)
   - [func WithResolver\(resolver Resolver\) ClientOption](#WithResolver)
   - [func WithTCPAddress\(host string, port uint16\) ClientOption](#WithTCPAddress)
   - [func WithTLS\(tlsConfig \*tls.Config\) ClientOption](#WithTLS)
@@ -190,7 +191,7 @@ func WaitForConnection(c ConnectionInformer, waitFor time.Duration, tick time.Du
 WaitForConnection checks if the Client is connected, it calls ConnectionInformer.IsConnected after every tick and waitFor is the maximum duration it can block. Returns true only when ConnectionInformer.IsConnected returns true
 
 <a name="Client"></a>
-## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L22-L45)
+## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L22-L48)
 
 Client allows to communicate with an MQTT broker
 
@@ -201,7 +202,7 @@ type Client struct {
 ```
 
 <a name="NewClient"></a>
-### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L50)
+### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L53)
 
 ```go
 func NewClient(opts ...ClientOption) (*Client, error)
@@ -260,7 +261,7 @@ c.Stop()
 </details>
 
 <a name="Client.AckTimeout"></a>
-### func \(\*Client\) [AckTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L399)
+### func \(\*Client\) [AckTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L433)
 
 ```go
 func (c *Client) AckTimeout() time.Duration
@@ -269,7 +270,7 @@ func (c *Client) AckTimeout() time.Duration
 AckTimeout returns the ack timeout duration configured for the client
 
 <a name="Client.ConnectTimeout"></a>
-### func \(\*Client\) [ConnectTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L394)
+### func \(\*Client\) [ConnectTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L428)
 
 ```go
 func (c *Client) ConnectTimeout() time.Duration
@@ -287,7 +288,7 @@ func (c *Client) InfoHandler() http.Handler
 InfoHandler returns a http.Handler that exposes the connected clients information
 
 <a name="Client.IsConnected"></a>
-### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L87)
+### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/client.go#L96)
 
 ```go
 func (c *Client) IsConnected() bool
@@ -296,7 +297,7 @@ func (c *Client) IsConnected() bool
 IsConnected checks whether the client is connected to the broker
 
 <a name="Client.KeepAlive"></a>
-### func \(\*Client\) [KeepAlive](https://github.com/gojek/courier-go/blob/main/client.go#L384)
+### func \(\*Client\) [KeepAlive](https://github.com/gojek/courier-go/blob/main/client.go#L418)
 
 ```go
 func (c *Client) KeepAlive() time.Duration
@@ -314,7 +315,7 @@ func (c *Client) Publish(ctx context.Context, topic string, message interface{},
 Publish allows to publish messages to an MQTT broker
 
 <a name="Client.Run"></a>
-### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L115)
+### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L134)
 
 ```go
 func (c *Client) Run(ctx context.Context) error
@@ -323,7 +324,7 @@ func (c *Client) Run(ctx context.Context) error
 Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package. https://pkg.go.dev/github.com/gojekfarm/xrun
 
 <a name="Client.Start"></a>
-### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L100)
+### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L119)
 
 ```go
 func (c *Client) Start() error
@@ -332,7 +333,7 @@ func (c *Client) Start() error
 Start will attempt to connect to the broker.
 
 <a name="Client.Stop"></a>
-### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L111)
+### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L130)
 
 ```go
 func (c *Client) Stop()
@@ -404,7 +405,7 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc)
 UseUnsubscriberMiddleware appends a UnsubscriberMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip subscriptions. They are executed in the order that they are applied to the Client.
 
 <a name="Client.WriteTimeout"></a>
-### func \(\*Client\) [WriteTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L389)
+### func \(\*Client\) [WriteTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L423)
 
 ```go
 func (c *Client) WriteTimeout() time.Duration
@@ -461,7 +462,7 @@ type ClientOption interface {
 ```
 
 <a name="WithAckTimeout"></a>
-### func [WithAckTimeout](https://github.com/gojek/courier-go/blob/main/client_options.go#L216)
+### func [WithAckTimeout](https://github.com/gojek/courier-go/blob/main/client_options.go#L226)
 
 ```go
 func WithAckTimeout(duration time.Duration) ClientOption
@@ -542,7 +543,7 @@ func WithCustomEncoder(encoderFunc EncoderFunc) ClientOption
 WithCustomEncoder allows to transform objects into the desired message bytes.
 
 <a name="WithExponentialStartOptions"></a>
-### func [WithExponentialStartOptions](https://github.com/gojek/courier-go/blob/main/client_options.go#L207)
+### func [WithExponentialStartOptions](https://github.com/gojek/courier-go/blob/main/client_options.go#L217)
 
 ```go
 func WithExponentialStartOptions(options ...StartOption) ClientOption
@@ -649,6 +650,15 @@ func WithPersistence(store Store) ClientOption
 
 WithPersistence allows to configure the store to be used by broker Default persistence is in\-memory persistence with mqtt.MemoryStore
 
+<a name="WithPoolSize"></a>
+### func [WithPoolSize](https://github.com/gojek/courier-go/blob/main/client_options.go#L206)
+
+```go
+func WithPoolSize(size int) ClientOption
+```
+
+WithPoolSize configures the client to use a connection pool with the specified size.
+
 <a name="WithResolver"></a>
 ### func [WithResolver](https://github.com/gojek/courier-go/blob/main/client_resolver.go#L37)
 
@@ -706,7 +716,7 @@ func WithWriteTimeout(duration time.Duration) ClientOption
 WithWriteTimeout limits how long the client will wait when trying to publish, subscribe or unsubscribe on topic when a context deadline is not set while calling Publisher.Publish, Subscriber.Subscribe, Subscriber.SubscribeMultiple or Unsubscriber.Unsubscribe.
 
 <a name="ConnectRetryInterval"></a>
-## type [ConnectRetryInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L224)
+## type [ConnectRetryInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L234)
 
 ConnectRetryInterval allows to configure the interval between connection retries. Default value is 10 seconds.
 
@@ -1068,7 +1078,7 @@ type Retained bool
 ```
 
 <a name="SharedSubscriptionPredicate"></a>
-## type [SharedSubscriptionPredicate](https://github.com/gojek/courier-go/blob/main/client_options.go#L233)
+## type [SharedSubscriptionPredicate](https://github.com/gojek/courier-go/blob/main/client_options.go#L243)
 
 SharedSubscriptionPredicate allows to configure the predicate function that determines whether a topic is a shared subscription topic.
 

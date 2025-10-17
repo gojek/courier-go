@@ -78,9 +78,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	if len(co.brokerAddress) != 0 {
 		if co.poolEnabled {
 			c.connectionPool = make([]*pooledConnection, 0, co.poolSize)
-			if err := c.initializeConnectionPool(); err != nil {
-				return nil, fmt.Errorf("failed to initialize connection pool: %w", err)
-			}
+			c.initializeConnectionPool()
 		} else {
 			c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options, ""))
 		}
@@ -151,6 +149,7 @@ func (c *Client) stop() error {
 	if c.options.poolEnabled {
 		err := c.execute(func(cc mqtt.Client) error {
 			cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+
 			return nil
 		}, execAll)
 

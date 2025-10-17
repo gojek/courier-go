@@ -140,7 +140,7 @@ func (s *ClientOptionSuite) Test_apply() {
 			option: WithPoolSize(3),
 			want: &clientOptions{
 				poolEnabled: true,
-				poolSize:    4,
+				poolSize:    3,
 			},
 		},
 	}

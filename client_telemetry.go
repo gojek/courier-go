@@ -137,6 +137,7 @@ func (c *Client) poolClientInfo() []MQTTClientInfo {
 	_ = c.execute(func(cc mqtt.Client) error {
 		bi := transformClientInfo(cc)
 		bl = append(bl, bi)
+
 		return nil
 	}, execAll)
 

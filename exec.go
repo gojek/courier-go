@@ -109,10 +109,12 @@ func (c *Client) execPool(f func(mqtt.Client) error, eo execOpt) error {
 			if conn == nil {
 				return ErrClientNotInitialized
 			}
+
 			return f(conn.client)
 		}
 
 		errs := make([]error, 0, len(c.connectionPool))
+
 		for _, conn := range c.connectionPool {
 			if err := f(conn.client); err != nil {
 				errs = append(errs, err)
@@ -129,7 +131,9 @@ func (c *Client) execPool(f func(mqtt.Client) error, eo execOpt) error {
 		if conn == nil {
 			return ErrClientNotInitialized
 		}
+
 		dummyState := &internalState{client: conn.client}
+
 		return eo(f, dummyState)
 
 	default:

@@ -5,9 +5,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	mqtt "github.com/gojek/paho.mqtt.golang"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
 type mockMQTTClient struct {

@@ -16,10 +16,11 @@ func newPooledConnection(client mqtt.Client, id string) *pooledConnection {
 		client: client,
 		id:     id,
 	}
+
 	return pc
 }
 
-func (c *Client) initializeConnectionPool() error {
+func (c *Client) initializeConnectionPool() {
 	for i := 0; i < c.options.poolSize; i++ {
 		mqttOpts := toClientOptions(c, c.options, fmt.Sprintf("-%d", i))
 
@@ -28,14 +29,14 @@ func (c *Client) initializeConnectionPool() error {
 
 		c.connectionPool = append(c.connectionPool, pooledConn)
 	}
-
-	return nil
 }
 
 func (c *Client) getNextPoolConnection() *pooledConnection {
 	if len(c.connectionPool) == 0 {
 		return nil
 	}
+
 	index := int(c.poolIndex.next()) % len(c.connectionPool)
+
 	return c.connectionPool[index]
 }

@@ -4,17 +4,23 @@ import (
 	"fmt"
 
 	mqtt "github.com/gojek/paho.mqtt.golang"
+	"github.com/gojekfarm/xtools/generic"
 )
 
 type pooledConnection struct {
 	client mqtt.Client
 	id     string
+	state  *internalState
 }
 
 func newPooledConnection(client mqtt.Client, id string) *pooledConnection {
 	pc := &pooledConnection{
 		client: client,
 		id:     id,
+		state: &internalState{
+			client:     client,
+			subsCalled: make(generic.Set[string]),
+		},
 	}
 
 	return pc

@@ -132,9 +132,7 @@ func (c *Client) execPool(f func(mqtt.Client) error, eo execOpt) error {
 			return ErrClientNotInitialized
 		}
 
-		dummyState := &internalState{client: conn.client}
-
-		return eo(f, dummyState)
+		return eo(f, conn.state)
 
 	default:
 		return errInvalidExecOpt

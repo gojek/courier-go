@@ -46,4 +46,10 @@ func TestClient_clientInfo(t *testing.T) {
 		ci := c.clientInfo()
 		assert.Equal(t, []MQTTClientInfo(nil), ci)
 	})
+
+	t.Run("pool mode", func(t *testing.T) {
+		c := &Client{options: &clientOptions{poolEnabled: true}}
+		ci := c.clientInfo()
+		assert.Equal(t, []MQTTClientInfo(nil), ci)
+	})
 }

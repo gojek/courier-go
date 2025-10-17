@@ -22,7 +22,7 @@ func TestClient_TelemetryHandler(t *testing.T) {
 			name:   "single connection mode",
 			status: http.StatusOK,
 			opts:   func(t *testing.T) []ClientOption { return nil },
-			body: fmt.Sprintf(`{"multi":false,"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true}],"subscriptions":{"$share/test/test-topic":0}}
+			body: fmt.Sprintf(`{"multi":false,"pool":false,"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true}],"subscriptions":{"$share/test/test-topic":0}}
 `, testBrokerAddress.Host, testBrokerAddress.Port),
 		},
 		{
@@ -50,7 +50,18 @@ func TestClient_TelemetryHandler(t *testing.T) {
 					UseMultiConnectionMode,
 				}
 			},
-			body: fmt.Sprintf(`{"multi":true,"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-0-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true,"subscriptions":["$share/test/test-topic"]},{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-1-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true,"subscriptions":["$share/test/test-topic"]}],"subscriptions":{"$share/test/test-topic":0}}
+			body: fmt.Sprintf(`{"multi":true,"pool":false,"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-0-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true,"subscriptions":["$share/test/test-topic"]},{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-1-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true,"subscriptions":["$share/test/test-topic"]}],"subscriptions":{"$share/test/test-topic":0}}
+`, testBrokerAddress.Host, testBrokerAddress.Port, testBrokerAddress.Host, testBrokerAddress.Port),
+		},
+		{
+			name:   "pool connection mode",
+			status: http.StatusOK,
+			opts: func(t *testing.T) []ClientOption {
+				return []ClientOption{
+					WithPoolSize(2),
+				}
+			},
+			body: fmt.Sprintf(`{"multi":false,"pool":true,"pool_size":2,"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-0","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true},{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true}],"subscriptions":{"$share/test/test-topic":0}}
 `, testBrokerAddress.Host, testBrokerAddress.Port, testBrokerAddress.Host, testBrokerAddress.Port),
 		},
 	}

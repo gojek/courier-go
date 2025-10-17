@@ -202,6 +202,16 @@ func WithUseBase64Decoder() ClientOption {
 	})
 }
 
+// WithPoolSize configures the client to use a connection pool with the specified size.
+func WithPoolSize(size int) ClientOption {
+	return optionFunc(func(o *clientOptions) {
+		if size > 0 {
+			o.poolSize = size
+			o.poolEnabled = size > 1
+		}
+	})
+}
+
 // WithExponentialStartOptions configures the client to use ExponentialStartStrategy
 // along with the passed StartOption(s) when using the Client.Run method.
 func WithExponentialStartOptions(options ...StartOption) ClientOption {
@@ -261,7 +271,8 @@ type clientOptions struct {
 	tlsConfig *tls.Config
 
 	autoReconnect, maintainOrder, cleanSession,
-	multiConnectionMode, resumeSubscriptions bool
+	multiConnectionMode, resumeSubscriptions,
+	poolEnabled bool
 
 	connectTimeout, writeTimeout, keepAlive,
 	maxReconnectInterval, gracefulShutdownPeriod,
@@ -281,6 +292,8 @@ type clientOptions struct {
 	newEncoder EncoderFunc
 	newDecoder DecoderFunc
 	store      Store
+
+	poolSize int
 }
 
 type connectRetryPolicy struct {

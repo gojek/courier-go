@@ -135,6 +135,14 @@ func (s *ClientOptionSuite) Test_apply() {
 				ackTimeout: 10 * time.Second,
 			},
 		},
+		{
+			name:   "WithPoolSize",
+			option: WithPoolSize(3),
+			want: &clientOptions{
+				poolEnabled: true,
+				poolSize:    4,
+			},
+		},
 	}
 
 	for _, t := range tests {

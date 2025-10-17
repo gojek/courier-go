@@ -26,6 +26,8 @@ type MQTTClientInfo struct {
 
 type infoResponse struct {
 	MultiConnMode bool                `json:"multi"`
+	PoolMode      bool                `json:"pool"`
+	PoolSize      int                 `json:"pool_size,omitempty"`
 	Clients       []MQTTClientInfo    `json:"clients,omitempty"`
 	Subscriptions map[string]QOSLevel `json:"subscriptions,omitempty"`
 }
@@ -34,14 +36,25 @@ func (c *Client) infoResponse() *infoResponse {
 	subs := c.readSubscriptionMeta()
 	ci := c.clientInfo()
 
-	return &infoResponse{
+	response := &infoResponse{
 		MultiConnMode: c.options.multiConnectionMode,
+		PoolMode:      c.options.poolEnabled,
 		Clients:       ci,
 		Subscriptions: subs,
 	}
+
+	if c.options.poolEnabled {
+		response.PoolSize = c.options.poolSize
+	}
+
+	return response
 }
 
 func (c *Client) clientInfo() []MQTTClientInfo {
+	if c.options.poolEnabled {
+		return c.poolClientInfo()
+	}
+
 	if c.options.multiConnectionMode {
 		return c.multiClientInfo()
 	}
@@ -108,6 +121,24 @@ func (c *Client) multiClientInfo() []MQTTClientInfo {
 	for b := range bCh {
 		bl = append(bl, b)
 	}
+
+	sort.Slice(bl, func(i, j int) bool { return bl[i].ClientID < bl[j].ClientID })
+
+	return bl
+}
+
+func (c *Client) poolClientInfo() []MQTTClientInfo {
+	if len(c.connectionPool) == 0 {
+		return nil
+	}
+
+	bl := make([]MQTTClientInfo, 0, len(c.connectionPool))
+
+	_ = c.execute(func(cc mqtt.Client) error {
+		bi := transformClientInfo(cc)
+		bl = append(bl, bi)
+		return nil
+	}, execAll)
 
 	sort.Slice(bl, func(i, j int) bool { return bl[i].ClientID < bl[j].ClientID })
 

@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/gojek/courier-go"
+	"github.com/gojek/courier-go/otelcourier"
 )
 
 const (
@@ -88,57 +89,65 @@ func NewResolver(config *Config) (*Resolver, error) {
 	}
 
 	if config.OTel != nil {
-		meter := config.OTel.Meter()
-
-		var err error
-		r.serviceDiscoveryErrors, err = meter.Int64Counter(
-			"courier.consul.service_discovery.errors",
-			metric.WithDescription("Total number of service discovery errors encountered"),
-			metric.WithUnit("{error}"),
-		)
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to create service_discovery.errors metric: %w", err)
-		}
-
-		r.serviceInstances, err = meter.Int64UpDownCounter(
-			"courier.consul.service_instances",
-			metric.WithDescription("Current number of discovered healthy service instances"),
-			metric.WithUnit("{instance}"),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create service_instances metric: %w", err)
-		}
-
-		r.serviceDiscoveryDuration, err = meter.Float64Histogram(
-			"courier.consul.service_discovery.duration",
-			metric.WithDescription("Duration of service discovery operations"),
-			metric.WithUnit("s"),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create service_discovery.duration metric: %w", err)
-		}
-
-		r.consulAPIRequests, err = meter.Int64Counter(
-			"courier.consul.api.requests",
-			metric.WithDescription("Total number of Consul API requests"),
-			metric.WithUnit("{request}"),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create api.requests metric: %w", err)
-		}
-
-		r.consulAPIDuration, err = meter.Float64Histogram(
-			"courier.consul.api.duration",
-			metric.WithDescription("Duration of Consul API calls"),
-			metric.WithUnit("s"),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create api.duration metric: %w", err)
+		if err := r.initMetrics(config.OTel); err != nil {
+			return nil, err
 		}
 	}
 
 	return r, nil
+}
+
+func (r *Resolver) initMetrics(otel *otelcourier.OTel) error {
+	meter := otel.Meter()
+
+	var err error
+	r.serviceDiscoveryErrors, err = meter.Int64Counter(
+		"courier.consul.service_discovery.errors",
+		metric.WithDescription("Total number of service discovery errors encountered"),
+		metric.WithUnit("{error}"),
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to create service_discovery.errors metric: %w", err)
+	}
+
+	r.serviceInstances, err = meter.Int64UpDownCounter(
+		"courier.consul.service_instances",
+		metric.WithDescription("Current number of discovered healthy service instances"),
+		metric.WithUnit("{instance}"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create service_instances metric: %w", err)
+	}
+
+	r.serviceDiscoveryDuration, err = meter.Float64Histogram(
+		"courier.consul.service_discovery.duration",
+		metric.WithDescription("Duration of service discovery operations"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create service_discovery.duration metric: %w", err)
+	}
+
+	r.consulAPIRequests, err = meter.Int64Counter(
+		"courier.consul.api.requests",
+		metric.WithDescription("Total number of Consul API requests"),
+		metric.WithUnit("{request}"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create api.requests metric: %w", err)
+	}
+
+	r.consulAPIDuration, err = meter.Float64Histogram(
+		"courier.consul.api.duration",
+		metric.WithDescription("Duration of Consul API calls"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create api.duration metric: %w", err)
+	}
+
+	return nil
 }
 
 func (r *Resolver) UpdateChan() <-chan []courier.TCPAddress {
@@ -344,6 +353,7 @@ func areAddressesEqual(a, b []courier.TCPAddress) bool {
 // watchKV continuously monitors a KV key for changes to the service name.
 func (r *Resolver) watchKV() {
 	var lastKVIndex uint64
+
 	ctx := context.Background()
 
 	for {

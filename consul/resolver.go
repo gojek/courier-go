@@ -22,6 +22,11 @@ const (
 	attrErrorType   = "error.type"
 
 	errorTypeConsulAPI = "consul_api_error"
+
+	attrAPIType = "api.type"
+
+	apiTypeHealthService = "health_service"
+	apiTypeKV            = "kv"
 )
 
 type Resolver struct {
@@ -48,6 +53,9 @@ type Resolver struct {
 	serviceInstances         metric.Int64UpDownCounter
 	serviceDiscoveryDuration metric.Float64Histogram
 	lastInstanceCount        int64
+
+	consulAPIRequests metric.Int64Counter
+	consulAPIDuration metric.Float64Histogram
 }
 
 func NewResolver(config *Config) (*Resolver, error) {
@@ -110,6 +118,24 @@ func NewResolver(config *Config) (*Resolver, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create service_discovery.duration metric: %w", err)
 		}
+
+		r.consulAPIRequests, err = meter.Int64Counter(
+			"courier.consul.api.requests",
+			metric.WithDescription("Total number of Consul API requests"),
+			metric.WithUnit("{request}"),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create api.requests metric: %w", err)
+		}
+
+		r.consulAPIDuration, err = meter.Float64Histogram(
+			"courier.consul.api.duration",
+			metric.WithDescription("Duration of Consul API calls"),
+			metric.WithUnit("s"),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create api.duration metric: %w", err)
+		}
 	}
 
 	return r, nil
@@ -164,7 +190,14 @@ func (r *Resolver) Start() {
 }
 
 func (r *Resolver) updateServiceNameFromKV() error {
+	ctx := context.Background()
+	apiStartTime := time.Now()
 	pair, _, err := r.client.KV().Get(r.kvKey, nil)
+	apiDuration := time.Since(apiStartTime)
+
+	r.recordAPIRequest(ctx, apiTypeKV, err == nil)
+	r.recordAPIDuration(ctx, apiTypeKV, apiDuration, err == nil)
+
 	if err != nil {
 		return fmt.Errorf("KV get error for key '%s': %w", r.kvKey, err)
 	}
@@ -227,7 +260,13 @@ func (r *Resolver) discover() error {
 	}
 	r.mu.RUnlock()
 
+	apiStartTime := time.Now()
 	services, meta, err := r.client.Health().Service(serviceName, "", r.healthyOnly, queryOpts)
+	apiDuration := time.Since(apiStartTime)
+
+	r.recordAPIRequest(ctx, apiTypeHealthService, err == nil)
+	r.recordAPIDuration(ctx, apiTypeHealthService, apiDuration, err == nil)
+
 	if err != nil {
 		r.recordError(ctx, serviceName, errorTypeConsulAPI)
 		r.recordDuration(ctx, serviceName, time.Since(startTime), false)
@@ -305,16 +344,23 @@ func areAddressesEqual(a, b []courier.TCPAddress) bool {
 // watchKV continuously monitors a KV key for changes to the service name.
 func (r *Resolver) watchKV() {
 	var lastKVIndex uint64
+	ctx := context.Background()
 
 	for {
 		select {
 		case <-r.doneChan:
 			return
 		default:
+			apiStartTime := time.Now()
 			pair, meta, err := r.client.KV().Get(r.kvKey, &consulapi.QueryOptions{
 				WaitIndex: lastKVIndex,
 				WaitTime:  r.waitTime,
 			})
+			apiDuration := time.Since(apiStartTime)
+
+			r.recordAPIRequest(ctx, apiTypeKV, err == nil)
+			r.recordAPIDuration(ctx, apiTypeKV, apiDuration, err == nil)
+
 			if err != nil {
 				r.logger.Printf("KV watch error: %v", err)
 				// Backoff before retrying
@@ -423,4 +469,30 @@ func (r *Resolver) recordInstanceCount(ctx context.Context, serviceName string, 
 	}
 
 	r.serviceInstances.Add(ctx, delta, metric.WithAttributes(attrs...))
+}
+
+func (r *Resolver) recordAPIRequest(ctx context.Context, apiType string, success bool) {
+	if r.consulAPIRequests == nil {
+		return
+	}
+
+	attrs := []attribute.KeyValue{
+		attribute.String(attrAPIType, apiType),
+		attribute.Bool(attrSuccess, success),
+	}
+
+	r.consulAPIRequests.Add(ctx, 1, metric.WithAttributes(attrs...))
+}
+
+func (r *Resolver) recordAPIDuration(ctx context.Context, apiType string, duration time.Duration, success bool) {
+	if r.consulAPIDuration == nil {
+		return
+	}
+
+	attrs := []attribute.KeyValue{
+		attribute.String(attrAPIType, apiType),
+		attribute.Bool(attrSuccess, success),
+	}
+
+	r.consulAPIDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(attrs...))
 }

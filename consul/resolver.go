@@ -23,11 +23,15 @@ const (
 	attrErrorType   = "error.type"
 
 	errorTypeConsulAPI = "consul_api_error"
+	errorTypeKVRead    = "kv_read_error"
+	errorTypeKVParse   = "kv_parse_error"
 
 	attrAPIType = "api.type"
 
 	apiTypeHealthService = "health_service"
 	apiTypeKV            = "kv"
+
+	attrKVKey = "kv.key"
 )
 
 type Resolver struct {
@@ -57,6 +61,9 @@ type Resolver struct {
 
 	consulAPIRequests metric.Int64Counter
 	consulAPIDuration metric.Float64Histogram
+
+	kvReadErrors   metric.Int64Counter
+	kvValueChanges metric.Int64Counter
 }
 
 func NewResolver(config *Config) (*Resolver, error) {
@@ -147,6 +154,24 @@ func (r *Resolver) initMetrics(otel *otelcourier.OTel) error {
 		return fmt.Errorf("failed to create api.duration metric: %w", err)
 	}
 
+	r.kvReadErrors, err = meter.Int64Counter(
+		"courier.consul.kv.read_errors",
+		metric.WithDescription("Total number of KV read errors"),
+		metric.WithUnit("{error}"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create kv.read_errors metric: %w", err)
+	}
+
+	r.kvValueChanges, err = meter.Int64Counter(
+		"courier.consul.kv.value_changes",
+		metric.WithDescription("Total number of KV value changes detected"),
+		metric.WithUnit("{change}"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create kv.value_changes metric: %w", err)
+	}
+
 	return nil
 }
 
@@ -208,10 +233,14 @@ func (r *Resolver) updateServiceNameFromKV() error {
 	r.recordAPIDuration(ctx, apiTypeKV, apiDuration, err == nil)
 
 	if err != nil {
+		r.recordKVReadError(ctx, r.kvKey, errorTypeKVRead)
+
 		return fmt.Errorf("KV get error for key '%s': %w", r.kvKey, err)
 	}
 
 	if pair == nil || len(pair.Value) == 0 {
+		r.recordKVReadError(ctx, r.kvKey, errorTypeKVRead)
+
 		return fmt.Errorf("KV key '%s' not found or is empty", r.kvKey)
 	}
 
@@ -220,6 +249,8 @@ func (r *Resolver) updateServiceNameFromKV() error {
 	}
 
 	if err := json.Unmarshal(pair.Value, &kvData); err != nil {
+		r.recordKVReadError(ctx, r.kvKey, errorTypeKVParse)
+
 		return fmt.Errorf("KV parse error for key '%s': %w", r.kvKey, err)
 	}
 
@@ -228,9 +259,12 @@ func (r *Resolver) updateServiceNameFromKV() error {
 		if kvData.ServiceName != r.serviceName {
 			r.logger.Printf("Initial Service name updated from '%s' to '%s' from KV", r.serviceName, kvData.ServiceName)
 			r.serviceName = kvData.ServiceName
-			r.lastIndex = 0 // Reset index for the new service
+			r.lastIndex = 0
+			r.mu.Unlock()
+			r.recordKVValueChange(ctx, r.kvKey)
+		} else {
+			r.mu.Unlock()
 		}
-		r.mu.Unlock()
 	}
 
 	return nil
@@ -372,6 +406,7 @@ func (r *Resolver) watchKV() {
 			r.recordAPIDuration(ctx, apiTypeKV, apiDuration, err == nil)
 
 			if err != nil {
+				r.recordKVReadError(ctx, r.kvKey, errorTypeKVRead)
 				r.logger.Printf("KV watch error: %v", err)
 				// Backoff before retrying
 				select {
@@ -396,6 +431,7 @@ func (r *Resolver) watchKV() {
 			}
 
 			if err := json.Unmarshal(pair.Value, &kvData); err != nil {
+				r.recordKVReadError(ctx, r.kvKey, errorTypeKVParse)
 				r.logger.Printf("KV parse error: %v", err)
 
 				continue
@@ -405,8 +441,10 @@ func (r *Resolver) watchKV() {
 			if kvData.ServiceName != "" && kvData.ServiceName != r.serviceName {
 				r.logger.Printf("Service name changed from '%s' to '%s'", r.serviceName, kvData.ServiceName)
 				r.serviceName = kvData.ServiceName
-				r.lastIndex = 0 // Reset index for the new service
+				r.lastIndex = 0
 				r.mu.Unlock()
+
+				r.recordKVValueChange(ctx, r.kvKey)
 
 				// Trigger immediate rediscovery
 				if err := r.discover(); err != nil {
@@ -505,4 +543,29 @@ func (r *Resolver) recordAPIDuration(ctx context.Context, apiType string, durati
 	}
 
 	r.consulAPIDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(attrs...))
+}
+
+func (r *Resolver) recordKVReadError(ctx context.Context, kvKey, errorType string) {
+	if r.kvReadErrors == nil {
+		return
+	}
+
+	attrs := []attribute.KeyValue{
+		attribute.String(attrKVKey, kvKey),
+		attribute.String(attrErrorType, errorType),
+	}
+
+	r.kvReadErrors.Add(ctx, 1, metric.WithAttributes(attrs...))
+}
+
+func (r *Resolver) recordKVValueChange(ctx context.Context, kvKey string) {
+	if r.kvValueChanges == nil {
+		return
+	}
+
+	attrs := []attribute.KeyValue{
+		attribute.String(attrKVKey, kvKey),
+	}
+
+	r.kvValueChanges.Add(ctx, 1, metric.WithAttributes(attrs...))
 }

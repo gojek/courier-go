@@ -64,6 +64,8 @@ type Resolver struct {
 
 	kvReadErrors   metric.Int64Counter
 	kvValueChanges metric.Int64Counter
+
+	addressUpdates metric.Int64Counter
 }
 
 func NewResolver(config *Config) (*Resolver, error) {
@@ -170,6 +172,15 @@ func (r *Resolver) initMetrics(otel *otelcourier.OTel) error {
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create kv.value_changes metric: %w", err)
+	}
+
+	r.addressUpdates, err = meter.Int64Counter(
+		"courier.consul.resolver.address_updates",
+		metric.WithDescription("Total number of address list updates published"),
+		metric.WithUnit("{update}"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create resolver.address_updates metric: %w", err)
 	}
 
 	return nil
@@ -279,7 +290,6 @@ func (r *Resolver) watchServices() {
 		default:
 			if err := r.discover(); err != nil {
 				r.logger.Printf("Service discovery failed: %v", err)
-				// Backoff before retrying
 				select {
 				case <-time.After(5 * time.Second):
 				case <-r.doneChan:
@@ -349,6 +359,7 @@ func (r *Resolver) discover() error {
 	r.mu.Unlock()
 
 	if addressesChanged {
+		r.recordAddressUpdate(ctx, serviceName)
 		select {
 		case r.updateChan <- addresses:
 		case <-r.doneChan:
@@ -408,7 +419,6 @@ func (r *Resolver) watchKV() {
 			if err != nil {
 				r.recordKVReadError(ctx, r.kvKey, errorTypeKVRead)
 				r.logger.Printf("KV watch error: %v", err)
-				// Backoff before retrying
 				select {
 				case <-time.After(5 * time.Second):
 				case <-r.doneChan:
@@ -446,7 +456,6 @@ func (r *Resolver) watchKV() {
 
 				r.recordKVValueChange(ctx, r.kvKey)
 
-				// Trigger immediate rediscovery
 				if err := r.discover(); err != nil {
 					r.logger.Printf("Triggered service discovery failed: %v", err)
 				}
@@ -568,4 +577,16 @@ func (r *Resolver) recordKVValueChange(ctx context.Context, kvKey string) {
 	}
 
 	r.kvValueChanges.Add(ctx, 1, metric.WithAttributes(attrs...))
+}
+
+func (r *Resolver) recordAddressUpdate(ctx context.Context, serviceName string) {
+	if r.addressUpdates == nil {
+		return
+	}
+
+	attrs := []attribute.KeyValue{
+		attribute.String(attrServiceName, serviceName),
+	}
+
+	r.addressUpdates.Add(ctx, 1, metric.WithAttributes(attrs...))
 }

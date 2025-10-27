@@ -241,7 +241,7 @@ func (r *Resolver) updateServiceNameFromKV() error {
 	apiDuration := time.Since(apiStartTime)
 
 	r.recordAPIRequest(ctx, apiTypeKV, err == nil)
-	r.recordAPIDuration(ctx, apiTypeKV, apiDuration, err == nil)
+	r.recordAPIDuration(ctx, apiTypeKV, apiDuration)
 
 	if err != nil {
 		r.recordKVReadError(ctx, r.kvKey, errorTypeKVRead)
@@ -302,7 +302,6 @@ func (r *Resolver) watchServices() {
 
 // discover performs a blocking query to find service instances.
 func (r *Resolver) discover() error {
-	startTime := time.Now()
 	ctx := context.Background()
 
 	r.mu.RLock()
@@ -318,16 +317,14 @@ func (r *Resolver) discover() error {
 	apiDuration := time.Since(apiStartTime)
 
 	r.recordAPIRequest(ctx, apiTypeHealthService, err == nil)
-	r.recordAPIDuration(ctx, apiTypeHealthService, apiDuration, err == nil)
+	r.recordAPIDuration(ctx, apiTypeHealthService, apiDuration)
 
 	if err != nil {
 		r.recordError(ctx, serviceName, errorTypeConsulAPI)
-		r.recordDuration(ctx, serviceName, time.Since(startTime), false)
 
 		return fmt.Errorf("failed to query services: %w", err)
 	}
 
-	r.recordDuration(ctx, serviceName, time.Since(startTime), true)
 
 	r.mu.Lock()
 
@@ -414,7 +411,7 @@ func (r *Resolver) watchKV() {
 			apiDuration := time.Since(apiStartTime)
 
 			r.recordAPIRequest(ctx, apiTypeKV, err == nil)
-			r.recordAPIDuration(ctx, apiTypeKV, apiDuration, err == nil)
+			r.recordAPIDuration(ctx, apiTypeKV, apiDuration)
 
 			if err != nil {
 				r.recordKVReadError(ctx, r.kvKey, errorTypeKVRead)
@@ -498,19 +495,6 @@ func (r *Resolver) recordError(ctx context.Context, serviceName, errorType strin
 	r.serviceDiscoveryErrors.Add(ctx, 1, metric.WithAttributes(attrs...))
 }
 
-func (r *Resolver) recordDuration(ctx context.Context, serviceName string, duration time.Duration, success bool) {
-	if r.serviceDiscoveryDuration == nil {
-		return
-	}
-
-	attrs := []attribute.KeyValue{
-		attribute.String(attrServiceName, serviceName),
-		attribute.Bool(attrSuccess, success),
-	}
-
-	r.serviceDiscoveryDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(attrs...))
-}
-
 func (r *Resolver) recordInstanceCount(ctx context.Context, serviceName string, currentCount, previousCount int64) {
 	if r.serviceInstances == nil {
 		return
@@ -541,14 +525,13 @@ func (r *Resolver) recordAPIRequest(ctx context.Context, apiType string, success
 	r.consulAPIRequests.Add(ctx, 1, metric.WithAttributes(attrs...))
 }
 
-func (r *Resolver) recordAPIDuration(ctx context.Context, apiType string, duration time.Duration, success bool) {
+func (r *Resolver) recordAPIDuration(ctx context.Context, apiType string, duration time.Duration) {
 	if r.consulAPIDuration == nil {
 		return
 	}
 
 	attrs := []attribute.KeyValue{
 		attribute.String(attrAPIType, apiType),
-		attribute.Bool(attrSuccess, success),
 	}
 
 	r.consulAPIDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(attrs...))

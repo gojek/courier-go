@@ -359,7 +359,7 @@ func (r *Resolver) discover() error {
 	r.mu.Unlock()
 
 	if addressesChanged {
-		r.recordAddressUpdate(ctx, serviceName, len(addresses))
+		r.recordAddressUpdate(ctx, serviceName)
 		select {
 		case r.updateChan <- addresses:
 		case <-r.doneChan:
@@ -579,7 +579,7 @@ func (r *Resolver) recordKVValueChange(ctx context.Context, kvKey string) {
 	r.kvValueChanges.Add(ctx, 1, metric.WithAttributes(attrs...))
 }
 
-func (r *Resolver) recordAddressUpdate(ctx context.Context, serviceName string, addressCount int) {
+func (r *Resolver) recordAddressUpdate(ctx context.Context, serviceName string) {
 	if r.addressUpdates == nil {
 		return
 	}

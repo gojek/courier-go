@@ -586,7 +586,6 @@ func (r *Resolver) recordAddressUpdate(ctx context.Context, serviceName string, 
 
 	attrs := []attribute.KeyValue{
 		attribute.String(attrServiceName, serviceName),
-		attribute.Int("address_count", addressCount),
 	}
 
 	r.addressUpdates.Add(ctx, 1, metric.WithAttributes(attrs...))

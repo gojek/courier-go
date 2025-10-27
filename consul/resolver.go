@@ -54,9 +54,9 @@ type Resolver struct {
 	kvKey         string
 	lastAddresses []courier.TCPAddress
 
-	serviceDiscoveryErrors   metric.Int64Counter
-	serviceInstances         metric.Int64UpDownCounter
-	lastInstanceCount        int64
+	serviceDiscoveryErrors metric.Int64Counter
+	serviceInstances       metric.Int64UpDownCounter
+	lastInstanceCount      int64
 
 	consulAPIRequests metric.Int64Counter
 	consulAPIDuration metric.Float64Histogram

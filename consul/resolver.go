@@ -22,9 +22,8 @@ const (
 	attrSuccess     = "success"
 	attrErrorType   = "error.type"
 
-	errorTypeConsulAPI = "consul_api_error"
-	errorTypeKVRead    = "kv_read_error"
-	errorTypeKVParse   = "kv_parse_error"
+	errorTypeKVRead  = "kv_read_error"
+	errorTypeKVParse = "kv_parse_error"
 
 	attrAPIType = "api.type"
 
@@ -54,10 +53,8 @@ type Resolver struct {
 	kvKey         string
 	lastAddresses []courier.TCPAddress
 
-	serviceDiscoveryErrors   metric.Int64Counter
-	serviceInstances         metric.Int64UpDownCounter
-	serviceDiscoveryDuration metric.Float64Histogram
-	lastInstanceCount        int64
+	serviceInstances  metric.Int64UpDownCounter
+	lastInstanceCount int64
 
 	consulAPIRequests metric.Int64Counter
 	consulAPIDuration metric.Float64Histogram
@@ -110,11 +107,6 @@ func (r *Resolver) initMetrics(otel *otelcourier.OTel) error {
 	meter := otel.Meter()
 
 	var err error
-	r.serviceDiscoveryErrors, err = meter.Int64Counter(
-		"courier.consul.service_discovery.errors",
-		metric.WithDescription("Total number of service discovery errors encountered"),
-		metric.WithUnit("{error}"),
-	)
 
 	if err != nil {
 		return fmt.Errorf("failed to create service_discovery.errors metric: %w", err)
@@ -129,11 +121,6 @@ func (r *Resolver) initMetrics(otel *otelcourier.OTel) error {
 		return fmt.Errorf("failed to create service_instances metric: %w", err)
 	}
 
-	r.serviceDiscoveryDuration, err = meter.Float64Histogram(
-		"courier.consul.service_discovery.duration",
-		metric.WithDescription("Duration of service discovery operations"),
-		metric.WithUnit("s"),
-	)
 	if err != nil {
 		return fmt.Errorf("failed to create service_discovery.duration metric: %w", err)
 	}
@@ -320,8 +307,6 @@ func (r *Resolver) discover() error {
 	r.recordAPIDuration(ctx, apiTypeHealthService, apiDuration)
 
 	if err != nil {
-		r.recordError(ctx, serviceName, errorTypeConsulAPI)
-
 		return fmt.Errorf("failed to query services: %w", err)
 	}
 
@@ -479,19 +464,6 @@ func (r *Resolver) convertToTCPAddresses(services []*consulapi.ServiceEntry) []c
 	}
 
 	return addresses
-}
-
-func (r *Resolver) recordError(ctx context.Context, serviceName, errorType string) {
-	if r.serviceDiscoveryErrors == nil {
-		return
-	}
-
-	attrs := []attribute.KeyValue{
-		attribute.String(attrServiceName, serviceName),
-		attribute.String(attrErrorType, errorType),
-	}
-
-	r.serviceDiscoveryErrors.Add(ctx, 1, metric.WithAttributes(attrs...))
 }
 
 func (r *Resolver) recordInstanceCount(ctx context.Context, serviceName string, currentCount, previousCount int64) {

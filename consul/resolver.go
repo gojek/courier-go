@@ -56,7 +56,6 @@ type Resolver struct {
 
 	serviceDiscoveryErrors   metric.Int64Counter
 	serviceInstances         metric.Int64UpDownCounter
-	serviceDiscoveryDuration metric.Float64Histogram
 	lastInstanceCount        int64
 
 	consulAPIRequests metric.Int64Counter
@@ -129,11 +128,6 @@ func (r *Resolver) initMetrics(otel *otelcourier.OTel) error {
 		return fmt.Errorf("failed to create service_instances metric: %w", err)
 	}
 
-	r.serviceDiscoveryDuration, err = meter.Float64Histogram(
-		"courier.consul.service_discovery.duration",
-		metric.WithDescription("Duration of service discovery operations"),
-		metric.WithUnit("s"),
-	)
 	if err != nil {
 		return fmt.Errorf("failed to create service_discovery.duration metric: %w", err)
 	}

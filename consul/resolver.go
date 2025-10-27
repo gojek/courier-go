@@ -325,7 +325,6 @@ func (r *Resolver) discover() error {
 		return fmt.Errorf("failed to query services: %w", err)
 	}
 
-
 	r.mu.Lock()
 
 	if serviceName != r.serviceName {

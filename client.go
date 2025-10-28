@@ -26,9 +26,6 @@ type Client struct {
 	mqttClient    mqtt.Client
 	mqttClients   map[string]*internalState
 
-	connectionPool []*pooledConnection
-	poolIndex      *atomicCounter
-
 	publisher      Publisher
 	subscriber     Subscriber
 	unsubscriber   Unsubscriber
@@ -61,6 +58,10 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		return nil, fmt.Errorf("at least WithAddress or WithResolver ClientOption should be used")
 	}
 
+	if co.poolEnabled && co.multiConnectionMode {
+		return nil, fmt.Errorf("poolEnabled and multiConnectionMode cannot be used together")
+	}
+
 	if co.infoEmitterCfg != nil && co.infoEmitterCfg.Emitter != nil && co.infoEmitterCfg.Interval.Seconds() < 1 {
 		return nil, fmt.Errorf("client info emitter interval must be greater than or equal to 1s")
 	}
@@ -69,7 +70,6 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		options:       co,
 		subscriptions: map[string]*subscriptionMeta{},
 		rrCounter:     &atomicCounter{value: 0},
-		poolIndex:     &atomicCounter{value: 0},
 		rndPool: &sync.Pool{New: func() any {
 			return rand.New(rand.NewSource(time.Now().UnixNano()))
 		}},
@@ -77,7 +77,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 
 	if len(co.brokerAddress) != 0 {
 		if co.poolEnabled {
-			c.connectionPool = make([]*pooledConnection, 0, co.poolSize)
+			c.mqttClients = make(map[string]*internalState, co.poolSize)
 			c.initializeConnectionPool()
 		} else {
 			c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options, ""))
@@ -94,16 +94,6 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 
 // IsConnected checks whether the client is connected to the broker
 func (c *Client) IsConnected() bool {
-	if c.options.poolEnabled {
-		return c.execute(func(cc mqtt.Client) error {
-			if cc.IsConnectionOpen() {
-				return nil
-			}
-
-			return fmt.Errorf("client is not connected")
-		}, execAll) == nil
-	}
-
 	val := &atomic.Bool{}
 
 	return c.execute(func(cc mqtt.Client) error {
@@ -146,40 +136,25 @@ func (c *Client) Run(ctx context.Context) error {
 }
 
 func (c *Client) stop() error {
-	if c.options.poolEnabled {
-		err := c.execute(func(cc mqtt.Client) error {
-			cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
+	err := c.execute(func(cc mqtt.Client) error {
+		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 
-			return nil
-		}, execAll)
-
-		if err != nil {
-			return err
-		}
-	} else {
-		err := c.execute(func(cc mqtt.Client) error {
-			cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
-
-			return nil
-		}, execAll)
-
-		if err != nil {
-			return err
-		}
-	}
+		return nil
+	}, execAll)
 
 	if c.stopInfoEmitter != nil {
 		c.stopInfoEmitter()
 	}
 
-	c.clientMu.Lock()
-	defer c.clientMu.Unlock()
+	if err == nil {
+		c.clientMu.Lock()
+		defer c.clientMu.Unlock()
 
-	c.mqttClient = nil
-	c.mqttClients = nil
-	c.connectionPool = nil
+		c.mqttClient = nil
+		c.mqttClients = nil
+	}
 
-	return nil
+	return err
 }
 
 func (c *Client) handleInfoEmitter() {

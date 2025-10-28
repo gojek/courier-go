@@ -39,70 +39,112 @@ func newMockMQTTClient(t *testing.T) *mockMQTTClient {
 	return m
 }
 
-func TestPoolNewPooledConnection(t *testing.T) {
-	mockClient := newMockMQTTClient(t)
-	conn := newPooledConnection(mockClient, "test")
+func TestPoolSize(t *testing.T) {
+	tests := []struct {
+		name       string
+		poolSize   int
+		shouldPool bool
+	}{
+		{
+			name:       "Pool size 2",
+			poolSize:   2,
+			shouldPool: true,
+		},
+		{
+			name:       "Pool size 0",
+			poolSize:   0,
+			shouldPool: false,
+		},
+		{
+			name:       "Pool size 1",
+			poolSize:   1,
+			shouldPool: false,
+		},
+		{
+			name:       "Pool size -2",
+			poolSize:   -2,
+			shouldPool: false,
+		},
+	}
 
-	assert.NotNil(t, conn)
-	assert.Equal(t, mockClient, conn.client)
-	assert.Equal(t, "test", conn.id)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := newMockMQTTClient(t)
+			mockToken := newMockToken(t)
+			mockToken.On("Wait").Return(true)
+			mockToken.On("WaitTimeout", mock.Anything).Return(true)
+			mockToken.On("Error").Return(nil)
+
+			mockClient.On("IsConnectionOpen").Return(true)
+			mockClient.On("Connect").Return(mockToken)
+			mockClient.On("Disconnect", mock.Anything)
+
+			originalFunc := newClientFunc.Load()
+			newClientFunc.Store(func(opts *mqtt.ClientOptions) mqtt.Client {
+				return mockClient
+			})
+			defer newClientFunc.Store(originalFunc)
+
+			client, err := NewClient(
+				WithAddress("localhost", 1883),
+				WithClientID("test"),
+				WithPoolSize(tt.poolSize),
+			)
+			assert.NoError(t, err)
+			assert.NotNil(t, client)
+
+			assert.Equal(t, tt.shouldPool, client.options.poolEnabled)
+
+			if tt.shouldPool {
+				assert.NotNil(t, client.mqttClients, "Pool should be initialized")
+				assert.Equal(t, tt.poolSize, len(client.mqttClients), "Pool should have correct size")
+				assert.Equal(t, tt.poolSize, client.options.poolSize, "Pool size should match")
+
+				assert.Len(t, client.mqttClients, tt.poolSize)
+				for _, state := range client.mqttClients {
+					assert.NotNil(t, state, "Should get a valid connection state")
+					assert.NotNil(t, state.client, "Should have a valid MQTT client")
+				}
+			} else {
+				assert.Nil(t, client.mqttClients, "Pool should be nil")
+				assert.NotNil(t, client.mqttClient, "Should have single mqtt client")
+			}
+		})
+	}
 }
 
-func TestPoolGetNextPoolConnection(t *testing.T) {
-	mockClient := newMockMQTTClient(t)
+func TestPoolPublish(t *testing.T) {
+	poolSize := 3
+	mockClients := make([]*mockMQTTClient, poolSize)
+	mockTokens := make([]*mockToken, poolSize)
 
+	for i := 0; i < poolSize; i++ {
+		mockClients[i] = newMockMQTTClient(t)
+		mockTokens[i] = newMockToken(t)
+
+		mockTokens[i].On("Wait").Return(true)
+		mockTokens[i].On("WaitTimeout", mock.Anything).Return(true)
+		mockTokens[i].On("Error").Return(nil)
+
+		mockClients[i].On("IsConnectionOpen").Return(true)
+		mockClients[i].On("Connect").Return(mockTokens[i])
+		mockClients[i].On("Disconnect", mock.Anything)
+		mockClients[i].On("Publish", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(mockTokens[i])
+	}
+
+	clientIndex := 0
 	originalFunc := newClientFunc.Load()
 	newClientFunc.Store(func(opts *mqtt.ClientOptions) mqtt.Client {
-		return mockClient
+		client := mockClients[clientIndex%poolSize]
+		clientIndex++
+		return client
 	})
 	defer newClientFunc.Store(originalFunc)
 
 	client, err := NewClient(
 		WithAddress("localhost", 1883),
 		WithClientID("test"),
-		WithPoolSize(2),
-	)
-	assert.NoError(t, err)
-	assert.NotNil(t, client)
-
-	conn1 := client.getNextPoolConnection()
-	conn2 := client.getNextPoolConnection()
-	conn3 := client.getNextPoolConnection()
-
-	assert.NotNil(t, conn1)
-	assert.NotNil(t, conn2)
-	assert.NotNil(t, conn3)
-
-	assert.NotEqual(t, conn1, conn2)
-	assert.NotEqual(t, conn2, conn3)
-
-	assert.Equal(t, conn1, conn3)
-}
-
-func TestPoolConnection(t *testing.T) {
-	mockClient := newMockMQTTClient(t)
-	mockToken := newMockToken(t)
-	mockToken.On("Wait").Return(true)
-	mockToken.On("WaitTimeout", mock.Anything).Return(true)
-	mockToken.On("Error").Return(nil)
-
-	mockClient.On("IsConnectionOpen").Return(true)
-	mockClient.On("Connect").Return(mockToken)
-	mockClient.On("Disconnect", mock.Anything)
-	mockClient.On("Publish", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(mockToken)
-	mockClient.On("Subscribe", mock.Anything, mock.Anything, mock.Anything).Return(mockToken)
-	mockClient.On("Unsubscribe", mock.Anything).Return(mockToken)
-
-	originalFunc := newClientFunc.Load()
-	newClientFunc.Store(func(opts *mqtt.ClientOptions) mqtt.Client {
-		return mockClient
-	})
-	defer newClientFunc.Store(originalFunc)
-
-	client, err := NewClient(
-		WithAddress("localhost", 1883),
-		WithClientID("test"),
-		WithPoolSize(2),
+		WithPoolSize(poolSize),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, client)
@@ -110,29 +152,115 @@ func TestPoolConnection(t *testing.T) {
 	err = client.Start()
 	assert.NoError(t, err)
 
-	atomic.StoreInt64(&mockClient.publishCallCount, 0)
-	atomic.StoreInt64(&mockClient.subscribeCallCount, 0)
-	atomic.StoreInt64(&mockClient.unsubscribeCallCount, 0)
+	for i := range poolSize {
+		atomic.StoreInt64(&mockClients[i].publishCallCount, 0)
+	}
 
-	err = client.Publish(context.Background(), "test/topic", []byte("test"), QOSOne)
+	expectedPublishes := 6
+	for i := 0; i < expectedPublishes; i++ {
+		err = client.Publish(context.Background(), "topic", []byte("test"))
+		assert.NoError(t, err)
+	}
+
+	totalPublishCount := int64(0)
+	for i := range poolSize {
+		totalPublishCount += atomic.LoadInt64(&mockClients[i].publishCallCount)
+	}
+
+	assert.Equal(t, int64(expectedPublishes), totalPublishCount, "Total publish count should match expected")
+	assert.NoError(t, client.stop())
+}
+
+func TestPoolSubscribe(t *testing.T) {
+	poolSize := 3
+	mockClients := make([]*mockMQTTClient, poolSize)
+	mockTokens := make([]*mockToken, poolSize)
+
+	for i := 0; i < poolSize; i++ {
+		mockClients[i] = newMockMQTTClient(t)
+		mockTokens[i] = newMockToken(t)
+
+		mockTokens[i].On("Wait").Return(true)
+		mockTokens[i].On("WaitTimeout", mock.Anything).Return(true)
+		mockTokens[i].On("Error").Return(nil)
+
+		mockClients[i].On("IsConnectionOpen").Return(true)
+		mockClients[i].On("Connect").Return(mockTokens[i])
+		mockClients[i].On("Disconnect", mock.Anything)
+
+		mockClients[i].On("Subscribe", mock.Anything, mock.Anything, mock.Anything).Return(mockTokens[i])
+		mockClients[i].On("Unsubscribe", mock.Anything).Return(mockTokens[i])
+	}
+
+	clientIndex := 0
+	originalFunc := newClientFunc.Load()
+	newClientFunc.Store(func(opts *mqtt.ClientOptions) mqtt.Client {
+		client := mockClients[clientIndex%poolSize]
+		clientIndex++
+		return client
+	})
+	defer newClientFunc.Store(originalFunc)
+
+	client, err := NewClient(
+		WithAddress("localhost", 1883),
+		WithClientID("test"),
+		WithPoolSize(poolSize),
+	)
+	assert.NoError(t, err)
+	assert.NotNil(t, client)
+
+	err = client.Start()
 	assert.NoError(t, err)
 
-	publishCount := atomic.LoadInt64(&mockClient.publishCallCount)
-	assert.Equal(t, publishCount, int64(1), "Publish should be called")
+	for i := range poolSize {
+		atomic.StoreInt64(&mockClients[i].subscribeCallCount, 0)
+		atomic.StoreInt64(&mockClients[i].unsubscribeCallCount, 0)
+	}
 
-	err = client.Subscribe(context.Background(), "test/topic", func(ctx context.Context, ps PubSub, m *Message) {}, QOSOne)
+	subsCallback := func(ctx context.Context, ps PubSub, m *Message) {}
+	err = client.Subscribe(context.Background(), "normal/topic", subsCallback, QOSOne)
 	assert.NoError(t, err)
 
-	subscribeCount := atomic.LoadInt64(&mockClient.subscribeCallCount)
+	normalSubCount := int64(0)
+	for i := range poolSize {
+		normalSubCount += atomic.LoadInt64(&mockClients[i].subscribeCallCount)
+	}
+	assert.Equal(t, int64(1), normalSubCount, "Normal subscription should use only one client")
 
-	err = client.Unsubscribe(context.Background(), "test/topic")
+	for i := range poolSize {
+		atomic.StoreInt64(&mockClients[i].subscribeCallCount, 0)
+	}
+
+	err = client.Subscribe(context.Background(), "$share/group/shared/topic", subsCallback, QOSOne)
 	assert.NoError(t, err)
 
-	unsubscribeCount := atomic.LoadInt64(&mockClient.unsubscribeCallCount)
+	sharedSubCount := int64(0)
+	for i := range poolSize {
+		sharedSubCount += atomic.LoadInt64(&mockClients[i].subscribeCallCount)
+	}
+	assert.Equal(t, int64(poolSize), sharedSubCount, "Shared subscription should be attempted on all pool clients")
 
-	assert.Equal(t, publishCount, int64(1), "Publish should be called")
-	assert.Equal(t, subscribeCount, int64(1), "Subscribe should be called")
-	assert.Equal(t, unsubscribeCount, int64(1), "Unsubscribe should be called")
+	for i := range poolSize {
+		atomic.StoreInt64(&mockClients[i].subscribeCallCount, 0)
+	}
+
+	err = client.Subscribe(context.Background(), "$share/group/shared/topic", subsCallback, QOSOne)
+	assert.NoError(t, err)
+
+	duplicateSubCount := int64(0)
+	for i := range poolSize {
+		duplicateSubCount += atomic.LoadInt64(&mockClients[i].subscribeCallCount)
+	}
+	assert.Equal(t, int64(0), duplicateSubCount, "Duplicate shared subscription should be 0")
+
+	err = client.Unsubscribe(context.Background(), "normal/topic")
+	assert.NoError(t, err)
+
+	unsubCount := int64(0)
+	for i := range poolSize {
+		unsubCount += atomic.LoadInt64(&mockClients[i].unsubscribeCallCount)
+	}
+	assert.GreaterOrEqual(t, unsubCount, int64(1), "Unsubscribe should be called at least once")
 
 	assert.NoError(t, client.stop())
 }

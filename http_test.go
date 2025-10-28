@@ -61,7 +61,7 @@ func TestClient_TelemetryHandler(t *testing.T) {
 					WithPoolSize(2),
 				}
 			},
-			body: fmt.Sprintf(`{"multi":false,"pool":true,"pool_size":2,"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-0","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true},{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true}],"subscriptions":{"$share/test/test-topic":0}}
+			body: fmt.Sprintf(`{"multi":false,"pool":true,"pool_size":2,"clients":[{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-0","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true,"subscriptions":["$share/test/test-topic"]},{"addresses":[{"host":"%s","port":%d}],"client_id":"clientID-1","username":"","resume_subs":false,"clean_session":false,"auto_reconnect":true,"connected":true,"subscriptions":["$share/test/test-topic"]}],"subscriptions":{"$share/test/test-topic":0}}
 `, testBrokerAddress.Host, testBrokerAddress.Port, testBrokerAddress.Host, testBrokerAddress.Port),
 		},
 	}

@@ -51,11 +51,7 @@ func (c *Client) infoResponse() *infoResponse {
 }
 
 func (c *Client) clientInfo() []MQTTClientInfo {
-	if c.options.poolEnabled {
-		return c.poolClientInfo()
-	}
-
-	if c.options.multiConnectionMode {
+	if c.options.multiConnectionMode || c.options.poolEnabled {
 		return c.multiClientInfo()
 	}
 
@@ -121,25 +117,6 @@ func (c *Client) multiClientInfo() []MQTTClientInfo {
 	for b := range bCh {
 		bl = append(bl, b)
 	}
-
-	sort.Slice(bl, func(i, j int) bool { return bl[i].ClientID < bl[j].ClientID })
-
-	return bl
-}
-
-func (c *Client) poolClientInfo() []MQTTClientInfo {
-	if len(c.connectionPool) == 0 {
-		return nil
-	}
-
-	bl := make([]MQTTClientInfo, 0, len(c.connectionPool))
-
-	_ = c.execute(func(cc mqtt.Client) error {
-		bi := transformClientInfo(cc)
-		bl = append(bl, bi)
-
-		return nil
-	}, execAll)
 
 	sort.Slice(bl, func(i, j int) bool { return bl[i].ClientID < bl[j].ClientID })
 

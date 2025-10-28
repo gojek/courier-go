@@ -191,7 +191,7 @@ func WaitForConnection(c ConnectionInformer, waitFor time.Duration, tick time.Du
 WaitForConnection checks if the Client is connected, it calls ConnectionInformer.IsConnected after every tick and waitFor is the maximum duration it can block. Returns true only when ConnectionInformer.IsConnected returns true
 
 <a name="Client"></a>
-## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L22-L48)
+## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L22-L45)
 
 Client allows to communicate with an MQTT broker
 
@@ -202,7 +202,7 @@ type Client struct {
 ```
 
 <a name="NewClient"></a>
-### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L53)
+### func [NewClient](https://github.com/gojek/courier-go/blob/main/client.go#L50)
 
 ```go
 func NewClient(opts ...ClientOption) (*Client, error)
@@ -261,7 +261,7 @@ c.Stop()
 </details>
 
 <a name="Client.AckTimeout"></a>
-### func \(\*Client\) [AckTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L433)
+### func \(\*Client\) [AckTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L408)
 
 ```go
 func (c *Client) AckTimeout() time.Duration
@@ -270,7 +270,7 @@ func (c *Client) AckTimeout() time.Duration
 AckTimeout returns the ack timeout duration configured for the client
 
 <a name="Client.ConnectTimeout"></a>
-### func \(\*Client\) [ConnectTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L428)
+### func \(\*Client\) [ConnectTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L403)
 
 ```go
 func (c *Client) ConnectTimeout() time.Duration
@@ -297,7 +297,7 @@ func (c *Client) IsConnected() bool
 IsConnected checks whether the client is connected to the broker
 
 <a name="Client.KeepAlive"></a>
-### func \(\*Client\) [KeepAlive](https://github.com/gojek/courier-go/blob/main/client.go#L418)
+### func \(\*Client\) [KeepAlive](https://github.com/gojek/courier-go/blob/main/client.go#L393)
 
 ```go
 func (c *Client) KeepAlive() time.Duration
@@ -315,7 +315,7 @@ func (c *Client) Publish(ctx context.Context, topic string, message interface{},
 Publish allows to publish messages to an MQTT broker
 
 <a name="Client.Run"></a>
-### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L134)
+### func \(\*Client\) [Run](https://github.com/gojek/courier-go/blob/main/client.go#L124)
 
 ```go
 func (c *Client) Run(ctx context.Context) error
@@ -324,7 +324,7 @@ func (c *Client) Run(ctx context.Context) error
 Run will start running the Client. This makes Client compatible with github.com/gojekfarm/xrun package. https://pkg.go.dev/github.com/gojekfarm/xrun
 
 <a name="Client.Start"></a>
-### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L119)
+### func \(\*Client\) [Start](https://github.com/gojek/courier-go/blob/main/client.go#L109)
 
 ```go
 func (c *Client) Start() error
@@ -333,7 +333,7 @@ func (c *Client) Start() error
 Start will attempt to connect to the broker.
 
 <a name="Client.Stop"></a>
-### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L130)
+### func \(\*Client\) [Stop](https://github.com/gojek/courier-go/blob/main/client.go#L120)
 
 ```go
 func (c *Client) Stop()
@@ -405,7 +405,7 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc)
 UseUnsubscriberMiddleware appends a UnsubscriberMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip subscriptions. They are executed in the order that they are applied to the Client.
 
 <a name="Client.WriteTimeout"></a>
-### func \(\*Client\) [WriteTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L423)
+### func \(\*Client\) [WriteTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L398)
 
 ```go
 func (c *Client) WriteTimeout() time.Duration

@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.7.7]
+
+### Changed
+- Add connection pooling support for courier ([#66] https://github.com/gojek/courier-go/pull/66)
+
 ## [0.7.6]
 
 ### Changed
@@ -155,7 +160,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Initial Release
 
-[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.6...HEAD
+[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.7...HEAD
+[0.7.7]: https://github.com/gojek/courier-go/releases/tag/v0.7.7
 [0.7.6]: https://github.com/gojek/courier-go/releases/tag/v0.7.6
 [0.7.5]: https://github.com/gojek/courier-go/releases/tag/v0.7.5
 [0.7.4]: https://github.com/gojek/courier-go/releases/tag/v0.7.4

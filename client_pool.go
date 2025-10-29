@@ -8,6 +8,8 @@ import (
 )
 
 func (c *Client) initializeConnectionPool() {
+	c.mqttClients = make(map[string]*internalState, c.options.poolSize)
+
 	for i := 0; i < c.options.poolSize; i++ {
 		mqttOpts := toClientOptions(c, c.options, fmt.Sprintf("-%d", i))
 		mqttClient := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(mqttOpts)

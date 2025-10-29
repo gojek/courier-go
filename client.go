@@ -77,7 +77,6 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 
 	if len(co.brokerAddress) != 0 {
 		if co.poolEnabled {
-			c.mqttClients = make(map[string]*internalState, co.poolSize)
 			c.initializeConnectionPool()
 		} else {
 			c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options, ""))

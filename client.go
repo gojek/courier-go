@@ -58,6 +58,10 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		return nil, fmt.Errorf("at least WithAddress or WithResolver ClientOption should be used")
 	}
 
+	if co.poolEnabled && co.multiConnectionMode {
+		return nil, fmt.Errorf("poolEnabled and multiConnectionMode cannot be used together")
+	}
+
 	if co.infoEmitterCfg != nil && co.infoEmitterCfg.Emitter != nil && co.infoEmitterCfg.Interval.Seconds() < 1 {
 		return nil, fmt.Errorf("client info emitter interval must be greater than or equal to 1s")
 	}
@@ -72,7 +76,11 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	}
 
 	if len(co.brokerAddress) != 0 {
-		c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options, ""))
+		if co.poolEnabled {
+			c.initializeConnectionPool()
+		} else {
+			c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options, ""))
+		}
 	}
 
 	c.publisher = publishHandler(c)

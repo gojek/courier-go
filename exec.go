@@ -56,7 +56,7 @@ func (c *Client) execute(f func(mqtt.Client) error, eo execOpt) error {
 		return ErrClientNotInitialized
 	}
 
-	if c.options.multiConnectionMode {
+	if c.options.poolEnabled || c.options.multiConnectionMode {
 		return c.execMultiConn(f, eo)
 	}
 

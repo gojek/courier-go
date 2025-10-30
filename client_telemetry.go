@@ -26,6 +26,8 @@ type MQTTClientInfo struct {
 
 type infoResponse struct {
 	MultiConnMode bool                `json:"multi"`
+	PoolMode      bool                `json:"pool"`
+	PoolSize      int                 `json:"pool_size,omitempty"`
 	Clients       []MQTTClientInfo    `json:"clients,omitempty"`
 	Subscriptions map[string]QOSLevel `json:"subscriptions,omitempty"`
 }
@@ -34,15 +36,22 @@ func (c *Client) infoResponse() *infoResponse {
 	subs := c.readSubscriptionMeta()
 	ci := c.clientInfo()
 
-	return &infoResponse{
+	response := &infoResponse{
 		MultiConnMode: c.options.multiConnectionMode,
+		PoolMode:      c.options.poolEnabled,
 		Clients:       ci,
 		Subscriptions: subs,
 	}
+
+	if c.options.poolEnabled {
+		response.PoolSize = c.options.poolSize
+	}
+
+	return response
 }
 
 func (c *Client) clientInfo() []MQTTClientInfo {
-	if c.options.multiConnectionMode {
+	if c.options.multiConnectionMode || c.options.poolEnabled {
 		return c.multiClientInfo()
 	}
 

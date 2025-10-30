@@ -121,19 +121,19 @@ func TestPoolPublish(t *testing.T) {
 		expectedCalls int
 	}{
 		{
-			name:          "Pool size 2",
+			name:          "Pool size 2 Publish 4",
 			poolSize:      2,
 			publishCount:  4,
 			expectedCalls: 2,
 		},
 		{
-			name:          "Pool size 3",
+			name:          "Pool size 3 Publish 12",
 			poolSize:      3,
 			publishCount:  12,
 			expectedCalls: 4,
 		},
 		{
-			name:          "Pool size 4",
+			name:          "Pool size 4 Publish 24",
 			poolSize:      4,
 			publishCount:  24,
 			expectedCalls: 6,
@@ -141,119 +141,63 @@ func TestPoolPublish(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		mockClients := make([]*mockMQTTClient, tt.poolSize)
-		mockTokens := make([]*mockToken, tt.poolSize)
+		t.Run(tt.name, func(t *testing.T) {
+			mockTokens := make([]*mockToken, tt.poolSize)
+			mockClients := make([]*mockMQTTClient, tt.poolSize)
 
-		for i := 0; i < tt.poolSize; i++ {
-			mockClients[i] = newMockMQTTClient(t)
-			mockTokens[i] = newMockToken(t)
+			for i := 0; i < tt.poolSize; i++ {
+				mockClients[i] = newMockMQTTClient(t)
+				mockTokens[i] = newMockToken(t)
 
-			mockTokens[i].On("Wait").Return(true)
-			mockTokens[i].On("WaitTimeout", mock.Anything).Return(true)
-			mockTokens[i].On("Error").Return(nil)
+				mockTokens[i].On("Wait").Return(true)
+				mockTokens[i].On("WaitTimeout", mock.Anything).Return(true)
+				mockTokens[i].On("Error").Return(nil)
 
-			mockClients[i].On("IsConnectionOpen").Return(true)
-			mockClients[i].On("Connect").Return(mockTokens[i])
-			mockClients[i].On("Disconnect", mock.Anything)
-			mockClients[i].On("Publish", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(mockTokens[i])
-		}
+				mockClients[i].On("IsConnectionOpen").Return(true)
+				mockClients[i].On("Connect").Return(mockTokens[i])
+				mockClients[i].On("Disconnect", mock.Anything)
+				mockClients[i].On("Publish", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(mockTokens[i])
+			}
 
-		clientIndex := 0
-		originalFunc := newClientFunc.Load()
-		newClientFunc.Store(func(opts *mqtt.ClientOptions) mqtt.Client {
-			client := mockClients[clientIndex%tt.poolSize]
-			clientIndex++
-			return client
-		})
-		defer newClientFunc.Store(originalFunc)
+			clientIndex := 0
+			originalFunc := newClientFunc.Load()
+			newClientFunc.Store(func(opts *mqtt.ClientOptions) mqtt.Client {
+				client := mockClients[clientIndex%tt.poolSize]
+				clientIndex++
+				return client
+			})
+			defer newClientFunc.Store(originalFunc)
 
-		client, err := NewClient(
-			WithAddress("localhost", 1883),
-			WithClientID("test"),
-			WithPoolSize(tt.poolSize),
-		)
-		assert.NoError(t, err)
-		assert.NotNil(t, client)
-
-		err = client.Start()
-		assert.NoError(t, err)
-
-		for i := range tt.poolSize {
-			atomic.StoreInt64(&mockClients[i].publishCallCount, 0)
-		}
-
-		for i := 0; i < tt.publishCount; i++ {
-			err = client.Publish(context.Background(), "topic", []byte("test"))
+			client, err := NewClient(
+				WithAddress("localhost", 1883),
+				WithClientID("test"),
+				WithPoolSize(tt.poolSize),
+			)
 			assert.NoError(t, err)
-		}
+			assert.NotNil(t, client)
 
-		totalPublishCount := int64(0)
-		for i := range tt.poolSize {
-			totalPublishCount += atomic.LoadInt64(&mockClients[i].publishCallCount)
-			assert.Equal(t, int64(tt.expectedCalls), atomic.LoadInt64(&mockClients[i].publishCallCount), "Each client should have correct publish call count")
-		}
+			err = client.Start()
+			assert.NoError(t, err)
 
-		assert.Equal(t, int64(tt.publishCount), totalPublishCount, "Total publish count should match expected")
-		assert.NoError(t, client.stop())
+			for i := range tt.poolSize {
+				atomic.StoreInt64(&mockClients[i].publishCallCount, 0)
+			}
+
+			for i := 0; i < tt.publishCount; i++ {
+				err = client.Publish(context.Background(), "topic", []byte("test"))
+				assert.NoError(t, err)
+			}
+
+			totalPublishCount := int64(0)
+			for i := range tt.poolSize {
+				totalPublishCount += atomic.LoadInt64(&mockClients[i].publishCallCount)
+				assert.Equal(t, int64(tt.expectedCalls), atomic.LoadInt64(&mockClients[i].publishCallCount), "Each client should have correct publish call count")
+			}
+
+			assert.Equal(t, int64(tt.publishCount), totalPublishCount, "Total publish count should match expected")
+			assert.NoError(t, client.stop())
+		})
 	}
-}
-
-func TestPoolPublishRoundRobin(t *testing.T) {
-	poolSize := 3
-	mockClients := make([]*mockMQTTClient, poolSize)
-	mockTokens := make([]*mockToken, poolSize)
-
-	for i := 0; i < poolSize; i++ {
-		mockClients[i] = newMockMQTTClient(t)
-		mockTokens[i] = newMockToken(t)
-
-		mockTokens[i].On("Wait").Return(true)
-		mockTokens[i].On("WaitTimeout", mock.Anything).Return(true)
-		mockTokens[i].On("Error").Return(nil)
-
-		mockClients[i].On("IsConnectionOpen").Return(true)
-		mockClients[i].On("Connect").Return(mockTokens[i])
-		mockClients[i].On("Disconnect", mock.Anything)
-		mockClients[i].On("Publish", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(mockTokens[i])
-	}
-
-	clientIndex := 0
-	originalFunc := newClientFunc.Load()
-	newClientFunc.Store(func(opts *mqtt.ClientOptions) mqtt.Client {
-		client := mockClients[clientIndex%poolSize]
-		clientIndex++
-		return client
-	})
-	defer newClientFunc.Store(originalFunc)
-
-	client, err := NewClient(
-		WithAddress("localhost", 1883),
-		WithClientID("test"),
-		WithPoolSize(poolSize),
-	)
-	assert.NoError(t, err)
-	assert.NotNil(t, client)
-
-	err = client.Start()
-	assert.NoError(t, err)
-
-	for i := range poolSize {
-		atomic.StoreInt64(&mockClients[i].publishCallCount, 0)
-	}
-
-	expectedPublishes := 6
-	for i := 0; i < expectedPublishes; i++ {
-		err = client.Publish(context.Background(), "topic", []byte("test"))
-		assert.NoError(t, err)
-	}
-
-	totalPublishCount := int64(0)
-	for i := range poolSize {
-		totalPublishCount += atomic.LoadInt64(&mockClients[i].publishCallCount)
-	}
-
-	assert.Equal(t, int64(expectedPublishes), totalPublishCount, "Total publish count should match expected")
-	assert.NoError(t, client.stop())
 }
 
 func TestPoolSubscribe(t *testing.T) {

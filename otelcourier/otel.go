@@ -106,3 +106,7 @@ func (t *OTel) ApplyMiddlewares(c UseMiddleware) {
 func (t *OTel) Meter() metric.Meter {
 	return t.meter
 }
+
+func (t *OTel) Service() string {
+	return t.service
+}

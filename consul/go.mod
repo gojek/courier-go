@@ -4,7 +4,7 @@ go 1.24
 
 require (
 	github.com/gojek/courier-go v0.7.7
-	github.com/gojek/courier-go/otelcourier v0.7.6
+	github.com/gojek/courier-go/otelcourier v0.7.7
 	github.com/hashicorp/consul/api v1.32.1
 	go.opentelemetry.io/otel v1.24.0
 	go.opentelemetry.io/otel/metric v1.24.0

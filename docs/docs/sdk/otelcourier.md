@@ -20,6 +20,7 @@ Package otelcourier instruments the github.com/gojek/courier\-go package.
   - [func \(t \*OTel\) ApplyMiddlewares\(c UseMiddleware\)](#OTel.ApplyMiddlewares)
   - [func \(t \*OTel\) Meter\(\) metric.Meter](#OTel.Meter)
   - [func \(t \*OTel\) PublisherMiddleware\(next courier.Publisher\) courier.Publisher](#OTel.PublisherMiddleware)
+  - [func \(t \*OTel\) Service\(\) string](#OTel.Service)
   - [func \(t \*OTel\) Stop\(\) error](#OTel.Stop)
   - [func \(t \*OTel\) StopMiddleware\(next courier.Stopper\) courier.Stopper](#OTel.StopMiddleware)
   - [func \(t \*OTel\) SubscriberMiddleware\(next courier.Subscriber\) courier.Subscriber](#OTel.SubscriberMiddleware)
@@ -223,6 +224,15 @@ func (t *OTel) PublisherMiddleware(next courier.Publisher) courier.Publisher
 ```
 
 PublisherMiddleware is a courier.PublisherMiddlewareFunc for tracing publish calls.
+
+<a name="OTel.Service"></a>
+### func \(\*OTel\) [Service](https://github.com/gojek/courier-go/blob/main/otelcourier/otel.go#L110)
+
+```go
+func (t *OTel) Service() string
+```
+
+
 
 <a name="OTel.Stop"></a>
 ### func \(\*OTel\) [Stop](https://github.com/gojek/courier-go/blob/main/otelcourier/stop.go#L6)

@@ -21,6 +21,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func \(c \*Client\) InfoHandler\(\) http.Handler](#Client.InfoHandler)
   - [func \(c \*Client\) IsConnected\(\) bool](#Client.IsConnected)
   - [func \(c \*Client\) KeepAlive\(\) time.Duration](#Client.KeepAlive)
+  - [func \(c \*Client\) PoolSize\(\) int](#Client.PoolSize)
   - [func \(c \*Client\) Publish\(ctx context.Context, topic string, message interface\{\}, opts ...Option\) error](#Client.Publish)
   - [func \(c \*Client\) Run\(ctx context.Context\) error](#Client.Run)
   - [func \(c \*Client\) Start\(\) error](#Client.Start)
@@ -304,6 +305,15 @@ func (c *Client) KeepAlive() time.Duration
 ```
 
 KeepAlive returns the keep alive duration configured for the client
+
+<a name="Client.PoolSize"></a>
+### func \(\*Client\) [PoolSize](https://github.com/gojek/courier-go/blob/main/client.go#L412)
+
+```go
+func (c *Client) PoolSize() int
+```
+
+PoolSize returns the size of the connection pool configured for the client
 
 <a name="Client.Publish"></a>
 ### func \(\*Client\) [Publish](https://github.com/gojek/courier-go/blob/main/client_publish.go#L11)

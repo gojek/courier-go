@@ -407,3 +407,8 @@ func (c *Client) ConnectTimeout() time.Duration {
 func (c *Client) AckTimeout() time.Duration {
 	return c.options.ackTimeout
 }
+
+// PoolSize returns the size of the connection pool configured for the client
+func (c *Client) PoolSize() int {
+	return c.options.poolSize
+}

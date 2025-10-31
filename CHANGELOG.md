@@ -10,7 +10,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [0.7.8]
 
 ### Added
-- Add consul metrics for clients ([#66] https://github.com/gojek/courier-go/pull/64)
+- Add observability metrics for Consul ([#66] https://github.com/gojek/courier-go/pull/64)
 
 ## [0.7.7]
 

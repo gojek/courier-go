@@ -155,57 +155,64 @@ type CourierConfig interface {
 	WriteTimeout() time.Duration
 	KeepAlive() time.Duration
 	AckTimeout() time.Duration
+	PoolSize() int
 }
 
 func (t *OTel) initCourierConfig(c UseMiddleware) {
+	cCfg, ok := c.(CourierConfig)
+	if !ok {
+		return
+	}
+
+	t.setupCourierMetrics(cCfg)
+}
+
+func (t *OTel) setupCourierMetrics(cCfg CourierConfig) {
 	baseAttrs := append([]attribute.KeyValue{
 		attribute.String("service.name", t.service),
 	}, t.attributes...)
 
 	ctx := context.Background()
 
-	cCfg, ok := c.(CourierConfig)
-	if !ok {
-		return
+	timeoutMetrics := []struct {
+		name        string
+		description string
+		value       float64
+	}{
+		{
+			name:        "courier.client.connection_timeout",
+			description: "MQTT connection timeout in seconds",
+			value:       cCfg.ConnectTimeout().Seconds(),
+		},
+		{
+			name:        "courier.client.write_timeout",
+			description: "MQTT write timeout in seconds",
+			value:       cCfg.WriteTimeout().Seconds(),
+		},
+		{
+			name:        "courier.client.keep_alive",
+			description: "MQTT keep alive in seconds",
+			value:       cCfg.KeepAlive().Seconds(),
+		},
+		{
+			name:        "courier.client.ack_timeout",
+			description: "MQTT ack timeout in seconds",
+			value:       cCfg.AckTimeout().Seconds(),
+		},
 	}
 
-	connTimeout := cCfg.ConnectTimeout().Seconds()
-	writeTimeout := cCfg.WriteTimeout().Seconds()
-	keepAlive := cCfg.KeepAlive().Seconds()
-	ackTimeout := cCfg.AckTimeout().Seconds()
+	for _, tm := range timeoutMetrics {
+		gauge, err := t.meter.Float64UpDownCounter(
+			tm.name,
+			metric.WithDescription(tm.description),
+			metric.WithUnit("s"),
+		)
+		if err != nil {
+			panic(err)
+		}
 
-	connTimeoutGauge, err := t.meter.Float64UpDownCounter(
-		"courier.client.connection_timeout",
-		metric.WithDescription("MQTT connection timeout in seconds"),
-		metric.WithUnit("s"),
-	)
-	if err != nil {
-		panic(err)
+		gauge.Add(ctx, tm.value, metric.WithAttributes(baseAttrs...))
 	}
-
-	connTimeoutGauge.Add(ctx, connTimeout, metric.WithAttributes(baseAttrs...))
-
-	writeTimeoutGauge, err := t.meter.Float64UpDownCounter(
-		"courier.client.write_timeout",
-		metric.WithDescription("MQTT write timeout in seconds"),
-		metric.WithUnit("s"),
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	writeTimeoutGauge.Add(ctx, writeTimeout, metric.WithAttributes(baseAttrs...))
-
-	keepAliveGauge, err := t.meter.Float64UpDownCounter(
-		"courier.client.keep_alive",
-		metric.WithDescription("MQTT keep alive in seconds"),
-		metric.WithUnit("s"),
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	keepAliveGauge.Add(ctx, keepAlive, metric.WithAttributes(baseAttrs...))
 
 	versionGauge, err := t.meter.Float64UpDownCounter(
 		"courier.client.library_version",
@@ -216,17 +223,15 @@ func (t *OTel) initCourierConfig(c UseMiddleware) {
 	}
 
 	versionAttrs := append(baseAttrs, attribute.String("version", courier.Version()))
-
 	versionGauge.Add(ctx, 1.0, metric.WithAttributes(versionAttrs...))
 
-	ackTimeoutGauge, err := t.meter.Float64UpDownCounter(
-		"courier.client.ack_timeout",
-		metric.WithDescription("MQTT ack timeout in seconds"),
-		metric.WithUnit("s"),
+	poolSizeGauge, err := t.meter.Float64UpDownCounter(
+		"courier.client.pool_size",
+		metric.WithDescription("Size of the MQTT connection pool"),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	ackTimeoutGauge.Add(ctx, ackTimeout, metric.WithAttributes(baseAttrs...))
+	poolSizeGauge.Add(ctx, float64(cCfg.PoolSize()), metric.WithAttributes(baseAttrs...))
 }

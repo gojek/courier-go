@@ -102,7 +102,7 @@ type BucketBoundaries struct {
 ```
 
 <a name="CourierConfig"></a>
-## type [CourierConfig](https://github.com/gojek/courier-go/blob/main/otelcourier/metric.go#L153-L158)
+## type [CourierConfig](https://github.com/gojek/courier-go/blob/main/otelcourier/metric.go#L153-L159)
 
 
 
@@ -112,6 +112,7 @@ type CourierConfig interface {
     WriteTimeout() time.Duration
     KeepAlive() time.Duration
     AckTimeout() time.Duration
+    PoolSize() int
 }
 ```
 

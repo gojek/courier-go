@@ -46,6 +46,7 @@ func Test_courierConfigMetrics(t *testing.T) {
 		courier.WithConnectTimeout(30),
 		courier.WithKeepAlive(60),
 		courier.WithWriteTimeout(30),
+		courier.WithPoolSize(3),
 	)
 	require.NoError(t, err)
 
@@ -68,7 +69,10 @@ courier_client_library_version{otel_scope_name="github.com/gojek/courier-go/otel
 # HELP courier_client_write_timeout_seconds MQTT write timeout in seconds
 # TYPE courier_client_write_timeout_seconds gauge
 courier_client_write_timeout_seconds{otel_scope_name="github.com/gojek/courier-go/otelcourier",otel_scope_version="semver:%s",service_name="test-service"} 3e-08
-`, vsn, vsn, vsn, vsn, vsn, vsn))
+# HELP courier_client_pool_size Size of the MQTT connection pool
+# TYPE courier_client_pool_size gauge
+courier_client_pool_size{otel_scope_name="github.com/gojek/courier-go/otelcourier",otel_scope_version="semver:%s",service_name="test-service"} 3
+`, vsn, vsn, vsn, vsn, vsn, vsn, vsn))
 
 		assert.NoError(t, testutil.GatherAndCompare(reg, buf,
 			"courier_client_connection_timeout_seconds",
@@ -76,6 +80,7 @@ courier_client_write_timeout_seconds{otel_scope_name="github.com/gojek/courier-g
 			"courier_client_keep_alive_seconds",
 			"courier_client_ack_timeout_seconds",
 			"courier_client_library_version",
+			"courier_client_pool_size",
 		))
 	})
 }
@@ -102,6 +107,7 @@ func Test_courierConfigMetrics_NonCourierConfigType(t *testing.T) {
 		assert.NotContains(t, metricName, "courier_client_keep_alive")
 		assert.NotContains(t, metricName, "courier_client_ack_timeout")
 		assert.NotContains(t, metricName, "courier_client_library_version")
+		assert.NotContains(t, metricName, "courier_client_pool_size")
 	}
 }
 

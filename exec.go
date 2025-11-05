@@ -3,7 +3,6 @@ package courier
 import (
 	"errors"
 	"math/rand"
-	"sort"
 	"sync"
 	"sync/atomic"
 
@@ -68,13 +67,7 @@ func (c *Client) execMultiConn(f func(mqtt.Client) error, eo execOpt) error {
 	var ccs []*internalState
 
 	if eo == execOneRoundRobin {
-		keys := xmap.Keys(c.mqttClients)
-		sort.Strings(keys)
-		ccs = make([]*internalState, len(keys))
-
-		for i, key := range keys {
-			ccs[i] = c.mqttClients[key]
-		}
+		ccs = c.orderedClients
 	} else {
 		ccs = xmap.Values(c.mqttClients)
 	}

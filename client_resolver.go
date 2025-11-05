@@ -91,12 +91,16 @@ func (c *Client) reloadClients(clients map[string]mqtt.Client) {
 
 	if len(clients) > 0 {
 		ncs := make(map[string]*internalState, len(clients))
+		orderedClients := make([]*internalState, 0, len(clients))
 
 		for k, cc := range clients {
-			ncs[k] = &internalState{client: cc, subsCalled: generic.NewSet[string]()}
+			ic := &internalState{client: cc, subsCalled: generic.NewSet[string]()}
+			ncs[k] = ic
+			orderedClients = append(orderedClients, ic)
 		}
 
 		c.mqttClients = ncs
+		c.orderedClients = orderedClients
 	}
 
 	c.options.logger.Info(context.Background(), "reloading clients", map[string]any{

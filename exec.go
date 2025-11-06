@@ -64,7 +64,13 @@ func (c *Client) execute(f func(mqtt.Client) error, eo execOpt) error {
 }
 
 func (c *Client) execMultiConn(f func(mqtt.Client) error, eo execOpt) error {
-	ccs := xmap.Values(c.mqttClients)
+	var ccs []*internalState
+
+	if eo == execOneRoundRobin {
+		ccs = c.orderedClients
+	} else {
+		ccs = xmap.Values(c.mqttClients)
+	}
 
 	switch eo := eo.(type) {
 	case execOptConst:

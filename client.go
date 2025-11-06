@@ -22,9 +22,10 @@ var newClientFunc = defaultNewClientFunc()
 type Client struct {
 	options *clientOptions
 
-	subscriptions map[string]*subscriptionMeta
-	mqttClient    mqtt.Client
-	mqttClients   map[string]*internalState
+	subscriptions  map[string]*subscriptionMeta
+	mqttClient     mqtt.Client
+	mqttClients    map[string]*internalState
+	orderedClients []*internalState
 
 	publisher      Publisher
 	subscriber     Subscriber
@@ -151,6 +152,7 @@ func (c *Client) stop() error {
 
 		c.mqttClient = nil
 		c.mqttClients = nil
+		c.orderedClients = nil
 	}
 
 	return err

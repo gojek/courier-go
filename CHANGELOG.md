@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.7.10]
+
+### Changed
+- Change synchronous gauge to observable gauge ([#76] https://github.com/gojek/courier-go/pull/76)
+
 ## [0.7.9]
 
 ### Added

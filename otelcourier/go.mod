@@ -3,7 +3,7 @@ module github.com/gojek/courier-go/otelcourier
 go 1.24
 
 require (
-	github.com/gojek/courier-go v0.7.9
+	github.com/gojek/courier-go v0.7.10
 	github.com/prometheus/client_golang v1.18.0
 	github.com/prometheus/client_model v0.6.0
 	github.com/stretchr/testify v1.9.0

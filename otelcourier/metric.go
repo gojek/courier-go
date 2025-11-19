@@ -172,66 +172,78 @@ func (t *OTel) setupCourierMetrics(cCfg CourierConfig) {
 		attribute.String("service.name", t.service),
 	}, t.attributes...)
 
-	ctx := context.Background()
-
-	timeoutMetrics := []struct {
+	configMetrics := []struct {
 		name        string
 		description string
+		unit        string
 		value       float64
+		attrs       []attribute.KeyValue
 	}{
 		{
 			name:        "courier.client.connection_timeout",
 			description: "MQTT connection timeout in seconds",
+			unit:        "s",
 			value:       cCfg.ConnectTimeout().Seconds(),
+			attrs:       baseAttrs,
 		},
 		{
 			name:        "courier.client.write_timeout",
 			description: "MQTT write timeout in seconds",
+			unit:        "s",
 			value:       cCfg.WriteTimeout().Seconds(),
+			attrs:       baseAttrs,
 		},
 		{
 			name:        "courier.client.keep_alive",
 			description: "MQTT keep alive in seconds",
+			unit:        "s",
 			value:       cCfg.KeepAlive().Seconds(),
+			attrs:       baseAttrs,
 		},
 		{
 			name:        "courier.client.ack_timeout",
 			description: "MQTT ack timeout in seconds",
+			unit:        "s",
 			value:       cCfg.AckTimeout().Seconds(),
+			attrs:       baseAttrs,
+		},
+		{
+			name:        "courier.client.library_version",
+			description: "Courier library version",
+			value:       1.0,
+			attrs:       append(baseAttrs, attribute.String("version", courier.Version())),
+		},
+		{
+			name:        "courier.client.pool_size",
+			description: "Size of the MQTT connection pool",
+			value:       float64(cCfg.PoolSize()),
+			attrs:       baseAttrs,
 		},
 	}
 
-	for _, tm := range timeoutMetrics {
-		gauge, err := t.meter.Float64UpDownCounter(
-			tm.name,
-			metric.WithDescription(tm.description),
-			metric.WithUnit("s"),
-		)
+	for _, cm := range configMetrics {
+		opts := []metric.Float64ObservableGaugeOption{metric.WithDescription(cm.description)}
+		if cm.unit != "" {
+			opts = append(opts, metric.WithUnit(cm.unit))
+		}
+
+		gauge, err := t.meter.Float64ObservableGauge(cm.name, opts...)
 		if err != nil {
 			panic(err)
 		}
 
-		gauge.Add(ctx, tm.value, metric.WithAttributes(baseAttrs...))
+		value, attrs := cm.value, cm.attrs
+
+		_, err = t.meter.RegisterCallback(
+			func(ctx context.Context, o metric.Observer) error {
+				o.ObserveFloat64(gauge, value, metric.WithAttributes(attrs...))
+
+				return nil
+			},
+			gauge,
+		)
+		if err != nil {
+			panic(err)
+		}
 	}
-
-	versionGauge, err := t.meter.Float64UpDownCounter(
-		"courier.client.library_version",
-		metric.WithDescription("Courier library version"),
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	versionAttrs := append(baseAttrs, attribute.String("version", courier.Version()))
-	versionGauge.Add(ctx, 1.0, metric.WithAttributes(versionAttrs...))
-
-	poolSizeGauge, err := t.meter.Float64UpDownCounter(
-		"courier.client.pool_size",
-		metric.WithDescription("Size of the MQTT connection pool"),
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	poolSizeGauge.Add(ctx, float64(cCfg.PoolSize()), metric.WithAttributes(baseAttrs...))
 }

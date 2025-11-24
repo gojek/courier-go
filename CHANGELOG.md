@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.7.11]
+
+### Changed
+- Bump paho version ([#78] https://github.com/gojek/courier-go/pull/78)
+
 ## [0.7.10]
 
 ### Changed
@@ -175,7 +180,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Initial Release
 
-[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.7...HEAD
+[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.11...HEAD
+[0.7.11]: https://github.com/gojek/courier-go/releases/tag/v0.7.11
+[0.7.10]: https://github.com/gojek/courier-go/releases/tag/v0.7.10
+[0.7.9]: https://github.com/gojek/courier-go/releases/tag/v0.7.9
+[0.7.8]: https://github.com/gojek/courier-go/releases/tag/v0.7.8
 [0.7.7]: https://github.com/gojek/courier-go/releases/tag/v0.7.7
 [0.7.6]: https://github.com/gojek/courier-go/releases/tag/v0.7.6
 [0.7.5]: https://github.com/gojek/courier-go/releases/tag/v0.7.5

@@ -9,12 +9,12 @@ import (
 )
 
 type Config struct {
-	ConsulAddress string
-	HealthyOnly   bool
-	KVKey         string
-	WaitTime      time.Duration
-	Logger        *log.Logger
-	OTel          *otelcourier.OTel
+	ConsulAddress    string
+	HealthyOnly      bool
+	KVKey            string
+	WaitTime         time.Duration
+	Logger           *log.Logger
+	OTel             *otelcourier.OTel
 	DebounceDuration time.Duration
 }
 

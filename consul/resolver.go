@@ -360,6 +360,7 @@ func (r *Resolver) scheduleAddressUpdate(ctx context.Context, serviceName string
 
 	if r.debounceDuration <= 0 {
 		r.publishAddressUpdate(ctx, serviceName, addresses)
+
 		return
 	}
 
@@ -379,8 +380,10 @@ func (r *Resolver) scheduleAddressUpdate(ctx context.Context, serviceName string
 		r.mu.Lock()
 		if r.pendingAddresses == nil {
 			r.mu.Unlock()
+
 			return
 		}
+
 		addrs := r.pendingAddresses
 		r.pendingAddresses = nil
 		svcName := r.serviceName

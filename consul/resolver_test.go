@@ -582,8 +582,6 @@ func TestResolver_Debounce_PublishesOnlyLastUpdate(t *testing.T) {
 	}
 	defer resolver.Stop()
 
-	resolver.serviceName = "test-service"
-
 	ctx := context.Background()
 	resolver.scheduleAddressUpdate(ctx, "test-service", []courier.TCPAddress{{Host: "127.0.0.1", Port: 8080}})
 	resolver.scheduleAddressUpdate(ctx, "test-service", []courier.TCPAddress{{Host: "127.0.0.2", Port: 8081}})
@@ -611,8 +609,6 @@ func TestResolver_Debounce_DisabledWhenZero(t *testing.T) {
 	}
 	defer resolver.Stop()
 
-	resolver.serviceName = "test-service"
-
 	go resolver.scheduleAddressUpdate(context.Background(), "test-service", []courier.TCPAddress{{Host: "127.0.0.1", Port: 8080}})
 
 	select {
@@ -633,7 +629,6 @@ func TestResolver_Debounce_NoPublishAfterStop(t *testing.T) {
 		t.Fatalf("Failed to create resolver: %v", err)
 	}
 
-	resolver.serviceName = "test-service"
 	resolver.scheduleAddressUpdate(context.Background(), "test-service", []courier.TCPAddress{{Host: "127.0.0.1", Port: 8080}})
 
 	resolver.Stop()

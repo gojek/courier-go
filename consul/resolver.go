@@ -56,8 +56,9 @@ type Resolver struct {
 
 	commonAttrs []attribute.KeyValue
 
-	serviceInstances  metric.Int64UpDownCounter
-	lastInstanceCount int64
+	serviceInstances         metric.Int64ObservableGauge
+	serviceInstancesCallback metric.Registration
+	lastInstanceCount        int64
 
 	consulAPIRequests metric.Int64Counter
 	consulAPIDuration metric.Float64Histogram
@@ -114,13 +115,21 @@ func (r *Resolver) initMetrics(otel *otelcourier.OTel) error {
 
 	var err error
 
-	r.serviceInstances, err = meter.Int64UpDownCounter(
+	r.serviceInstances, err = meter.Int64ObservableGauge(
 		"courier.consul.service_instances",
 		metric.WithDescription("Current number of discovered healthy service instances"),
 		metric.WithUnit("{instance}"),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create service_instances metric: %w", err)
+	}
+
+	r.serviceInstancesCallback, err = meter.RegisterCallback(
+		r.observeInstanceCount,
+		r.serviceInstances,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to register service_instances callback: %w", err)
 	}
 
 	r.consulAPIRequests, err = meter.Int64Counter(
@@ -318,12 +327,9 @@ func (r *Resolver) discover() error {
 	addresses := r.convertToTCPAddresses(services)
 	currentCount := int64(len(addresses))
 
-	previousCount := r.lastInstanceCount
 	r.lastInstanceCount = currentCount
 
 	r.mu.Unlock()
-
-	r.recordInstanceCount(ctx, serviceName, currentCount, previousCount)
 
 	r.logger.Printf("Discovered %v instances for service '%s'", addresses, serviceName)
 
@@ -462,21 +468,23 @@ func (r *Resolver) convertToTCPAddresses(services []*consulapi.ServiceEntry) []c
 	return addresses
 }
 
-func (r *Resolver) recordInstanceCount(ctx context.Context, serviceName string, currentCount, previousCount int64) {
-	if r.serviceInstances == nil {
-		return
-	}
+func (r *Resolver) observeInstanceCount(_ context.Context, o metric.Observer) error {
+	r.mu.RLock()
+	serviceName := r.serviceName
+	count := r.lastInstanceCount
+	r.mu.RUnlock()
 
-	delta := currentCount - previousCount
-	if delta == 0 {
-		return
+	if serviceName == "" {
+		return nil
 	}
 
 	attrs := append(r.commonAttrs,
 		attribute.String(attrConsulServiceName, serviceName),
 	)
 
-	r.serviceInstances.Add(ctx, delta, metric.WithAttributes(attrs...))
+	o.ObserveInt64(r.serviceInstances, count, metric.WithAttributes(attrs...))
+
+	return nil
 }
 
 func (r *Resolver) recordAPIRequest(ctx context.Context, apiType string, success bool) {

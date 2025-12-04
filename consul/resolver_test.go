@@ -1,6 +1,7 @@
 package consul
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -566,5 +567,80 @@ func TestResolver_Discover_AreAddressesEqual(t *testing.T) {
 		}
 	case <-time.After(1 * time.Second):
 		t.Fatal("Timed out waiting for third update")
+	}
+}
+
+func TestResolver_Debounce_PublishesOnlyLastUpdate(t *testing.T) {
+	config := &Config{
+		ConsulAddress:    "localhost:8500",
+		KVKey:            "test",
+		DebounceDuration: 50 * time.Millisecond,
+	}
+	resolver, err := NewResolver(config)
+	if err != nil {
+		t.Fatalf("Failed to create resolver: %v", err)
+	}
+	defer resolver.Stop()
+
+	resolver.serviceName = "test-service"
+
+	ctx := context.Background()
+	resolver.scheduleAddressUpdate(ctx, "test-service", []courier.TCPAddress{{Host: "127.0.0.1", Port: 8080}})
+	resolver.scheduleAddressUpdate(ctx, "test-service", []courier.TCPAddress{{Host: "127.0.0.2", Port: 8081}})
+	resolver.scheduleAddressUpdate(ctx, "test-service", []courier.TCPAddress{{Host: "127.0.0.3", Port: 8082}})
+
+	select {
+	case addresses := <-resolver.UpdateChan():
+		if len(addresses) != 1 || addresses[0].Host != "127.0.0.3" {
+			t.Errorf("Expected last address (127.0.0.3), got %+v", addresses)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("Timed out waiting for debounced update")
+	}
+}
+
+func TestResolver_Debounce_DisabledWhenZero(t *testing.T) {
+	config := &Config{
+		ConsulAddress:    "localhost:8500",
+		KVKey:            "test",
+		DebounceDuration: 0,
+	}
+	resolver, err := NewResolver(config)
+	if err != nil {
+		t.Fatalf("Failed to create resolver: %v", err)
+	}
+	defer resolver.Stop()
+
+	resolver.serviceName = "test-service"
+
+	go resolver.scheduleAddressUpdate(context.Background(), "test-service", []courier.TCPAddress{{Host: "127.0.0.1", Port: 8080}})
+
+	select {
+	case <-resolver.UpdateChan():
+	case <-time.After(20 * time.Millisecond):
+		t.Fatal("Expected immediate publish when debounce is disabled")
+	}
+}
+
+func TestResolver_Debounce_NoPublishAfterStop(t *testing.T) {
+	config := &Config{
+		ConsulAddress:    "localhost:8500",
+		KVKey:            "test",
+		DebounceDuration: 100 * time.Millisecond,
+	}
+	resolver, err := NewResolver(config)
+	if err != nil {
+		t.Fatalf("Failed to create resolver: %v", err)
+	}
+
+	resolver.serviceName = "test-service"
+	resolver.scheduleAddressUpdate(context.Background(), "test-service", []courier.TCPAddress{{Host: "127.0.0.1", Port: 8080}})
+
+	resolver.Stop()
+
+	select {
+	case <-resolver.UpdateChan():
+		t.Fatal("Should not receive update after stop")
+	case <-time.After(150 * time.Millisecond):
 	}
 }

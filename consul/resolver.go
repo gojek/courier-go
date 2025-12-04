@@ -55,10 +55,9 @@ type Resolver struct {
 	lastAddresses []courier.TCPAddress
 
 	// Debounce
-	debounceDuration  time.Duration
-	debounceTimer     *time.Timer
-	pendingAddresses  []courier.TCPAddress
-	hasPendingUpdate  bool
+	debounceDuration time.Duration
+	debounceTimer    *time.Timer
+	pendingAddresses []courier.TCPAddress
 
 	commonAttrs []attribute.KeyValue
 
@@ -365,7 +364,6 @@ func (r *Resolver) scheduleAddressUpdate(ctx context.Context, serviceName string
 	}
 
 	r.pendingAddresses = addresses
-	r.hasPendingUpdate = true
 
 	if r.debounceTimer != nil {
 		r.debounceTimer.Stop()
@@ -379,12 +377,11 @@ func (r *Resolver) scheduleAddressUpdate(ctx context.Context, serviceName string
 		}
 
 		r.mu.Lock()
-		if !r.hasPendingUpdate {
+		if r.pendingAddresses == nil {
 			r.mu.Unlock()
 			return
 		}
 		addrs := r.pendingAddresses
-		r.hasPendingUpdate = false
 		r.pendingAddresses = nil
 		svcName := r.serviceName
 		r.mu.Unlock()

@@ -15,6 +15,7 @@ type Config struct {
 	WaitTime      time.Duration
 	Logger        *log.Logger
 	OTel          *otelcourier.OTel
+	DebounceDuration time.Duration
 }
 
 func DefaultConfig() *Config {

@@ -331,8 +331,6 @@ func (r *Resolver) discover() error {
 
 	r.mu.Unlock()
 
-	r.logger.Printf("Discovered %d instances for service '%s'", len(addresses), serviceName)	r.recordInstanceCount(ctx, serviceName, currentCount, previousCount)
-
 	r.logger.Printf("Discovered %v instances for service '%s'", addresses, serviceName)
 
 	r.mu.Lock()

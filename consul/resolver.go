@@ -200,7 +200,7 @@ func (r *Resolver) Start() {
 		r.logger.Printf("Failed to update service name from KV: %v", err)
 	}
 
-	fmt.Println("Starting resolver for service:", r.serviceName)
+	r.logger.Printf("Starting resolver for service: %s, debounce: %v", r.serviceName, r.debounceDuration)
 
 	// Initial service discovery
 	if err := r.discover(); err != nil {
@@ -358,7 +358,11 @@ func (r *Resolver) scheduleAddressUpdate(ctx context.Context, serviceName string
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	r.logger.Printf("scheduleAddressUpdate called: service=%s, addresses=%d, debounce=%v", serviceName, len(addresses),
+		r.debounceDuration)
+
 	if r.debounceDuration <= 0 {
+		r.logger.Printf("Debounce disabled, publishing immediately")
 		r.publishAddressUpdate(ctx, serviceName, addresses)
 
 		return

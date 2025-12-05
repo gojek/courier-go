@@ -371,18 +371,25 @@ func (r *Resolver) scheduleAddressUpdate(ctx context.Context, serviceName string
 	r.pendingAddresses = addresses
 
 	if r.debounceTimer != nil {
+		r.logger.Printf("Stopping existing debounce timer")
 		r.debounceTimer.Stop()
 	}
 
+	r.logger.Printf("Starting new debounce timer for %v", r.debounceDuration)
 	r.debounceTimer = time.AfterFunc(r.debounceDuration, func() {
+		r.logger.Printf("Debounce timer fired after %v", r.debounceDuration)
+
 		select {
 		case <-r.doneChan:
+			r.logger.Printf("Debounce timer: resolver stopped, skipping publish")
+
 			return
 		default:
 		}
 
 		r.mu.Lock()
 		if r.pendingAddresses == nil {
+			r.logger.Printf("Debounce timer: pendingAddresses is nil, skipping publish")
 			r.mu.Unlock()
 
 			return
@@ -393,11 +400,13 @@ func (r *Resolver) scheduleAddressUpdate(ctx context.Context, serviceName string
 		svcName := r.serviceName
 		r.mu.Unlock()
 
+		r.logger.Printf("Debounce timer: publishing %d addresses for service %s", len(addrs), svcName)
 		r.publishAddressUpdate(context.Background(), svcName, addrs)
 	})
 }
 
 func (r *Resolver) publishAddressUpdate(ctx context.Context, serviceName string, addresses []courier.TCPAddress) {
+	r.logger.Printf("publishAddressUpdate: publishing %d addresses for %s", len(addresses), serviceName)
 	r.recordAddressUpdate(ctx, serviceName)
 
 	select {

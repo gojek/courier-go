@@ -339,17 +339,7 @@ func (r *Resolver) discover() error {
 
 	r.logger.Printf("Discovered %v instances for service '%s'", addresses, serviceName)
 
-	r.mu.Lock()
-	addressesChanged := !areAddressesEqual(r.lastAddresses, addresses)
-
-	if addressesChanged {
-		r.lastAddresses = addresses
-	}
-	r.mu.Unlock()
-
-	if addressesChanged {
-		r.scheduleAddressUpdate(ctx, serviceName, addresses)
-	}
+	r.scheduleAddressUpdate(ctx, serviceName, addresses)
 
 	return nil
 }
@@ -358,12 +348,13 @@ func (r *Resolver) scheduleAddressUpdate(ctx context.Context, serviceName string
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.logger.Printf("scheduleAddressUpdate called: service=%s, addresses=%d, debounce=%v", serviceName, len(addresses),
-		r.debounceDuration)
+	if areAddressesEqual(r.lastAddresses, addresses) {
+		return
+	}
 
 	if r.debounceDuration <= 0 {
-		r.logger.Printf("Debounce disabled, publishing immediately")
-		r.publishAddressUpdate(ctx, serviceName, addresses)
+		r.lastAddresses = addresses
+		r.publishAddressUpdateLocked(ctx, serviceName, addresses)
 
 		return
 	}
@@ -371,42 +362,35 @@ func (r *Resolver) scheduleAddressUpdate(ctx context.Context, serviceName string
 	r.pendingAddresses = addresses
 
 	if r.debounceTimer != nil {
-		r.logger.Printf("Stopping existing debounce timer")
 		r.debounceTimer.Stop()
 	}
 
-	r.logger.Printf("Starting new debounce timer for %v", r.debounceDuration)
 	r.debounceTimer = time.AfterFunc(r.debounceDuration, func() {
-		r.logger.Printf("Debounce timer fired after %v", r.debounceDuration)
-
 		select {
 		case <-r.doneChan:
-			r.logger.Printf("Debounce timer: resolver stopped, skipping publish")
-
 			return
 		default:
 		}
 
 		r.mu.Lock()
-		if r.pendingAddresses == nil {
-			r.logger.Printf("Debounce timer: pendingAddresses is nil, skipping publish")
+		addrs := r.pendingAddresses
+
+		if addrs == nil || areAddressesEqual(r.lastAddresses, addrs) {
 			r.mu.Unlock()
 
 			return
 		}
 
-		addrs := r.pendingAddresses
+		r.lastAddresses = addrs
 		r.pendingAddresses = nil
 		svcName := r.serviceName
 		r.mu.Unlock()
 
-		r.logger.Printf("Debounce timer: publishing %d addresses for service %s", len(addrs), svcName)
-		r.publishAddressUpdate(context.Background(), svcName, addrs)
+		r.publishAddressUpdateLocked(context.Background(), svcName, addrs)
 	})
 }
 
-func (r *Resolver) publishAddressUpdate(ctx context.Context, serviceName string, addresses []courier.TCPAddress) {
-	r.logger.Printf("publishAddressUpdate: publishing %d addresses for %s", len(addresses), serviceName)
+func (r *Resolver) publishAddressUpdateLocked(ctx context.Context, serviceName string, addresses []courier.TCPAddress) {
 	r.recordAddressUpdate(ctx, serviceName)
 
 	select {

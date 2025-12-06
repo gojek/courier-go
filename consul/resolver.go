@@ -348,23 +348,25 @@ func (r *Resolver) scheduleAddressUpdate(ctx context.Context, serviceName string
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	if r.debounceTimer != nil {
+		r.debounceTimer.Stop()
+		r.debounceTimer = nil
+	}
+
 	if areAddressesEqual(r.lastAddresses, addresses) {
+		r.pendingAddresses = nil
+
 		return
 	}
 
 	if r.debounceDuration <= 0 {
 		r.lastAddresses = addresses
-		r.publishAddressUpdateLocked(ctx, serviceName, addresses)
+		r.publishAddressUpdate(ctx, serviceName, addresses)
 
 		return
 	}
 
 	r.pendingAddresses = addresses
-
-	if r.debounceTimer != nil {
-		r.debounceTimer.Stop()
-	}
-
 	r.debounceTimer = time.AfterFunc(r.debounceDuration, func() {
 		select {
 		case <-r.doneChan:
@@ -375,7 +377,7 @@ func (r *Resolver) scheduleAddressUpdate(ctx context.Context, serviceName string
 		r.mu.Lock()
 		addrs := r.pendingAddresses
 
-		if addrs == nil || areAddressesEqual(r.lastAddresses, addrs) {
+		if addrs == nil {
 			r.mu.Unlock()
 
 			return
@@ -386,11 +388,11 @@ func (r *Resolver) scheduleAddressUpdate(ctx context.Context, serviceName string
 		svcName := r.serviceName
 		r.mu.Unlock()
 
-		r.publishAddressUpdateLocked(context.Background(), svcName, addrs)
+		r.publishAddressUpdate(context.Background(), svcName, addrs)
 	})
 }
 
-func (r *Resolver) publishAddressUpdateLocked(ctx context.Context, serviceName string, addresses []courier.TCPAddress) {
+func (r *Resolver) publishAddressUpdate(ctx context.Context, serviceName string, addresses []courier.TCPAddress) {
 	r.recordAddressUpdate(ctx, serviceName)
 
 	select {

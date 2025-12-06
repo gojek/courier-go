@@ -54,6 +54,11 @@ type Resolver struct {
 	kvKey         string
 	lastAddresses []courier.TCPAddress
 
+	// Debounce
+	debounceDuration time.Duration
+	debounceTimer    *time.Timer
+	pendingAddresses []courier.TCPAddress
+
 	commonAttrs []attribute.KeyValue
 
 	serviceInstances  metric.Int64UpDownCounter
@@ -87,14 +92,15 @@ func NewResolver(config *Config) (*Resolver, error) {
 	}
 
 	r := &Resolver{
-		client:      client,
-		serviceName: "",
-		healthyOnly: config.HealthyOnly,
-		waitTime:    config.WaitTime,
-		logger:      logger,
-		updateChan:  make(chan []courier.TCPAddress, 1),
-		doneChan:    make(chan struct{}),
-		kvKey:       config.KVKey,
+		client:           client,
+		serviceName:      "",
+		healthyOnly:      config.HealthyOnly,
+		waitTime:         config.WaitTime,
+		logger:           logger,
+		updateChan:       make(chan []courier.TCPAddress, 1),
+		doneChan:         make(chan struct{}),
+		kvKey:            config.KVKey,
+		debounceDuration: config.DebounceDuration,
 	}
 
 	if config.OTel != nil {
@@ -181,6 +187,12 @@ func (r *Resolver) Done() <-chan struct{} {
 
 func (r *Resolver) Stop() {
 	close(r.doneChan)
+
+	r.mu.Lock()
+	if r.debounceTimer != nil {
+		r.debounceTimer.Stop()
+	}
+	r.mu.Unlock()
 }
 
 func (r *Resolver) Start() {
@@ -188,7 +200,7 @@ func (r *Resolver) Start() {
 		r.logger.Printf("Failed to update service name from KV: %v", err)
 	}
 
-	fmt.Println("Starting resolver for service:", r.serviceName)
+	r.logger.Printf("Starting resolver for service: %s, debounce: %v", r.serviceName, r.debounceDuration)
 
 	// Initial service discovery
 	if err := r.discover(); err != nil {
@@ -327,24 +339,66 @@ func (r *Resolver) discover() error {
 
 	r.logger.Printf("Discovered %v instances for service '%s'", addresses, serviceName)
 
-	r.mu.Lock()
-	addressesChanged := !areAddressesEqual(r.lastAddresses, addresses)
-
-	if addressesChanged {
-		r.lastAddresses = addresses
-	}
-	r.mu.Unlock()
-
-	if addressesChanged {
-		r.recordAddressUpdate(ctx, serviceName)
-		select {
-		case r.updateChan <- addresses:
-		case <-r.doneChan:
-			return nil
-		}
-	}
+	r.scheduleAddressUpdate(ctx, serviceName, addresses)
 
 	return nil
+}
+
+func (r *Resolver) scheduleAddressUpdate(ctx context.Context, serviceName string, addresses []courier.TCPAddress) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.debounceTimer != nil {
+		r.debounceTimer.Stop()
+		r.debounceTimer = nil
+	}
+
+	if areAddressesEqual(r.lastAddresses, addresses) {
+		r.pendingAddresses = nil
+
+		return
+	}
+
+	if r.debounceDuration <= 0 {
+		r.lastAddresses = addresses
+		r.publishAddressUpdate(ctx, serviceName, addresses)
+
+		return
+	}
+
+	r.pendingAddresses = addresses
+	r.debounceTimer = time.AfterFunc(r.debounceDuration, func() {
+		select {
+		case <-r.doneChan:
+			return
+		default:
+		}
+
+		r.mu.Lock()
+		addrs := r.pendingAddresses
+
+		if addrs == nil {
+			r.mu.Unlock()
+
+			return
+		}
+
+		r.lastAddresses = addrs
+		r.pendingAddresses = nil
+		svcName := r.serviceName
+		r.mu.Unlock()
+
+		r.publishAddressUpdate(context.Background(), svcName, addrs)
+	})
+}
+
+func (r *Resolver) publishAddressUpdate(ctx context.Context, serviceName string, addresses []courier.TCPAddress) {
+	r.recordAddressUpdate(ctx, serviceName)
+
+	select {
+	case r.updateChan <- addresses:
+	case <-r.doneChan:
+	}
 }
 
 func areAddressesEqual(a, b []courier.TCPAddress) bool {

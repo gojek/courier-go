@@ -166,9 +166,9 @@ func (r recorder) incIncomingMessages(ctx context.Context, path tracePath, opts 
 }
 
 type recorders struct {
-	attempts metric.Int64Counter
-	failures metric.Int64Counter
-	latency  metric.Float64Histogram
+	attempts         metric.Int64Counter
+	failures         metric.Int64Counter
+	latency          metric.Float64Histogram
 	incomingMessages metric.Int64Counter
 }
 

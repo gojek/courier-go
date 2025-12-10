@@ -102,7 +102,7 @@ type BucketBoundaries struct {
 ```
 
 <a name="CourierConfig"></a>
-## type [CourierConfig](https://github.com/gojek/courier-go/blob/main/otelcourier/metric.go#L153-L159)
+## type [CourierConfig](https://github.com/gojek/courier-go/blob/main/otelcourier/metric.go#L175-L181)
 
 
 

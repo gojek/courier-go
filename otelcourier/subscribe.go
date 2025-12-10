@@ -164,6 +164,7 @@ func (t *OTel) instrumentCallback(in courier.MessageHandler) courier.MessageHand
 		defer span.End()
 
 		t.rc.incAttempt(ctx, traceCallback, metricAttrs)
+		t.rc.incIncomingMessages(ctx, traceCallback, metricAttrs)
 
 		in(ctx, pubSub, msg)
 

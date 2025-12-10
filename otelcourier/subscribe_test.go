@@ -316,11 +316,15 @@ courier_subscribe_callback_attempts_total{code_function="Test_instrumentCallback
 # HELP courier_subscribe_callback_failures_total Number of subscribe.callback failures
 # TYPE courier_subscribe_callback_failures_total counter
 courier_subscribe_callback_failures_total{code_function="Test_instrumentCallback.func2",code_namespace="github.com/gojek/courier-go/otelcourier",mqtt_qos="1",mqtt_retained="true",mqtt_topic="test-topic",otel_scope_name="github.com/gojek/courier-go/otelcourier",otel_scope_version="semver:%s",service_name="test-service"} 1
-`, vsn, vsn))
+# HELP courier_subscribe_callback_incoming_messages_total Number of incoming messages received
+# TYPE courier_subscribe_callback_incoming_messages_total counter
+courier_subscribe_callback_incoming_messages_total{code_function="Test_instrumentCallback.func2",code_namespace="github.com/gojek/courier-go/otelcourier",mqtt_qos="1",mqtt_retained="true",mqtt_topic="test-topic",otel_scope_name="github.com/gojek/courier-go/otelcourier",otel_scope_version="semver:%s",service_name="test-service"} 1
+`, vsn, vsn, vsn))
 
 		assert.NoError(t, testutil.GatherAndCompare(reg, buf,
 			"courier_subscribe_callback_attempts_total",
 			"courier_subscribe_callback_failures_total",
+			"courier_subscribe_callback_incoming_messages_total",
 		))
 	})
 }

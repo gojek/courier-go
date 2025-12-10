@@ -104,6 +104,18 @@ func (t *OTel) newRecorder(flow string, boundaries []float64) *recorders {
 
 			return err
 		},
+		func(r *recorders) error {
+			if flow != "subscribe.callback" {
+				return nil
+			}
+			im, err := t.meter.Int64Counter(
+				"courier.subscribe.callback.incoming_messages",
+				metric.WithDescription("Number of incoming messages received"),
+			)
+			r.incomingMessages = im
+
+			return err
+		},
 	} {
 		if err := op(&rs); err != nil {
 			panic(err)
@@ -144,10 +156,20 @@ func (r recorder) recordLatency(
 	c.latency.Record(ctx, latency.Seconds(), opts...)
 }
 
+func (r recorder) incIncomingMessages(ctx context.Context, path tracePath, opts ...metric.AddOption) {
+	c, ok := r[path]
+	if !ok || c.incomingMessages == nil {
+		return
+	}
+
+	c.incomingMessages.Add(ctx, 1, opts...)
+}
+
 type recorders struct {
 	attempts metric.Int64Counter
 	failures metric.Int64Counter
 	latency  metric.Float64Histogram
+	incomingMessages metric.Int64Counter
 }
 
 type CourierConfig interface {

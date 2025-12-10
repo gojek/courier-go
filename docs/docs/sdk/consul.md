@@ -22,23 +22,24 @@ Package consul
 
 
 <a name="Config"></a>
-## type [Config](https://github.com/gojek/courier-go/blob/main/consul/config.go#L11-L18)
+## type [Config](https://github.com/gojek/courier-go/blob/main/consul/config.go#L11-L19)
 
 
 
 ```go
 type Config struct {
-    ConsulAddress string
-    HealthyOnly   bool
-    KVKey         string
-    WaitTime      time.Duration
-    Logger        *log.Logger
-    OTel          *otelcourier.OTel
+    ConsulAddress    string
+    HealthyOnly      bool
+    KVKey            string
+    WaitTime         time.Duration
+    Logger           *log.Logger
+    OTel             *otelcourier.OTel
+    DebounceDuration time.Duration
 }
 ```
 
 <a name="DefaultConfig"></a>
-### func [DefaultConfig](https://github.com/gojek/courier-go/blob/main/consul/config.go#L20)
+### func [DefaultConfig](https://github.com/gojek/courier-go/blob/main/consul/config.go#L21)
 
 ```go
 func DefaultConfig() *Config
@@ -47,7 +48,7 @@ func DefaultConfig() *Config
 
 
 <a name="Config.Validate"></a>
-### func \(\*Config\) [Validate](https://github.com/gojek/courier-go/blob/main/consul/config.go#L28)
+### func \(\*Config\) [Validate](https://github.com/gojek/courier-go/blob/main/consul/config.go#L30)
 
 ```go
 func (c *Config) Validate() error
@@ -56,7 +57,7 @@ func (c *Config) Validate() error
 
 
 <a name="Resolver"></a>
-## type [Resolver](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L37-L70)
+## type [Resolver](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L37-L75)
 
 
 
@@ -67,7 +68,7 @@ type Resolver struct {
 ```
 
 <a name="NewResolver"></a>
-### func [NewResolver](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L72)
+### func [NewResolver](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L77)
 
 ```go
 func NewResolver(config *Config) (*Resolver, error)
@@ -76,7 +77,7 @@ func NewResolver(config *Config) (*Resolver, error)
 
 
 <a name="Resolver.Done"></a>
-### func \(\*Resolver\) [Done](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L187)
+### func \(\*Resolver\) [Done](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L193)
 
 ```go
 func (r *Resolver) Done() <-chan struct{}
@@ -85,7 +86,7 @@ func (r *Resolver) Done() <-chan struct{}
 
 
 <a name="Resolver.Start"></a>
-### func \(\*Resolver\) [Start](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L195)
+### func \(\*Resolver\) [Start](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L207)
 
 ```go
 func (r *Resolver) Start()
@@ -94,7 +95,7 @@ func (r *Resolver) Start()
 
 
 <a name="Resolver.Stop"></a>
-### func \(\*Resolver\) [Stop](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L191)
+### func \(\*Resolver\) [Stop](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L197)
 
 ```go
 func (r *Resolver) Stop()
@@ -103,7 +104,7 @@ func (r *Resolver) Stop()
 
 
 <a name="Resolver.UpdateChan"></a>
-### func \(\*Resolver\) [UpdateChan](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L183)
+### func \(\*Resolver\) [UpdateChan](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L189)
 
 ```go
 func (r *Resolver) UpdateChan() <-chan []courier.TCPAddress

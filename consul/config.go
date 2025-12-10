@@ -9,19 +9,21 @@ import (
 )
 
 type Config struct {
-	ConsulAddress string
-	HealthyOnly   bool
-	KVKey         string
-	WaitTime      time.Duration
-	Logger        *log.Logger
-	OTel          *otelcourier.OTel
+	ConsulAddress    string
+	HealthyOnly      bool
+	KVKey            string
+	WaitTime         time.Duration
+	Logger           *log.Logger
+	OTel             *otelcourier.OTel
+	DebounceDuration time.Duration
 }
 
 func DefaultConfig() *Config {
 	return &Config{
-		ConsulAddress: "localhost:8500",
-		HealthyOnly:   true,
-		WaitTime:      5 * time.Minute,
+		ConsulAddress:    "localhost:8500",
+		HealthyOnly:      true,
+		WaitTime:         5 * time.Minute,
+		DebounceDuration: 5 * time.Second,
 	}
 }
 

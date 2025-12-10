@@ -48,7 +48,7 @@ func DefaultConfig() *Config
 
 
 <a name="Config.Validate"></a>
-### func \(\*Config\) [Validate](https://github.com/gojek/courier-go/blob/main/consul/config.go#L29)
+### func \(\*Config\) [Validate](https://github.com/gojek/courier-go/blob/main/consul/config.go#L30)
 
 ```go
 func (c *Config) Validate() error

@@ -20,6 +20,10 @@ func TestDefaultConfig(t *testing.T) {
 	if config.WaitTime != 5*time.Minute {
 		t.Errorf("Expected WaitTime to be 5m, got %v", config.WaitTime)
 	}
+
+	if config.DebounceDuration != 5*time.Second {
+		t.Errorf("Expected DebounceDuration to be 5s, got %v", config.DebounceDuration)
+	}
 }
 
 func TestConfigValidate(t *testing.T) {

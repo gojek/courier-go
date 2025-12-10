@@ -20,9 +20,10 @@ type Config struct {
 
 func DefaultConfig() *Config {
 	return &Config{
-		ConsulAddress: "localhost:8500",
-		HealthyOnly:   true,
-		WaitTime:      5 * time.Minute,
+		ConsulAddress:    "localhost:8500",
+		HealthyOnly:      true,
+		WaitTime:         5 * time.Minute,
+		DebounceDuration: 5 * time.Second,
 	}
 }
 

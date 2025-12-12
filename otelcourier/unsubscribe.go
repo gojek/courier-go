@@ -2,6 +2,7 @@ package otelcourier
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -21,19 +22,40 @@ const (
 // UnsubscriberMiddleware is a courier.UnsubscriberMiddlewareFunc for tracing unsubscribe calls.
 func (t *OTel) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubscriber {
 	return courier.UnsubscriberFunc(func(ctx context.Context, topics ...string) error {
-		unnestMetricAttrs := make([]metric.MeasurementOption, 0, len(topics))
-		for _, topic := range topics {
-			unnestMetricAttrs = append(unnestMetricAttrs, metric.WithAttributes(append([]attribute.KeyValue{
-				semconv.ServiceNameKey.String(t.service),
-				MQTTTopic.String(t.topicTransformer(ctx, topic)),
-			}, t.attributes...)...))
+		var clientID atomic.Value
+
+		ctx = courier.WithClientIDCallback(ctx, func(id string) {
+			clientID.Store(id)
+		})
+
+		getClientIDAttr := func() []attribute.KeyValue {
+			if id, ok := clientID.Load().(string); ok && id != "" {
+				return []attribute.KeyValue{MQTTClientID.String(id)}
+			}
+
+			return nil
 		}
 
-		defer func(ctx context.Context, now time.Time, attrs ...metric.MeasurementOption) {
-			for _, attr := range attrs {
+		unnestMetricAttrsFunc := func() []metric.MeasurementOption {
+			result := make([]metric.MeasurementOption, 0, len(topics))
+
+			for _, topic := range topics {
+				attrs := append([]attribute.KeyValue{
+					semconv.ServiceNameKey.String(t.service),
+					MQTTTopic.String(t.topicTransformer(ctx, topic)),
+				}, t.attributes...)
+				attrs = append(attrs, getClientIDAttr()...)
+				result = append(result, metric.WithAttributes(attrs...))
+			}
+
+			return result
+		}
+
+		defer func(ctx context.Context, now time.Time) {
+			for _, attr := range unnestMetricAttrsFunc() {
 				t.rc.recordLatency(ctx, traceUnsubscriber, time.Since(now), attr)
 			}
-		}(ctx, t.tnow(), unnestMetricAttrs...)
+		}(ctx, t.tnow())
 
 		ctx, span := t.tracer.Start(ctx, unsubscribeSpanName,
 			trace.WithAttributes(append([]attribute.KeyValue{
@@ -44,7 +66,7 @@ func (t *OTel) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubsc
 		)
 		defer span.End()
 
-		for _, attr := range unnestMetricAttrs {
+		for _, attr := range unnestMetricAttrsFunc() {
 			t.rc.incAttempt(ctx, traceUnsubscriber, attr)
 		}
 
@@ -53,7 +75,7 @@ func (t *OTel) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubsc
 			span.RecordError(err)
 			span.SetStatus(codes.Error, unsubscribeErrMessage)
 
-			for _, attr := range unnestMetricAttrs {
+			for _, attr := range unnestMetricAttrsFunc() {
 				t.rc.incFailure(ctx, traceUnsubscriber, attr)
 			}
 		}

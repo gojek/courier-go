@@ -81,7 +81,7 @@ func subscriberFuncs(c *Client) Subscriber {
 				eo = subscribeOnlyOnce(topic)
 			}
 
-			return c.execute(func(cc mqtt.Client) error {
+			return c.execute(ctx, func(cc mqtt.Client) error {
 				return c.handleToken(ctx, cc.Subscribe(topic, o.qos, callbackWrapper(c, callback)), ErrSubscribeTimeout)
 			}, eo)
 		},
@@ -92,7 +92,7 @@ func subscriberFuncs(c *Client) Subscriber {
 
 			if len(sharedSubs) > 0 {
 				execs = append(execs, func(ctx context.Context) error {
-					return c.execute(func(cc mqtt.Client) error {
+					return c.execute(ctx, func(cc mqtt.Client) error {
 						return c.handleToken(ctx, cc.SubscribeMultiple(
 							sharedSubs,
 							callbackWrapper(c, callback),
@@ -103,7 +103,7 @@ func subscriberFuncs(c *Client) Subscriber {
 
 			if len(normalSubs) > 0 {
 				execs = append(execs, func(ctx context.Context) error {
-					return c.execute(func(cc mqtt.Client) error {
+					return c.execute(ctx, func(cc mqtt.Client) error {
 						return c.handleToken(ctx, cc.SubscribeMultiple(
 							normalSubs,
 							callbackWrapper(c, callback),
@@ -120,8 +120,9 @@ func subscriberFuncs(c *Client) Subscriber {
 }
 
 func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
-	return func(_ mqtt.Client, m mqtt.Message) {
+	return func(cc mqtt.Client, m mqtt.Message) {
 		ctx := context.Background()
+		ctx = withClientID(ctx, clientIDMapper(cc))
 
 		msg := NewMessageWithDecoder(
 			c.options.newDecoder(ctx, bytes.NewReader(m.Payload())),

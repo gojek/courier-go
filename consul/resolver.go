@@ -75,6 +75,8 @@ type Resolver struct {
 }
 
 func NewResolver(config *Config) (*Resolver, error) {
+	config.applyDefaults()
+
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}

@@ -8,6 +8,8 @@ import (
 	"github.com/gojek/courier-go/otelcourier"
 )
 
+const DefaultDebounceDuration = 5 * time.Second
+
 type Config struct {
 	ConsulAddress    string
 	HealthyOnly      bool
@@ -23,7 +25,13 @@ func DefaultConfig() *Config {
 		ConsulAddress:    "localhost:8500",
 		HealthyOnly:      true,
 		WaitTime:         5 * time.Minute,
-		DebounceDuration: 5 * time.Second,
+		DebounceDuration: DefaultDebounceDuration,
+	}
+}
+
+func (c *Config) applyDefaults() {
+	if c.DebounceDuration == 0 {
+		c.DebounceDuration = DefaultDebounceDuration
 	}
 }
 

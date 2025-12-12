@@ -96,7 +96,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 func (c *Client) IsConnected() bool {
 	val := &atomic.Bool{}
 
-	return c.execute(func(cc mqtt.Client) error {
+	return c.execute(context.Background(), func(cc mqtt.Client) error {
 		if cc.IsConnectionOpen() {
 			val.CompareAndSwap(false, true)
 		}
@@ -136,7 +136,7 @@ func (c *Client) Run(ctx context.Context) error {
 }
 
 func (c *Client) stop() error {
-	err := c.execute(func(cc mqtt.Client) error {
+	err := c.execute(context.Background(), func(cc mqtt.Client) error {
 		cc.Disconnect(uint(c.options.gracefulShutdownPeriod / time.Millisecond))
 
 		return nil
@@ -215,7 +215,7 @@ func (c *Client) runResolver() error {
 }
 
 func (c *Client) runConnect() error {
-	err := c.execute(func(cc mqtt.Client) error {
+	err := c.execute(context.Background(), func(cc mqtt.Client) error {
 		t := cc.Connect()
 		if !t.WaitTimeout(c.options.connectTimeout) {
 			return ErrConnectTimeout

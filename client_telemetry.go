@@ -1,6 +1,7 @@
 package courier
 
 import (
+	"context"
 	"net/url"
 	"sort"
 	"strconv"
@@ -96,6 +97,7 @@ func (c *Client) multiClientInfo() []MQTTClientInfo {
 	bCh := make(chan MQTTClientInfo, len(cls))
 
 	_ = c.execute(
+		context.Background(),
 		func(cc mqtt.Client) error { return nil },
 		execOptWithState(func(f func(mqtt.Client) error, is *internalState) error {
 			is.mu.Lock()
@@ -133,7 +135,7 @@ func (c *Client) singleClientInfo() []MQTTClientInfo {
 
 	var bi MQTTClientInfo
 
-	_ = c.execute(func(cc mqtt.Client) error {
+	_ = c.execute(context.Background(), func(cc mqtt.Client) error {
 		bi = transformClientInfo(cc)
 
 		return nil

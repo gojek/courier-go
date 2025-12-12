@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.7.12]
+
+### Changed
+- Adding logs for consul discovered ips ([#80] https://github.com/gojek/courier-go/pull/80)
+- Adding Debounce on consul ([#82]https://github.com/gojek/courier-go/pull/82)
+- Fix double value issue of service instance in consul metric ([#81]https://github.com/gojek/courier-go/pull/81)
+- fix round-robin issue when publishing ([#71]https://github.com/gojek/courier-go/pull/71)
+
 ## [0.7.11]
 
 ### Changed

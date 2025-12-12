@@ -75,10 +75,13 @@ type Resolver struct {
 }
 
 func NewResolver(config *Config) (*Resolver, error) {
-	config.applyDefaults()
-
 	if err := config.Validate(); err != nil {
 		return nil, err
+	}
+
+	debounceDuration := config.DebounceDuration
+	if debounceDuration == 0 {
+		debounceDuration = DefaultConfig().DebounceDuration
 	}
 
 	consulConfig := consulapi.DefaultConfig()
@@ -103,7 +106,7 @@ func NewResolver(config *Config) (*Resolver, error) {
 		updateChan:       make(chan []courier.TCPAddress, 1),
 		doneChan:         make(chan struct{}),
 		kvKey:            config.KVKey,
-		debounceDuration: config.DebounceDuration,
+		debounceDuration: debounceDuration,
 	}
 
 	if config.OTel != nil {

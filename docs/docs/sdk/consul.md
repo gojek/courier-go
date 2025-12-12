@@ -10,7 +10,6 @@ Package consul
 
 ## Index
 
-- [Constants](#constants)
 - [type Config](#Config)
   - [func DefaultConfig\(\) \*Config](#DefaultConfig)
   - [func \(c \*Config\) Validate\(\) error](#Config.Validate)
@@ -22,16 +21,8 @@ Package consul
   - [func \(r \*Resolver\) UpdateChan\(\) \<\-chan \[\]courier.TCPAddress](#Resolver.UpdateChan)
 
 
-## Constants
-
-<a name="DefaultDebounceDuration"></a>
-
-```go
-const DefaultDebounceDuration = 5 * time.Second
-```
-
 <a name="Config"></a>
-## type [Config](https://github.com/gojek/courier-go/blob/main/consul/config.go#L13-L21)
+## type [Config](https://github.com/gojek/courier-go/blob/main/consul/config.go#L11-L19)
 
 
 
@@ -48,7 +39,7 @@ type Config struct {
 ```
 
 <a name="DefaultConfig"></a>
-### func [DefaultConfig](https://github.com/gojek/courier-go/blob/main/consul/config.go#L23)
+### func [DefaultConfig](https://github.com/gojek/courier-go/blob/main/consul/config.go#L21)
 
 ```go
 func DefaultConfig() *Config
@@ -57,7 +48,7 @@ func DefaultConfig() *Config
 
 
 <a name="Config.Validate"></a>
-### func \(\*Config\) [Validate](https://github.com/gojek/courier-go/blob/main/consul/config.go#L38)
+### func \(\*Config\) [Validate](https://github.com/gojek/courier-go/blob/main/consul/config.go#L30)
 
 ```go
 func (c *Config) Validate() error
@@ -86,7 +77,7 @@ func NewResolver(config *Config) (*Resolver, error)
 
 
 <a name="Resolver.Done"></a>
-### func \(\*Resolver\) [Done](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L195)
+### func \(\*Resolver\) [Done](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L198)
 
 ```go
 func (r *Resolver) Done() <-chan struct{}
@@ -95,7 +86,7 @@ func (r *Resolver) Done() <-chan struct{}
 
 
 <a name="Resolver.Start"></a>
-### func \(\*Resolver\) [Start](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L209)
+### func \(\*Resolver\) [Start](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L212)
 
 ```go
 func (r *Resolver) Start()
@@ -104,7 +95,7 @@ func (r *Resolver) Start()
 
 
 <a name="Resolver.Stop"></a>
-### func \(\*Resolver\) [Stop](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L199)
+### func \(\*Resolver\) [Stop](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L202)
 
 ```go
 func (r *Resolver) Stop()
@@ -113,7 +104,7 @@ func (r *Resolver) Stop()
 
 
 <a name="Resolver.UpdateChan"></a>
-### func \(\*Resolver\) [UpdateChan](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L191)
+### func \(\*Resolver\) [UpdateChan](https://github.com/gojek/courier-go/blob/main/consul/resolver.go#L194)
 
 ```go
 func (r *Resolver) UpdateChan() <-chan []courier.TCPAddress

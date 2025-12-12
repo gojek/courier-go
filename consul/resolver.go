@@ -211,7 +211,7 @@ func (r *Resolver) Start() {
 		r.logger.Printf("Failed to update service name from KV: %v", err)
 	}
 
-	fmt.Println("Starting resolver for service:", r.serviceName)
+	r.logger.Printf("Starting resolver for service: %s, debounce duration: %v", r.serviceName, r.debounceDuration)
 
 	// Initial service discovery
 	if err := r.discover(); err != nil {

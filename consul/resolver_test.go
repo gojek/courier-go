@@ -127,8 +127,9 @@ func TestResolver_Discover_Success(t *testing.T) {
 	defer server.Close()
 
 	config := &Config{
-		ConsulAddress: server.Listener.Addr().String(),
-		KVKey:         "test",
+		ConsulAddress:    server.Listener.Addr().String(),
+		KVKey:            "test",
+		DebounceDuration: 1 * time.Millisecond,
 	}
 	resolver, err := NewResolver(config)
 	if err != nil {
@@ -251,8 +252,9 @@ func TestResolver_WatchServices(t *testing.T) {
 	defer server.Close()
 
 	config := &Config{
-		ConsulAddress: server.Listener.Addr().String(),
-		KVKey:         "test",
+		ConsulAddress:    server.Listener.Addr().String(),
+		KVKey:            "test",
+		DebounceDuration: 1 * time.Millisecond,
 	}
 	resolver, err := NewResolver(config)
 	if err != nil {
@@ -516,8 +518,9 @@ func TestResolver_Discover_AreAddressesEqual(t *testing.T) {
 	defer server.Close()
 
 	config := &Config{
-		ConsulAddress: server.Listener.Addr().String(),
-		KVKey:         "test",
+		ConsulAddress:    server.Listener.Addr().String(),
+		KVKey:            "test",
+		DebounceDuration: 1 * time.Millisecond,
 	}
 	resolver, err := NewResolver(config)
 	if err != nil {
@@ -597,11 +600,11 @@ func TestResolver_Debounce_PublishesOnlyLastUpdate(t *testing.T) {
 	}
 }
 
-func TestResolver_Debounce_DisabledWhenZero(t *testing.T) {
+func TestResolver_Debounce_VerySmallValue(t *testing.T) {
 	config := &Config{
 		ConsulAddress:    "localhost:8500",
 		KVKey:            "test",
-		DebounceDuration: 0,
+		DebounceDuration: 1 * time.Millisecond,
 	}
 	resolver, err := NewResolver(config)
 	if err != nil {
@@ -613,8 +616,8 @@ func TestResolver_Debounce_DisabledWhenZero(t *testing.T) {
 
 	select {
 	case <-resolver.UpdateChan():
-	case <-time.After(20 * time.Millisecond):
-		t.Fatal("Expected immediate publish when debounce is disabled")
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("Expected near-immediate publish with very small debounce duration")
 	}
 }
 

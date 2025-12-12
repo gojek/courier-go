@@ -37,7 +37,7 @@ func publishHandler(c *Client) Publisher {
 
 		o := composeOptions(opts)
 
-		return c.execute(func(cc mqtt.Client) error {
+		return c.execute(ctx, func(cc mqtt.Client) error {
 			return c.handleToken(ctx, cc.Publish(topic, o.qos, o.retained, buf.Bytes()), ErrPublishTimeout)
 		}, execOneRoundRobin)
 	})

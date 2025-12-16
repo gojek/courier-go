@@ -79,6 +79,11 @@ func NewResolver(config *Config) (*Resolver, error) {
 		return nil, err
 	}
 
+	debounceDuration := config.DebounceDuration
+	if debounceDuration == 0 {
+		debounceDuration = DefaultConfig().DebounceDuration
+	}
+
 	consulConfig := consulapi.DefaultConfig()
 	consulConfig.Address = config.ConsulAddress
 
@@ -101,7 +106,7 @@ func NewResolver(config *Config) (*Resolver, error) {
 		updateChan:       make(chan []courier.TCPAddress, 1),
 		doneChan:         make(chan struct{}),
 		kvKey:            config.KVKey,
-		debounceDuration: config.DebounceDuration,
+		debounceDuration: debounceDuration,
 	}
 
 	if config.OTel != nil {
@@ -209,7 +214,7 @@ func (r *Resolver) Start() {
 		r.logger.Printf("Failed to update service name from KV: %v", err)
 	}
 
-	fmt.Println("Starting resolver for service:", r.serviceName)
+	r.logger.Printf("Starting resolver for service: %s, debounce duration: %v", r.serviceName, r.debounceDuration)
 
 	// Initial service discovery
 	if err := r.discover(); err != nil {

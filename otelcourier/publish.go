@@ -2,7 +2,6 @@ package otelcourier
 
 import (
 	"context"
-	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -33,24 +32,19 @@ func (t *OTel) PublisherMiddleware(next courier.Publisher) courier.Publisher {
 		}, mapAttributes(opts)...)
 
 		attrs = append(attrs, t.attributes...)
-
-		var clientID atomic.Value
+		metricAttrs := metric.WithAttributes(append(attrs, MQTTTopic.String(t.topicTransformer(ctx, topic)))...)
 
 		ctx = courier.WithClientIDCallback(ctx, func(id string) {
-			clientID.Store(id)
+			if id != "" {
+				metricAttrs = metric.WithAttributes(append(attrs,
+					MQTTTopic.String(t.topicTransformer(ctx, topic)),
+					MQTTClientID.String(id),
+				)...)
+			}
 		})
 
-		metricAttrsFunc := func() metric.MeasurementOption {
-			baseAttrs := append(attrs, MQTTTopic.String(t.topicTransformer(ctx, topic)))
-			if id, ok := clientID.Load().(string); ok && id != "" {
-				baseAttrs = append(baseAttrs, MQTTClientID.String(id))
-			}
-
-			return metric.WithAttributes(baseAttrs...)
-		}
-
 		defer func(ctx context.Context, now time.Time) {
-			t.rc.recordLatency(ctx, tracePublisher, time.Since(now), metricAttrsFunc())
+			t.rc.recordLatency(ctx, tracePublisher, time.Since(now), metricAttrs)
 		}(ctx, t.tnow())
 
 		ctx, span := t.tracer.Start(ctx, publishSpanName,
@@ -68,10 +62,10 @@ func (t *OTel) PublisherMiddleware(next courier.Publisher) courier.Publisher {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, publishErrMessage)
 
-			t.rc.incFailure(ctx, tracePublisher, metricAttrsFunc())
+			t.rc.incFailure(ctx, tracePublisher, metricAttrs)
 		}
 
-		t.rc.incAttempt(ctx, tracePublisher, metricAttrsFunc())
+		t.rc.incAttempt(ctx, tracePublisher, metricAttrs)
 
 		return err
 	})

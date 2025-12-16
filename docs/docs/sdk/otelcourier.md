@@ -218,7 +218,7 @@ func (t *OTel) Meter() metric.Meter
 
 
 <a name="OTel.PublisherMiddleware"></a>
-### func \(\*OTel\) [PublisherMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/publish.go#L24)
+### func \(\*OTel\) [PublisherMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/publish.go#L23)
 
 ```go
 func (t *OTel) PublisherMiddleware(next courier.Publisher) courier.Publisher
@@ -254,7 +254,7 @@ func (t *OTel) StopMiddleware(next courier.Stopper) courier.Stopper
 StopMiddleware returns a Stopper middleware that ensures OTel async metric is unregistered when the client stops.
 
 <a name="OTel.SubscriberMiddleware"></a>
-### func \(\*OTel\) [SubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/subscribe.go#L44)
+### func \(\*OTel\) [SubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/subscribe.go#L43)
 
 ```go
 func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber
@@ -263,7 +263,7 @@ func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber
 SubscriberMiddleware is a courier.SubscriberMiddlewareFunc for tracing subscribe calls.
 
 <a name="OTel.UnsubscriberMiddleware"></a>
-### func \(\*OTel\) [UnsubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/unsubscribe.go#L23)
+### func \(\*OTel\) [UnsubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/unsubscribe.go#L22)
 
 ```go
 func (t *OTel) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubscriber

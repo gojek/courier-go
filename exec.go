@@ -58,7 +58,7 @@ func (c *Client) execute(ctx context.Context, f func(mqtt.Client) error, eo exec
 	}
 
 	if c.options.poolEnabled || c.options.multiConnectionMode {
-		return c.execMultiConnWithContext(ctx, f, eo)
+		return c.execMultiConn(ctx, f, eo)
 	}
 
 	invokeClientIDCallback(ctx, clientIDMapper(c.mqttClient))
@@ -66,11 +66,7 @@ func (c *Client) execute(ctx context.Context, f func(mqtt.Client) error, eo exec
 	return f(c.mqttClient)
 }
 
-func (c *Client) execMultiConn(f func(mqtt.Client) error, eo execOpt) error {
-	return c.execMultiConnWithContext(context.Background(), f, eo)
-}
-
-func (c *Client) execMultiConnWithContext(ctx context.Context, f func(mqtt.Client) error, eo execOpt) error {
+func (c *Client) execMultiConn(ctx context.Context, f func(mqtt.Client) error, eo execOpt) error {
 	var ccs []*internalState
 
 	if eo == execOneRoundRobin {

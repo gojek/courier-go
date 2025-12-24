@@ -1,6 +1,7 @@
 package courier
 
 import (
+	"context"
 	"errors"
 	"math/rand"
 	"sync"
@@ -48,7 +49,7 @@ func (ac *atomicCounter) next() uint64 {
 	return current
 }
 
-func (c *Client) execute(f func(mqtt.Client) error, eo execOpt) error {
+func (c *Client) execute(ctx context.Context, f func(mqtt.Client) error, eo execOpt) error {
 	c.clientMu.RLock()
 	defer c.clientMu.RUnlock()
 
@@ -57,13 +58,15 @@ func (c *Client) execute(f func(mqtt.Client) error, eo execOpt) error {
 	}
 
 	if c.options.poolEnabled || c.options.multiConnectionMode {
-		return c.execMultiConn(f, eo)
+		return c.execMultiConn(ctx, f, eo)
 	}
+
+	invokeClientIDCallback(ctx, clientIDMapper(c.mqttClient))
 
 	return f(c.mqttClient)
 }
 
-func (c *Client) execMultiConn(f func(mqtt.Client) error, eo execOpt) error {
+func (c *Client) execMultiConn(ctx context.Context, f func(mqtt.Client) error, eo execOpt) error {
 	var ccs []*internalState
 
 	if eo == execOneRoundRobin {
@@ -79,11 +82,17 @@ func (c *Client) execMultiConn(f func(mqtt.Client) error, eo execOpt) error {
 			p := c.rndPool.Get().(*rand.Rand)
 			defer c.rndPool.Put(p)
 
-			return f(ccs[p.Intn(len(ccs))].client)
+			cc := ccs[p.Intn(len(ccs))].client
+			invokeClientIDCallback(ctx, clientIDMapper(cc))
+
+			return f(cc)
 		}
 
 		if eo == execOneRoundRobin {
-			return f(ccs[int(c.rrCounter.next())%len(ccs)].client)
+			cc := ccs[int(c.rrCounter.next())%len(ccs)].client
+			invokeClientIDCallback(ctx, clientIDMapper(cc))
+
+			return f(cc)
 		}
 
 		return slice.Reduce(slice.MapConcurrent(ccs, func(s *internalState) error {

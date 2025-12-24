@@ -32,20 +32,26 @@ func (t *OTel) PublisherMiddleware(next courier.Publisher) courier.Publisher {
 		}, mapAttributes(opts)...)
 
 		attrs = append(attrs, t.attributes...)
-
 		metricAttrs := metric.WithAttributes(append(attrs, MQTTTopic.String(t.topicTransformer(ctx, topic)))...)
 
-		defer func(ctx context.Context, now time.Time, attrs metric.MeasurementOption) {
-			t.rc.recordLatency(ctx, tracePublisher, time.Since(now), attrs)
-		}(ctx, t.tnow(), metricAttrs)
+		ctx = courier.WithClientIDCallback(ctx, func(id string) {
+			if id != "" {
+				metricAttrs = metric.WithAttributes(append(attrs,
+					MQTTTopic.String(t.topicTransformer(ctx, topic)),
+					MQTTClientID.String(id),
+				)...)
+			}
+		})
+
+		defer func(ctx context.Context, now time.Time) {
+			t.rc.recordLatency(ctx, tracePublisher, time.Since(now), metricAttrs)
+		}(ctx, t.tnow())
 
 		ctx, span := t.tracer.Start(ctx, publishSpanName,
 			trace.WithAttributes(append(attrs, MQTTTopic.String(topic))...),
 			trace.WithSpanKind(trace.SpanKindProducer),
 		)
 		defer span.End()
-
-		t.rc.incAttempt(ctx, tracePublisher, metricAttrs)
 
 		if tmc, ok := message.(propagation.TextMapCarrier); ok {
 			t.propagator.Inject(ctx, tmc)
@@ -58,6 +64,8 @@ func (t *OTel) PublisherMiddleware(next courier.Publisher) courier.Publisher {
 
 			t.rc.incFailure(ctx, tracePublisher, metricAttrs)
 		}
+
+		t.rc.incAttempt(ctx, tracePublisher, metricAttrs)
 
 		return err
 	})

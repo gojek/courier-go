@@ -1,6 +1,7 @@
 package courier
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,7 +40,7 @@ type invalidExecOpt bool
 func (ieo invalidExecOpt) isExecOpt() {}
 
 func TestClient_execMultiConn_invalidExecOption(t *testing.T) {
-	assert.EqualError(t, new(Client).execMultiConn(func(mqtt.Client) error {
+	assert.EqualError(t, new(Client).execMultiConn(context.Background(), func(mqtt.Client) error {
 		return nil
 	}, invalidExecOpt(true)), errInvalidExecOpt.Error())
 }

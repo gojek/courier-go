@@ -11,9 +11,11 @@ Package courier contains the client that can be used to interact with the courie
 ## Index
 
 - [Variables](#variables)
+- [func ClientIDFromContext\(ctx context.Context\) string](#ClientIDFromContext)
 - [func ExponentialStartStrategy\(ctx context.Context, c interface\{ Start\(\) error \}, opts ...StartOption\)](#ExponentialStartStrategy)
 - [func Version\(\) string](#Version)
 - [func WaitForConnection\(c ConnectionInformer, waitFor time.Duration, tick time.Duration\) bool](#WaitForConnection)
+- [func WithClientIDCallback\(ctx context.Context, cb ClientIDCallback\) context.Context](#WithClientIDCallback)
 - [type Client](#Client)
   - [func NewClient\(opts ...ClientOption\) \(\*Client, error\)](#NewClient)
   - [func \(c \*Client\) AckTimeout\(\) time.Duration](#Client.AckTimeout)
@@ -34,6 +36,7 @@ Package courier contains the client that can be used to interact with the courie
   - [func \(c \*Client\) UseSubscriberMiddleware\(mwf ...SubscriberMiddlewareFunc\)](#Client.UseSubscriberMiddleware)
   - [func \(c \*Client\) UseUnsubscriberMiddleware\(mwf ...UnsubscriberMiddlewareFunc\)](#Client.UseUnsubscriberMiddleware)
   - [func \(c \*Client\) WriteTimeout\(\) time.Duration](#Client.WriteTimeout)
+- [type ClientIDCallback](#ClientIDCallback)
 - [type ClientInfoEmitter](#ClientInfoEmitter)
 - [type ClientInfoEmitterConfig](#ClientInfoEmitterConfig)
 - [type ClientMeta](#ClientMeta)
@@ -164,6 +167,15 @@ This is useful when working with shared subscriptions and multiple connections c
 var UseMultiConnectionMode = multiConnMode{}
 ```
 
+<a name="ClientIDFromContext"></a>
+## func [ClientIDFromContext](https://github.com/gojek/courier-go/blob/main/context.go#L29)
+
+```go
+func ClientIDFromContext(ctx context.Context) string
+```
+
+ClientIDFromContext returns the client ID from the context. This is available in subscribe callbacks to identify which MQTT connection received the message.
+
 <a name="ExponentialStartStrategy"></a>
 ## func [ExponentialStartStrategy](https://github.com/gojek/courier-go/blob/main/exp_starter.go#L32)
 
@@ -190,6 +202,15 @@ func WaitForConnection(c ConnectionInformer, waitFor time.Duration, tick time.Du
 ```
 
 WaitForConnection checks if the Client is connected, it calls ConnectionInformer.IsConnected after every tick and waitFor is the maximum duration it can block. Returns true only when ConnectionInformer.IsConnected returns true
+
+<a name="WithClientIDCallback"></a>
+## func [WithClientIDCallback](https://github.com/gojek/courier-go/blob/main/context.go#L13)
+
+```go
+func WithClientIDCallback(ctx context.Context, cb ClientIDCallback) context.Context
+```
+
+WithClientIDCallback returns a context with the callback that will receive the client ID of the underlying MQTT client used for an operation.
 
 <a name="Client"></a>
 ## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L22-L46)
@@ -422,6 +443,15 @@ func (c *Client) WriteTimeout() time.Duration
 ```
 
 WriteTimeout returns the write timeout duration configured for the client
+
+<a name="ClientIDCallback"></a>
+## type [ClientIDCallback](https://github.com/gojek/courier-go/blob/main/context.go#L9)
+
+ClientIDCallback is a function that receives the client ID used for an operation.
+
+```go
+type ClientIDCallback func(clientID string)
+```
 
 <a name="ClientInfoEmitter"></a>
 ## type [ClientInfoEmitter](https://github.com/gojek/courier-go/blob/main/metrics.go#L17-L19)
@@ -880,7 +910,7 @@ type Logger interface {
 ```
 
 <a name="MQTTClientInfo"></a>
-## type [MQTTClientInfo](https://github.com/gojek/courier-go/blob/main/client_telemetry.go#L14-L25)
+## type [MQTTClientInfo](https://github.com/gojek/courier-go/blob/main/client_telemetry.go#L15-L26)
 
 MQTTClientInfo contains information about the internal MQTT client
 

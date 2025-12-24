@@ -29,6 +29,18 @@ func (t *OTel) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubsc
 			}, t.attributes...)...))
 		}
 
+		ctx = courier.WithClientIDCallback(ctx, func(id string) {
+			if id != "" {
+				for i, topic := range topics {
+					unnestMetricAttrs[i] = metric.WithAttributes(append([]attribute.KeyValue{
+						semconv.ServiceNameKey.String(t.service),
+						MQTTTopic.String(t.topicTransformer(ctx, topic)),
+						MQTTClientID.String(id),
+					}, t.attributes...)...)
+				}
+			}
+		})
+
 		defer func(ctx context.Context, now time.Time, attrs ...metric.MeasurementOption) {
 			for _, attr := range attrs {
 				t.rc.recordLatency(ctx, traceUnsubscriber, time.Since(now), attr)
@@ -44,11 +56,12 @@ func (t *OTel) UnsubscriberMiddleware(next courier.Unsubscriber) courier.Unsubsc
 		)
 		defer span.End()
 
+		err := next.Unsubscribe(ctx, topics...)
+
 		for _, attr := range unnestMetricAttrs {
 			t.rc.incAttempt(ctx, traceUnsubscriber, attr)
 		}
 
-		err := next.Unsubscribe(ctx, topics...)
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, unsubscribeErrMessage)

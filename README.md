@@ -5,6 +5,16 @@
 [![docs][docs-badge]][pkg-dev]
 [![go-report-card][report-badge]][report-card]
 [![docs][docusaurus-badge]][gh-pages]
+<a href="https://github.com/gojek/courier-go/graphs/commit-activity">
+	<img alt="Maintenance" src="https://img.shields.io/badge/maintained-yes-green.svg" target="_blank" />
+</a>
+<a href="https://github.com/gojek/courier-go/releases/latest">
+	<img alt="GitHub Release Date" src="https://img.shields.io/github/release-date/gojek/courier-go">
+</a>
+<a href="https://github.com/gojek/courier-go/commits/main">
+	<img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/gojek/courier-go">
+</a>
+[![Discord : Gojek Courier](https://img.shields.io/badge/Discord-Gojek%20Courier-blue.svg)](https://discord.gg/C823qK4AK7)
 
 ## Introduction
 

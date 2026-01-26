@@ -1,7 +1,6 @@
 # Courier Golang Client Library
 
 [![build][build-workflow-badge]][build-workflow]
-[![lint][lint-workflow-badge]][lint-workflow]
 [![codecov][coverage-badge]][codecov]
 [![docs][docs-badge]][pkg-dev]
 [![go-report-card][report-badge]][report-card]

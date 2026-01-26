@@ -76,9 +76,11 @@ Package courier contains the client that can be used to interact with the courie
 - [type Decoder](#Decoder)
   - [func DefaultDecoderFunc\(\_ context.Context, r io.Reader\) Decoder](#DefaultDecoderFunc)
 - [type DecoderFunc](#DecoderFunc)
+  - [func ChainDecoders\(decoders ...DecoderFunc\) DecoderFunc](#ChainDecoders)
 - [type Encoder](#Encoder)
   - [func DefaultEncoderFunc\(\_ context.Context, w io.Writer\) Encoder](#DefaultEncoderFunc)
 - [type EncoderFunc](#EncoderFunc)
+  - [func ChainEncoders\(encoders ...EncoderFunc\) EncoderFunc](#ChainEncoders)
 - [type KeepAlive](#KeepAlive)
 - [type LogLevel](#LogLevel)
   - [func ParseLogLevel\(level string\) LogLevel](#ParseLogLevel)
@@ -829,6 +831,15 @@ DecoderFunc is used to create a Decoder from io.Reader stream of message bytes b
 type DecoderFunc func(context.Context, io.Reader) Decoder
 ```
 
+<a name="ChainDecoders"></a>
+### func [ChainDecoders](https://github.com/gojek/courier-go/blob/main/codec_chain.go#L61)
+
+```go
+func ChainDecoders(decoders ...DecoderFunc) DecoderFunc
+```
+
+
+
 <a name="Encoder"></a>
 ## type [Encoder](https://github.com/gojek/courier-go/blob/main/encoder.go#L14-L17)
 
@@ -858,6 +869,15 @@ EncoderFunc is used to create an Encoder from io.Writer; the context.Context val
 ```go
 type EncoderFunc func(context.Context, io.Writer) Encoder
 ```
+
+<a name="ChainEncoders"></a>
+### func [ChainEncoders](https://github.com/gojek/courier-go/blob/main/codec_chain.go#L43)
+
+```go
+func ChainEncoders(encoders ...EncoderFunc) EncoderFunc
+```
+
+
 
 <a name="KeepAlive"></a>
 ## type [KeepAlive](https://github.com/gojek/courier-go/blob/main/client_options.go#L135)

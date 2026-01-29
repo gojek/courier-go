@@ -2,6 +2,9 @@ package courier
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -15,6 +18,8 @@ type jsonDecoderSuite struct {
 func Test_jsonDecoderSuite(t *testing.T) {
 	suite.Run(t, new(jsonDecoderSuite))
 }
+
+const data = `{"key":"value"}`
 
 func (s *jsonDecoderSuite) TestDecode() {
 	type obj struct {
@@ -85,5 +90,85 @@ func (s *jsonDecoderSuite) TestDecodeWithBase64() {
 				s.NoError(err)
 			}
 		})
+	}
+}
+
+func TestFallbackDecoder_FirstSuccess(t *testing.T) {
+	ctx := context.Background()
+	reader := strings.NewReader(data)
+
+	decoder1 := func(_ context.Context, r io.Reader) Decoder {
+		return json.NewDecoder(r)
+	}
+	decoder2 := func(_ context.Context, r io.Reader) Decoder {
+		return &errorDecoder{err: errors.New("should not be called")}
+	}
+
+	fallback := FallbackDecoderFunc(decoder1, decoder2)
+	dec := fallback(ctx, reader)
+
+	var result map[string]string
+	if err := dec.Decode(&result); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	if result["key"] != "value" {
+		t.Errorf("expected value 'value', got %q", result["key"])
+	}
+}
+
+func TestFallbackDecoder_SecondSuccess(t *testing.T) {
+	ctx := context.Background()
+	reader := strings.NewReader(data)
+
+	decoder1 := func(_ context.Context, r io.Reader) Decoder {
+		return &errorDecoder{err: errors.New("first decoder fails")}
+	}
+	decoder2 := func(_ context.Context, r io.Reader) Decoder {
+		return json.NewDecoder(r)
+	}
+
+	fallback := FallbackDecoderFunc(decoder1, decoder2)
+	dec := fallback(ctx, reader)
+
+	var result map[string]string
+	if err := dec.Decode(&result); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	if result["key"] != "value" {
+		t.Errorf("expected value 'value', got %q", result["key"])
+	}
+}
+
+func TestFallbackDecoder_AllFail(t *testing.T) {
+	ctx := context.Background()
+	reader := strings.NewReader(data)
+
+	err1 := errors.New("first fails")
+	err2 := errors.New("second fails")
+	err3 := errors.New("third fails")
+
+	decoder1 := func(_ context.Context, r io.Reader) Decoder {
+		return &errorDecoder{err: err1}
+	}
+	decoder2 := func(_ context.Context, r io.Reader) Decoder {
+		return &errorDecoder{err: err2}
+	}
+	decoder3 := func(_ context.Context, r io.Reader) Decoder {
+		return &errorDecoder{err: err3}
+	}
+
+	fallback := FallbackDecoderFunc(decoder1, decoder2, decoder3)
+	dec := fallback(ctx, reader)
+
+	var result map[string]string
+	err := dec.Decode(&result)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "all decoders failed") {
+		t.Errorf("expected error to contain 'all decoders failed', got: %v", err)
 	}
 }

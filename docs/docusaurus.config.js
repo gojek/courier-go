@@ -63,15 +63,14 @@ const config = {
             label: 'Docs',
           },
           {
-            type: 'doc',
-            docId: 'Tutorials/connect',
-            position: 'left',
-            label: 'Tutorials',
-          },
-          {
             href: 'https://pkg.go.dev/github.com/gojek/courier-go',
             position: 'left',
             label: 'API',
+          },
+          {
+            label: 'Discord',
+            href: 'https://discord.gg/C823qK4AK7',
+            position: 'right',
           },
           {
             href: 'https://github.com/gojek/courier-go',
@@ -113,7 +112,7 @@ const config = {
             items: [
               { label: 'Courier', href: 'https://gojek.github.io/courier/', },
               { label: 'E2E example', href: 'https://gojek.github.io/courier/docs/Introduction', },
-              { label: 'Blogs', href: 'https://gojek.github.io/courier/blog', },
+              { label: 'Blogs', href: 'https://gojek.github.io/courier/blogs', },
               { label: 'Github', href: 'https://github.com/gojek/courier-go', },
             ],
           },
@@ -125,7 +124,7 @@ const config = {
           height: 35,
           href: 'https://github.com/gojek/',
         },
-        copyright: `Copyright © ${new Date().getFullYear()} Gojek. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} Gojek`,
       },
       // prism: {
       //   theme: lightCodeTheme,

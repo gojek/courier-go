@@ -76,9 +76,11 @@ Package courier contains the client that can be used to interact with the courie
 - [type Decoder](#Decoder)
   - [func DefaultDecoderFunc\(\_ context.Context, r io.Reader\) Decoder](#DefaultDecoderFunc)
 - [type DecoderFunc](#DecoderFunc)
+  - [func FallbackDecoderFunc\(decoders ...DecoderFunc\) DecoderFunc](#FallbackDecoderFunc)
 - [type Encoder](#Encoder)
   - [func DefaultEncoderFunc\(\_ context.Context, w io.Writer\) Encoder](#DefaultEncoderFunc)
 - [type EncoderFunc](#EncoderFunc)
+  - [func FallbackEncoderFunc\(encoders ...EncoderFunc\) EncoderFunc](#FallbackEncoderFunc)
 - [type KeepAlive](#KeepAlive)
 - [type LogLevel](#LogLevel)
   - [func ParseLogLevel\(level string\) LogLevel](#ParseLogLevel)
@@ -800,7 +802,7 @@ type CredentialFetcher interface {
 ```
 
 <a name="Decoder"></a>
-## type [Decoder](https://github.com/gojek/courier-go/blob/main/decoder.go#L16-L19)
+## type [Decoder](https://github.com/gojek/courier-go/blob/main/decoder.go#L19-L22)
 
 Decoder helps to decode message bytes into the desired object
 
@@ -812,7 +814,7 @@ type Decoder interface {
 ```
 
 <a name="DefaultDecoderFunc"></a>
-### func [DefaultDecoderFunc](https://github.com/gojek/courier-go/blob/main/decoder.go#L22)
+### func [DefaultDecoderFunc](https://github.com/gojek/courier-go/blob/main/decoder.go#L25)
 
 ```go
 func DefaultDecoderFunc(_ context.Context, r io.Reader) Decoder
@@ -821,7 +823,7 @@ func DefaultDecoderFunc(_ context.Context, r io.Reader) Decoder
 DefaultDecoderFunc is a DecoderFunc that uses a json.Decoder as the Decoder.
 
 <a name="DecoderFunc"></a>
-## type [DecoderFunc](https://github.com/gojek/courier-go/blob/main/decoder.go#L13)
+## type [DecoderFunc](https://github.com/gojek/courier-go/blob/main/decoder.go#L16)
 
 DecoderFunc is used to create a Decoder from io.Reader stream of message bytes before calling MessageHandler; the context.Context value may be used to select appropriate Decoder.
 
@@ -829,8 +831,17 @@ DecoderFunc is used to create a Decoder from io.Reader stream of message bytes b
 type DecoderFunc func(context.Context, io.Reader) Decoder
 ```
 
+<a name="FallbackDecoderFunc"></a>
+### func [FallbackDecoderFunc](https://github.com/gojek/courier-go/blob/main/decoder.go#L36)
+
+```go
+func FallbackDecoderFunc(decoders ...DecoderFunc) DecoderFunc
+```
+
+FallbackDecoderFunc creates a DecoderFunc that tries multiple decoders in sequence. It attempts each decoder in order; if successful, it stops. If all fail, it returns a combined error containing all individual errors.
+
 <a name="Encoder"></a>
-## type [Encoder](https://github.com/gojek/courier-go/blob/main/encoder.go#L14-L17)
+## type [Encoder](https://github.com/gojek/courier-go/blob/main/encoder.go#L16-L19)
 
 Encoder helps in transforming objects to message bytes
 
@@ -842,7 +853,7 @@ type Encoder interface {
 ```
 
 <a name="DefaultEncoderFunc"></a>
-### func [DefaultEncoderFunc](https://github.com/gojek/courier-go/blob/main/encoder.go#L20)
+### func [DefaultEncoderFunc](https://github.com/gojek/courier-go/blob/main/encoder.go#L22)
 
 ```go
 func DefaultEncoderFunc(_ context.Context, w io.Writer) Encoder
@@ -851,13 +862,22 @@ func DefaultEncoderFunc(_ context.Context, w io.Writer) Encoder
 DefaultEncoderFunc is a EncoderFunc that uses a json.Encoder as the Encoder.
 
 <a name="EncoderFunc"></a>
-## type [EncoderFunc](https://github.com/gojek/courier-go/blob/main/encoder.go#L11)
+## type [EncoderFunc](https://github.com/gojek/courier-go/blob/main/encoder.go#L13)
 
 EncoderFunc is used to create an Encoder from io.Writer; the context.Context value may be used to select appropriate Encoder.
 
 ```go
 type EncoderFunc func(context.Context, io.Writer) Encoder
 ```
+
+<a name="FallbackEncoderFunc"></a>
+### func [FallbackEncoderFunc](https://github.com/gojek/courier-go/blob/main/encoder.go#L29)
+
+```go
+func FallbackEncoderFunc(encoders ...EncoderFunc) EncoderFunc
+```
+
+FallbackEncoderFunc creates an EncoderFunc that tries multiple encoders in sequence. It attempts each encoder in order; if successful, it stops. If all fail, it returns a combined error containing all individual errors.
 
 <a name="KeepAlive"></a>
 ## type [KeepAlive](https://github.com/gojek/courier-go/blob/main/client_options.go#L135)

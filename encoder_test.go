@@ -78,7 +78,7 @@ func Test_defaultEncoderFunc(t *testing.T) {
 	}
 }
 
-func TestFallbackEncoder_FirstSuccess(t *testing.T) {
+func TestChainEncoder_FirstSuccess(t *testing.T) {
 	buf := &bytes.Buffer{}
 	ctx := context.Background()
 
@@ -89,8 +89,8 @@ func TestFallbackEncoder_FirstSuccess(t *testing.T) {
 		return &errorEncoder{err: errors.New("should not be called")}
 	}
 
-	fallback := FallbackEncoderFunc(encoder1, encoder2)
-	enc := fallback(ctx, buf)
+	chain := ChainEncoderFunc(encoder1, encoder2)
+	enc := chain(ctx, buf)
 
 	data := map[string]string{"key": "value"}
 	if err := enc.Encode(data); err != nil {
@@ -103,7 +103,7 @@ func TestFallbackEncoder_FirstSuccess(t *testing.T) {
 	}
 }
 
-func TestFallbackEncoder_SecondSuccess(t *testing.T) {
+func TestChainEncoder_SecondSuccess(t *testing.T) {
 	buf := &bytes.Buffer{}
 	ctx := context.Background()
 
@@ -114,8 +114,8 @@ func TestFallbackEncoder_SecondSuccess(t *testing.T) {
 		return json.NewEncoder(w)
 	}
 
-	fallback := FallbackEncoderFunc(encoder1, encoder2)
-	enc := fallback(ctx, buf)
+	chain := ChainEncoderFunc(encoder1, encoder2)
+	enc := chain(ctx, buf)
 
 	data := map[string]string{"key": "value"}
 	if err := enc.Encode(data); err != nil {
@@ -128,7 +128,7 @@ func TestFallbackEncoder_SecondSuccess(t *testing.T) {
 	}
 }
 
-func TestFallbackEncoder_AllFail(t *testing.T) {
+func TestChainEncoder_AllFail(t *testing.T) {
 	buf := &bytes.Buffer{}
 	ctx := context.Background()
 
@@ -146,8 +146,8 @@ func TestFallbackEncoder_AllFail(t *testing.T) {
 		return &errorEncoder{err: err3}
 	}
 
-	fallback := FallbackEncoderFunc(encoder1, encoder2, encoder3)
-	enc := fallback(ctx, buf)
+	chain := ChainEncoderFunc(encoder1, encoder2, encoder3)
+	enc := chain(ctx, buf)
 
 	data := map[string]string{"key": "value"}
 	err := enc.Encode(data)

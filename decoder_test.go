@@ -93,7 +93,7 @@ func (s *jsonDecoderSuite) TestDecodeWithBase64() {
 	}
 }
 
-func TestFallbackDecoder_FirstSuccess(t *testing.T) {
+func TestChainDecoder_FirstSuccess(t *testing.T) {
 	ctx := context.Background()
 	reader := strings.NewReader(data)
 
@@ -104,8 +104,8 @@ func TestFallbackDecoder_FirstSuccess(t *testing.T) {
 		return &errorDecoder{err: errors.New("should not be called")}
 	}
 
-	fallback := FallbackDecoderFunc(decoder1, decoder2)
-	dec := fallback(ctx, reader)
+	chain := ChainDecoderFunc(decoder1, decoder2)
+	dec := chain(ctx, reader)
 
 	var result map[string]string
 	if err := dec.Decode(&result); err != nil {
@@ -117,7 +117,7 @@ func TestFallbackDecoder_FirstSuccess(t *testing.T) {
 	}
 }
 
-func TestFallbackDecoder_SecondSuccess(t *testing.T) {
+func TestChainDecoder_SecondSuccess(t *testing.T) {
 	ctx := context.Background()
 	reader := strings.NewReader(data)
 
@@ -128,8 +128,8 @@ func TestFallbackDecoder_SecondSuccess(t *testing.T) {
 		return json.NewDecoder(r)
 	}
 
-	fallback := FallbackDecoderFunc(decoder1, decoder2)
-	dec := fallback(ctx, reader)
+	chain := ChainDecoderFunc(decoder1, decoder2)
+	dec := chain(ctx, reader)
 
 	var result map[string]string
 	if err := dec.Decode(&result); err != nil {
@@ -141,7 +141,7 @@ func TestFallbackDecoder_SecondSuccess(t *testing.T) {
 	}
 }
 
-func TestFallbackDecoder_AllFail(t *testing.T) {
+func TestChainDecoder_AllFail(t *testing.T) {
 	ctx := context.Background()
 	reader := strings.NewReader(data)
 
@@ -159,8 +159,8 @@ func TestFallbackDecoder_AllFail(t *testing.T) {
 		return &errorDecoder{err: err3}
 	}
 
-	fallback := FallbackDecoderFunc(decoder1, decoder2, decoder3)
-	dec := fallback(ctx, reader)
+	chain := ChainDecoderFunc(decoder1, decoder2, decoder3)
+	dec := chain(ctx, reader)
 
 	var result map[string]string
 	err := dec.Decode(&result)

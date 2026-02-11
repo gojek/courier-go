@@ -23,25 +23,25 @@ func DefaultEncoderFunc(_ context.Context, w io.Writer) Encoder {
 	return json.NewEncoder(w)
 }
 
-// FallbackEncoderFunc creates an EncoderFunc that tries multiple encoders in sequence.
+// ChainEncoderFunc creates an EncoderFunc that tries multiple encoders in sequence.
 // It attempts each encoder in order; if successful, it stops. If all fail, it returns
 // a combined error containing all individual errors.
-func FallbackEncoderFunc(encoders ...EncoderFunc) EncoderFunc {
+func ChainEncoderFunc(encoders ...EncoderFunc) EncoderFunc {
 	return func(ctx context.Context, w io.Writer) Encoder {
 		encs := make([]Encoder, 0, len(encoders))
 		for _, fn := range encoders {
 			encs = append(encs, fn(ctx, w))
 		}
 
-		return &fallbackEncoder{encoders: encs}
+		return &chainEncoder{encoders: encs}
 	}
 }
 
-type fallbackEncoder struct {
+type chainEncoder struct {
 	encoders []Encoder
 }
 
-func (f *fallbackEncoder) Encode(v interface{}) error {
+func (f *chainEncoder) Encode(v interface{}) error {
 	var errs []error
 
 	for _, enc := range f.encoders {

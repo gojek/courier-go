@@ -30,14 +30,14 @@ func base64JsonDecoder(_ context.Context, r io.Reader) Decoder {
 	return json.NewDecoder(base64.NewDecoder(base64.StdEncoding, r))
 }
 
-// FallbackDecoderFunc creates a DecoderFunc that tries multiple decoders in sequence.
+// ChainDecoderFunc creates a DecoderFunc that tries multiple decoders in sequence.
 // It attempts each decoder in order; if successful, it stops. If all fail, it returns
 // a combined error containing all individual errors.
-func FallbackDecoderFunc(decoders ...DecoderFunc) DecoderFunc {
+func ChainDecoderFunc(decoders ...DecoderFunc) DecoderFunc {
 	return func(ctx context.Context, r io.Reader) Decoder {
 		buf := new(bytes.Buffer)
 		if _, err := buf.ReadFrom(r); err != nil {
-			return &fallbackDecoder{decoders: nil}
+			return &chainDecoder{decoders: nil}
 		}
 
 		decs := make([]Decoder, 0, len(decoders))
@@ -45,15 +45,15 @@ func FallbackDecoderFunc(decoders ...DecoderFunc) DecoderFunc {
 			decs = append(decs, fn(ctx, bytes.NewReader(buf.Bytes())))
 		}
 
-		return &fallbackDecoder{decoders: decs}
+		return &chainDecoder{decoders: decs}
 	}
 }
 
-type fallbackDecoder struct {
+type chainDecoder struct {
 	decoders []Decoder
 }
 
-func (f *fallbackDecoder) Decode(v interface{}) error {
+func (f *chainDecoder) Decode(v interface{}) error {
 	var errs []error
 
 	for _, dec := range f.decoders {

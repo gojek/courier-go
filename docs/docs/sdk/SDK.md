@@ -76,11 +76,11 @@ Package courier contains the client that can be used to interact with the courie
 - [type Decoder](#Decoder)
   - [func DefaultDecoderFunc\(\_ context.Context, r io.Reader\) Decoder](#DefaultDecoderFunc)
 - [type DecoderFunc](#DecoderFunc)
-  - [func FallbackDecoderFunc\(decoders ...DecoderFunc\) DecoderFunc](#FallbackDecoderFunc)
+  - [func ChainDecoderFunc\(decoders ...DecoderFunc\) DecoderFunc](#ChainDecoderFunc)
 - [type Encoder](#Encoder)
   - [func DefaultEncoderFunc\(\_ context.Context, w io.Writer\) Encoder](#DefaultEncoderFunc)
 - [type EncoderFunc](#EncoderFunc)
-  - [func FallbackEncoderFunc\(encoders ...EncoderFunc\) EncoderFunc](#FallbackEncoderFunc)
+  - [func ChainEncoderFunc\(encoders ...EncoderFunc\) EncoderFunc](#ChainEncoderFunc)
 - [type KeepAlive](#KeepAlive)
 - [type LogLevel](#LogLevel)
   - [func ParseLogLevel\(level string\) LogLevel](#ParseLogLevel)
@@ -831,14 +831,14 @@ DecoderFunc is used to create a Decoder from io.Reader stream of message bytes b
 type DecoderFunc func(context.Context, io.Reader) Decoder
 ```
 
-<a name="FallbackDecoderFunc"></a>
-### func [FallbackDecoderFunc](https://github.com/gojek/courier-go/blob/main/decoder.go#L36)
+<a name="ChainDecoderFunc"></a>
+### func [ChainDecoderFunc](https://github.com/gojek/courier-go/blob/main/decoder.go#L36)
 
 ```go
-func FallbackDecoderFunc(decoders ...DecoderFunc) DecoderFunc
+func ChainDecoderFunc(decoders ...DecoderFunc) DecoderFunc
 ```
 
-FallbackDecoderFunc creates a DecoderFunc that tries multiple decoders in sequence. It attempts each decoder in order; if successful, it stops. If all fail, it returns a combined error containing all individual errors.
+ChainDecoderFunc creates a DecoderFunc that tries multiple decoders in sequence. It attempts each decoder in order; if successful, it stops. If all fail, it returns a combined error containing all individual errors.
 
 <a name="Encoder"></a>
 ## type [Encoder](https://github.com/gojek/courier-go/blob/main/encoder.go#L16-L19)
@@ -870,14 +870,14 @@ EncoderFunc is used to create an Encoder from io.Writer; the context.Context val
 type EncoderFunc func(context.Context, io.Writer) Encoder
 ```
 
-<a name="FallbackEncoderFunc"></a>
-### func [FallbackEncoderFunc](https://github.com/gojek/courier-go/blob/main/encoder.go#L29)
+<a name="ChainEncoderFunc"></a>
+### func [ChainEncoderFunc](https://github.com/gojek/courier-go/blob/main/encoder.go#L29)
 
 ```go
-func FallbackEncoderFunc(encoders ...EncoderFunc) EncoderFunc
+func ChainEncoderFunc(encoders ...EncoderFunc) EncoderFunc
 ```
 
-FallbackEncoderFunc creates an EncoderFunc that tries multiple encoders in sequence. It attempts each encoder in order; if successful, it stops. If all fail, it returns a combined error containing all individual errors.
+ChainEncoderFunc creates an EncoderFunc that tries multiple encoders in sequence. It attempts each encoder in order; if successful, it stops. If all fail, it returns a combined error containing all individual errors.
 
 <a name="KeepAlive"></a>
 ## type [KeepAlive](https://github.com/gojek/courier-go/blob/main/client_options.go#L135)

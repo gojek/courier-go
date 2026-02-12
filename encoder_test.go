@@ -21,14 +21,6 @@ func (fe *errorEncoder) Encode(v interface{}) error {
 	return fe.err
 }
 
-type errorDecoder struct {
-	err error
-}
-
-func (fd *errorDecoder) Decode(v interface{}) error {
-	return fd.err
-}
-
 func Test_defaultEncoderFunc(t *testing.T) {
 	validObj := struct {
 		Key   string `json:"key"`

@@ -11,6 +11,14 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+type errorDecoder struct {
+	err error
+}
+
+func (fd *errorDecoder) Decode(v interface{}) error {
+	return fd.err
+}
+
 type jsonDecoderSuite struct {
 	suite.Suite
 }

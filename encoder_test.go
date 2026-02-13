@@ -3,12 +3,23 @@ package courier
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+type errorEncoder struct {
+	err error
+}
+
+func (fe *errorEncoder) Encode(v interface{}) error {
+	return fe.err
+}
 
 func Test_defaultEncoderFunc(t *testing.T) {
 	validObj := struct {
@@ -56,5 +67,87 @@ func Test_defaultEncoderFunc(t *testing.T) {
 			}
 			assert.Equal(t, wantBuf.Bytes(), buf.Bytes())
 		})
+	}
+}
+
+func TestChainEncoder_FirstSuccess(t *testing.T) {
+	buf := &bytes.Buffer{}
+	ctx := context.Background()
+
+	encoder1 := func(_ context.Context, w io.Writer) Encoder {
+		return json.NewEncoder(w)
+	}
+	encoder2 := func(_ context.Context, w io.Writer) Encoder {
+		return &errorEncoder{err: errors.New("should not be called")}
+	}
+
+	chain := ChainEncoderFunc(encoder1, encoder2)
+	enc := chain(ctx, buf)
+
+	data := map[string]string{"key": "value"}
+	if err := enc.Encode(data); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	expected := `{"key":"value"}` + "\n"
+	if buf.String() != expected {
+		t.Errorf("expected %q, got %q", expected, buf.String())
+	}
+}
+
+func TestChainEncoder_SecondSuccess(t *testing.T) {
+	buf := &bytes.Buffer{}
+	ctx := context.Background()
+
+	encoder1 := func(_ context.Context, w io.Writer) Encoder {
+		return &errorEncoder{err: errors.New("first encoder fails")}
+	}
+	encoder2 := func(_ context.Context, w io.Writer) Encoder {
+		return json.NewEncoder(w)
+	}
+
+	chain := ChainEncoderFunc(encoder1, encoder2)
+	enc := chain(ctx, buf)
+
+	data := map[string]string{"key": "value"}
+	if err := enc.Encode(data); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	expected := `{"key":"value"}` + "\n"
+	if buf.String() != expected {
+		t.Errorf("expected %q, got %q", expected, buf.String())
+	}
+}
+
+func TestChainEncoder_AllFail(t *testing.T) {
+	buf := &bytes.Buffer{}
+	ctx := context.Background()
+
+	err1 := errors.New("first fails")
+	err2 := errors.New("second fails")
+	err3 := errors.New("third fails")
+
+	encoder1 := func(_ context.Context, w io.Writer) Encoder {
+		return &errorEncoder{err: err1}
+	}
+	encoder2 := func(_ context.Context, w io.Writer) Encoder {
+		return &errorEncoder{err: err2}
+	}
+	encoder3 := func(_ context.Context, w io.Writer) Encoder {
+		return &errorEncoder{err: err3}
+	}
+
+	chain := ChainEncoderFunc(encoder1, encoder2, encoder3)
+	enc := chain(ctx, buf)
+
+	data := map[string]string{"key": "value"}
+	err := enc.Encode(data)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "all encoders failed") {
+		t.Errorf("expected error to contain 'all encoders failed', got: %v", err)
 	}
 }

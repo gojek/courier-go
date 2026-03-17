@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.7.15]
+
+### Added
+- Support codec chaining ([#90] https://github.com/gojek/courier-go/pull/90)
+
 ## [0.7.14]
 
 ### Added
@@ -198,8 +203,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Initial Release
 
-[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.11...HEAD
-[0.7.11]: https://github.com/gojek/courier-go/releases/tag/v0.7.11
+[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.15...HEAD
+[0.7.14]: https://github.com/gojek/courier-go/releases/tag/v0.7.15
+[0.7.13]: https://github.com/gojek/courier-go/releases/tag/v0.7.14
+[0.7.12]: https://github.com/gojek/courier-go/releases/tag/v0.7.13
+[0.7.11]: https://github.com/gojek/courier-go/releases/tag/v0.7.12
 [0.7.10]: https://github.com/gojek/courier-go/releases/tag/v0.7.10
 [0.7.9]: https://github.com/gojek/courier-go/releases/tag/v0.7.9
 [0.7.8]: https://github.com/gojek/courier-go/releases/tag/v0.7.8

@@ -1,74 +1,73 @@
+version: "2"
+run:
+  modules-download-mode: readonly
 linters:
-  disable-all: true
+  default: none
   enable:
-    - errcheck
-    - staticcheck
-    - unused
-    - gosimple
-    - ineffassign
-    - stylecheck
-    - typecheck
-    - unconvert
     - bodyclose
     - dupl
+    - errcheck
+    - funlen
     - goconst
     - gocyclo
-    - gofmt
+    - ineffassign
     - lll
     - misspell
     - nakedret
-    - funlen
     - nestif
     - nlreturn
     - prealloc
     - rowserrcheck
+    - staticcheck
     - unconvert
     - unparam
+    - unused
     - whitespace
-    - wsl
-run:
-  skip-dirs:
-    - bin
-  skip-files:
-    - .*mock.*\.go$
-    - version.go
-    - example_test.go
-  modules-download-mode: readonly
-linters-settings:
-  govet:
-    check-shadowing: true
-    enable-all: true
-    disable:
-      - asmdecl
-      - assign
-  errcheck:
-    check-type-assertions: false
-  misspell:
-    locale: UK
-    ignore-words:
-      - initialized
-  funlen:
-    lines: 80
-    statements: 40
-
-issues:
-  exclude-use-default: false
-  exclude:
-    - declaration of "(err|ctx)" shadows declaration at
-  exclude-rules:
-    - text: "^SA1019: .* is deprecated:"
-      linters:
-        - staticcheck
-    - path: _test\.go
-      linters:
-        - dupl
-        - gosec
-        - wsl
-        - lll
-        - funlen
-        - nlreturn
-        - unused
-    - path: _test\.go
-      text: ^Error return value is not checked$
-      linters:
-        - errcheck
+  settings:
+    errcheck:
+      check-type-assertions: false
+    funlen:
+      lines: 80
+      statements: 40
+    govet:
+      disable:
+        - asmdecl
+        - assign
+      enable-all: true
+    misspell:
+      locale: UK
+      ignore-rules:
+        - initialized
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - staticcheck
+        text: '^SA1019: .* is deprecated:'
+      - linters:
+          - dupl
+          - funlen
+          - gosec
+          - lll
+          - nlreturn
+          - unused
+        path: _test\.go
+      - linters:
+          - errcheck
+        path: _test\.go
+        text: ^Error return value is not checked$
+      - path: (.+)\.go$
+        text: declaration of "(err|ctx)" shadows declaration at
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

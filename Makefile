@@ -46,7 +46,6 @@ gen-docs: godoc
 	@$(GODOC) --repository.default-branch main --repository.path / \
 		--output './docs/docs/sdk/{{.ImportPath}}.md' ./...
 	@mv ./docs/docs/sdk/.md ./docs/docs/sdk/SDK.md
-	@mv ./docs/docs/sdk/xds.md ./docs/docs/sdk/xds/xDS.md
 
 docs: gen-docs fix-md-href
 

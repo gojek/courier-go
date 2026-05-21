@@ -149,6 +149,30 @@ func TestChainDecoder_SecondSuccess(t *testing.T) {
 	}
 }
 
+func TestChainDecoder_DecodeCalledTwice(t *testing.T) {
+	ctx := context.Background()
+	reader := strings.NewReader(data)
+
+	chain := ChainDecoderFunc(DefaultDecoderFunc, base64JsonDecoder)
+	dec := chain(ctx, reader)
+
+	var first map[string]string
+	if err := dec.Decode(&first); err != nil {
+		t.Fatalf("=got: %v", err)
+	}
+	if first["key"] != "value" {
+		t.Errorf("got %q", first["key"])
+	}
+
+	var second map[string]string
+	if err := dec.Decode(&second); err != nil {
+		t.Fatalf("got: %v", err)
+	}
+	if second["key"] != "value" {
+		t.Errorf("got %q", second["key"])
+	}
+}
+
 func TestChainDecoder_AllFail(t *testing.T) {
 	ctx := context.Background()
 	reader := strings.NewReader(data)

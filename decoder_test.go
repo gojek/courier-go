@@ -27,7 +27,10 @@ func Test_jsonDecoderSuite(t *testing.T) {
 	suite.Run(t, new(jsonDecoderSuite))
 }
 
-const data = `{"key":"value"}`
+const (
+	data          = `{"key":"value"}`
+	expectedValue = "value"
+)
 
 func (s *jsonDecoderSuite) TestDecode() {
 	type obj struct {
@@ -120,8 +123,8 @@ func TestChainDecoder_FirstSuccess(t *testing.T) {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
-	if result["key"] != "value" {
-		t.Errorf("expected value 'value', got %q", result["key"])
+	if result["key"] != expectedValue {
+		t.Errorf("expected value %q, got %q", expectedValue, result["key"])
 	}
 }
 
@@ -144,8 +147,8 @@ func TestChainDecoder_SecondSuccess(t *testing.T) {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
-	if result["key"] != "value" {
-		t.Errorf("expected value 'value', got %q", result["key"])
+	if result["key"] != expectedValue {
+		t.Errorf("expected value %q, got %q", expectedValue, result["key"])
 	}
 }
 
@@ -160,7 +163,7 @@ func TestChainDecoder_DecodeCalledTwice(t *testing.T) {
 	if err := dec.Decode(&first); err != nil {
 		t.Fatalf("=got: %v", err)
 	}
-	if first["key"] != "value" {
+	if first["key"] != expectedValue {
 		t.Errorf("got %q", first["key"])
 	}
 
@@ -168,7 +171,7 @@ func TestChainDecoder_DecodeCalledTwice(t *testing.T) {
 	if err := dec.Decode(&second); err != nil {
 		t.Fatalf("got: %v", err)
 	}
-	if second["key"] != "value" {
+	if second["key"] != expectedValue {
 		t.Errorf("got %q", second["key"])
 	}
 }

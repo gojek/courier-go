@@ -161,7 +161,7 @@ func TestChainDecoder_DecodeCalledTwice(t *testing.T) {
 
 	var first map[string]string
 	if err := dec.Decode(&first); err != nil {
-		t.Fatalf("=got: %v", err)
+		t.Fatalf("got: %v", err)
 	}
 	if first["key"] != expectedValue {
 		t.Errorf("got %q", first["key"])

@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.7.17]
+
+### Changed
+- Fix chainDecoder error upon decoding same message twice ([#97] https://github.com/gojek/courier-go/pull/97)
+
 ## [0.7.16]
 
 ### Added
@@ -208,7 +213,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Initial Release
 
-[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.15...HEAD
+[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.17...HEAD
+[0.7.16]: https://github.com/gojek/courier-go/releases/tag/v0.7.17
+[0.7.15]: https://github.com/gojek/courier-go/releases/tag/v0.7.16
 [0.7.14]: https://github.com/gojek/courier-go/releases/tag/v0.7.15
 [0.7.13]: https://github.com/gojek/courier-go/releases/tag/v0.7.14
 [0.7.12]: https://github.com/gojek/courier-go/releases/tag/v0.7.13

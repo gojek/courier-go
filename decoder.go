@@ -37,27 +37,24 @@ func ChainDecoderFunc(decoders ...DecoderFunc) DecoderFunc {
 	return func(ctx context.Context, r io.Reader) Decoder {
 		buf := new(bytes.Buffer)
 		if _, err := buf.ReadFrom(r); err != nil {
-			return &chainDecoder{decoders: nil}
+			return &chainDecoder{}
 		}
 
-		decs := make([]Decoder, 0, len(decoders))
-		for _, fn := range decoders {
-			decs = append(decs, fn(ctx, bytes.NewReader(buf.Bytes())))
-		}
-
-		return &chainDecoder{decoders: decs}
+		return &chainDecoder{fns: decoders, ctx: ctx, data: buf.Bytes()}
 	}
 }
 
 type chainDecoder struct {
-	decoders []Decoder
+	fns  []DecoderFunc
+	ctx  context.Context
+	data []byte
 }
 
 func (f *chainDecoder) Decode(v interface{}) error {
 	var errs []error
 
-	for _, dec := range f.decoders {
-		if err := dec.Decode(v); err != nil {
+	for _, fn := range f.fns {
+		if err := fn(f.ctx, bytes.NewReader(f.data)).Decode(v); err != nil {
 			errs = append(errs, err)
 
 			continue

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/gojek/courier-go/internal/driver"
 	mqtt "github.com/gojek/paho.mqtt.golang"
 	"github.com/gojekfarm/xtools/generic/slice"
 )
@@ -337,4 +338,55 @@ func (tm *testPublishMiddleware) Middleware(p Publisher) Publisher {
 		tm.timesCalled++
 		return p.Publish(ctx, topic, message, opts...)
 	})
+}
+
+// v5Client is a PropsPublisher so the publish path under MQTT v5 can be asserted without a broker.
+type v5Client struct {
+	mqtt.Client
+	topic string
+	props *driver.PublishProps
+}
+
+func (v *v5Client) OptionsReader() mqtt.ClientOptionsReader { return mqtt.ClientOptionsReader{} }
+
+func (v *v5Client) PublishWithProps(
+	topic string, _ byte, _ bool, _ interface{}, props *driver.PublishProps,
+) mqtt.Token {
+	v.topic, v.props = topic, props
+
+	tk := &mockToken{}
+	tk.On("WaitTimeout", 10*time.Second).Return(true)
+	tk.On("Error").Return(nil)
+
+	return tk
+}
+
+func TestPublish_UserPropertiesFromContext(t *testing.T) {
+	fake := &v5Client{}
+
+	newClientFunc.Store(func(*mqtt.ClientOptions) mqtt.Client { return fake })
+	defer newClientFunc.Store(mqtt.NewClient)
+
+	c, err := NewClient(WithAddress("127.0.0.1", 1883))
+	require.NoError(t, err)
+
+	ctx := WithUserProperties(context.Background(), map[string]string{"k": "v"})
+	require.NoError(t, c.Publish(ctx, "topic", "payload"))
+
+	require.Equal(t, "topic", fake.topic)
+	require.Equal(t, map[string]string{"k": "v"}, fake.props.UserProperties)
+
+	require.NoError(t, c.Publish(context.Background(), "topic", "payload"))
+	require.Empty(t, fake.props.UserProperties)
+
+	ctx = WithContentType(ctx, "application/json")
+	ctx = WithResponseTopic(ctx, "reply/me")
+	ctx = WithCorrelationData(ctx, []byte("id-1"))
+	require.NoError(t, c.Publish(ctx, "topic", "payload"))
+	require.Equal(t, &driver.PublishProps{
+		UserProperties:  map[string]string{"k": "v"},
+		ContentType:     "application/json",
+		ResponseTopic:   "reply/me",
+		CorrelationData: []byte("id-1"),
+	}, fake.props)
 }

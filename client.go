@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gojek/courier-go/internal/driver"
 	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
@@ -59,6 +60,10 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		return nil, fmt.Errorf("at least WithAddress or WithResolver ClientOption should be used")
 	}
 
+	if co.mqttVersion != MQTTv311 && co.mqttVersion != MQTTv5 {
+		return nil, fmt.Errorf("unsupported MQTT version: %d", co.mqttVersion)
+	}
+
 	if co.poolEnabled && co.multiConnectionMode {
 		return nil, fmt.Errorf("poolEnabled and multiConnectionMode cannot be used together")
 	}
@@ -80,7 +85,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		if co.poolEnabled {
 			c.initializeConnectionPool()
 		} else {
-			c.mqttClient = newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, c.options, ""))
+			c.mqttClient = newMQTTClient(c.options, toClientOptions(c, c.options, ""))
 		}
 	}
 
@@ -381,6 +386,18 @@ func onConnectHandler(client PubSub, o *clientOptions) mqtt.OnConnectHandler {
 			o.onConnectHandler(client)
 		}
 	}
+}
+
+// newMQTTClient creates the v5 client when MQTTv5 is configured, otherwise the (overridable) v3.1.1 client.
+func newMQTTClient(o *clientOptions, opts *mqtt.ClientOptions) mqtt.Client {
+	if o.mqttVersion == MQTTv5 {
+		return driver.NewV5(opts, driver.V5Options{
+			CleanStart:            o.cleanStart,
+			SessionExpiryInterval: o.sessionExpiryInterval,
+		})
+	}
+
+	return newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(opts)
 }
 
 func defaultNewClientFunc() *atomic.Value {

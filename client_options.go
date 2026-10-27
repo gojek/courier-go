@@ -26,6 +26,31 @@ func WithClientID(clientID string) ClientOption {
 	})
 }
 
+// WithMQTTVersion sets the MQTT protocol version, the default is MQTTv311.
+// MQTT v5 uses WithCleanStart and WithSessionExpiryInterval, WithCleanSession only applies to MQTTv311.
+func WithMQTTVersion(version MQTTVersion) ClientOption {
+	return optionFunc(func(o *clientOptions) {
+		o.mqttVersion = version
+	})
+}
+
+// WithCleanStart sets the MQTT v5 "clean start" flag (default true), existing session state for the client is discarded
+// on the first connection (reconnects always resume). It is ignored for MQTTv311, see WithCleanSession.
+func WithCleanStart(cleanStart bool) ClientOption {
+	return optionFunc(func(o *clientOptions) {
+		o.cleanStart = cleanStart
+	})
+}
+
+// WithSessionExpiryInterval sets how long the broker keeps the MQTT v5 session after the client disconnects,
+// with the default of 0 the session ends on disconnect. It is truncated to whole seconds
+// and ignored for MQTTv311.
+func WithSessionExpiryInterval(d time.Duration) ClientOption {
+	return optionFunc(func(o *clientOptions) {
+		o.sessionExpiryInterval = d
+	})
+}
+
 // WithUsername sets the username to be used while connecting to an MQTT broker.
 func WithUsername(username string) ClientOption {
 	return optionFunc(func(o *clientOptions) {
@@ -294,6 +319,10 @@ type clientOptions struct {
 	store      Store
 
 	poolSize int
+
+	mqttVersion           MQTTVersion
+	cleanStart            bool
+	sessionExpiryInterval time.Duration
 }
 
 type connectRetryPolicy struct {
@@ -308,6 +337,8 @@ func (f optionFunc) apply(o *clientOptions) { f(o) }
 func defaultClientOptions() *clientOptions {
 	return &clientOptions{
 		autoReconnect:               true,
+		mqttVersion:                 MQTTv311,
+		cleanStart:                  true,
 		maintainOrder:               true,
 		connectTimeout:              15 * time.Second,
 		writeTimeout:                10 * time.Second,

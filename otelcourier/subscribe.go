@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/propagation"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
@@ -182,6 +183,10 @@ func (t *OTel) instrumentCallback(in courier.MessageHandler) courier.MessageHand
 
 		if clientID := courier.ClientIDFromContext(ctx); clientID != "" {
 			attrs = append(attrs, MQTTClientID.String(clientID))
+		}
+
+		if len(msg.UserProperties) > 0 {
+			ctx = t.propagator.Extract(ctx, propagation.MapCarrier(msg.UserProperties))
 		}
 
 		if t.textMapCarrierFunc != nil {

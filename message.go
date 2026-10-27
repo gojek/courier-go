@@ -8,6 +8,13 @@ type Message struct {
 	Retained  bool
 	QoS       QOSLevel
 
+	// MQTT v5 only, empty when the connection uses MQTT v3.1.1 or the publisher did not set them.
+	// UserProperties keeps the last value for a repeated key.
+	UserProperties  map[string]string
+	ContentType     string
+	ResponseTopic   string
+	CorrelationData []byte
+
 	payloadDecoder Decoder
 }
 

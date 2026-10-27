@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/gojek/courier-go/internal/driver"
 	mqtt "github.com/gojek/paho.mqtt.golang"
 	"github.com/gojekfarm/xtools/generic/slice"
 )
@@ -132,6 +133,15 @@ func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 		msg.Duplicate = m.Duplicate()
 		msg.Retained = m.Retained()
 		msg.QoS = QOSLevel(m.Qos())
+
+		if pm, ok := m.(driver.MessageWithProps); ok {
+			if p := pm.Props(); p != nil {
+				msg.UserProperties = p.UserProperties
+				msg.ContentType = p.ContentType
+				msg.ResponseTopic = p.ResponseTopic
+				msg.CorrelationData = p.CorrelationData
+			}
+		}
 
 		callback(ctx, c, msg)
 	}

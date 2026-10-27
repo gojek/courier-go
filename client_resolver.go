@@ -148,7 +148,7 @@ func (c *Client) multipleClients(addrs []TCPAddress) map[string]mqtt.Client {
 		opts.brokerAddress = ia.addr.String()
 
 		pOpts := toClientOptions(c, &opts, fmt.Sprintf("-%d-%d", ia.index, currRev+1))
-		cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(pOpts)
+		cc := newMQTTClient(c.options, pOpts)
 
 		clients.Store(fmt.Sprintf("%s-%d", ia.addr.String(), ia.index), cc)
 
@@ -221,7 +221,7 @@ func (c *Client) newClient(addrs []TCPAddress, attempt int) mqtt.Client {
 	opts := *c.options
 	opts.brokerAddress = fmt.Sprintf("%s:%d", addr.Host, addr.Port)
 
-	cc := newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(toClientOptions(c, &opts, ""))
+	cc := newMQTTClient(c.options, toClientOptions(c, &opts, ""))
 
 	t := cc.Connect()
 	if !t.WaitTimeout(c.options.connectTimeout) {

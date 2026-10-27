@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/gojek/courier-go/internal/driver"
 	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
@@ -38,6 +39,12 @@ func publishHandler(c *Client) Publisher {
 		o := composeOptions(opts)
 
 		return c.execute(ctx, func(cc mqtt.Client) error {
+			if pp, ok := cc.(driver.PropsPublisher); ok {
+				props := publishPropsFromContext(ctx)
+
+				return c.handleToken(ctx, pp.PublishWithProps(topic, o.qos, o.retained, buf.Bytes(), props), ErrPublishTimeout)
+			}
+
 			return c.handleToken(ctx, cc.Publish(topic, o.qos, o.retained, buf.Bytes()), ErrPublishTimeout)
 		}, execOneRoundRobin)
 	})

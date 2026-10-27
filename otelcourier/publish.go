@@ -57,6 +57,9 @@ func (t *OTel) PublisherMiddleware(next courier.Publisher) courier.Publisher {
 			t.propagator.Inject(ctx, tmc)
 		}
 
+		// MQTT v5 sends these as native User Properties, ignored by the v3.1.1 client.
+		ctx = t.injectUserProperties(ctx)
+
 		err := next.Publish(ctx, topic, message, opts...)
 		if err != nil {
 			span.RecordError(err)
@@ -84,4 +87,21 @@ func mapAttributes(opts []courier.Option) []attribute.KeyValue {
 	}
 
 	return res
+}
+
+func (t *OTel) injectUserProperties(ctx context.Context) context.Context {
+	carrier := propagation.MapCarrier{}
+	t.propagator.Inject(ctx, carrier)
+
+	if len(carrier) == 0 {
+		return ctx
+	}
+
+	for k, v := range courier.UserPropertiesFromContext(ctx) {
+		if _, ok := carrier[k]; !ok {
+			carrier[k] = v
+		}
+	}
+
+	return courier.WithUserProperties(ctx, carrier)
 }

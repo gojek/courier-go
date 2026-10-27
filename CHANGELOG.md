@@ -7,6 +7,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.8.0] - 2026-10-14
+
+### Added
+- MQTT v5 support, opt-in with `WithMQTTVersion(MQTTv5)`, MQTT v3.1.1 stays the default
+- `WithCleanStart` (default `true`) and `WithSessionExpiryInterval` options for MQTT v5 sessions
+- MQTT v5 publish properties via `WithUserProperties`, `WithContentType`, `WithResponseTopic` and `WithCorrelationData`, received on `Message` (`UserProperties`, `ContentType`, `ResponseTopic`, `CorrelationData`)
+- otelcourier propagates W3C trace context in MQTT v5 User Properties
+
 ## [0.7.17]
 
 ### Changed
@@ -213,7 +222,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 Initial Release
 
-[Unreleased]: https://github.com/gojek/courier-go/compare/v0.7.17...HEAD
+[Unreleased]: https://github.com/gojek/courier-go/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/gojek/courier-go/releases/tag/v0.8.0
 [0.7.16]: https://github.com/gojek/courier-go/releases/tag/v0.7.17
 [0.7.15]: https://github.com/gojek/courier-go/releases/tag/v0.7.16
 [0.7.14]: https://github.com/gojek/courier-go/releases/tag/v0.7.15

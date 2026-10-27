@@ -75,3 +75,10 @@ func TestClientIDFromContext(t *testing.T) {
 		})
 	}
 }
+
+func TestUserPropertiesFromContext(t *testing.T) {
+	assert.Nil(t, UserPropertiesFromContext(context.Background()))
+
+	ctx := WithUserProperties(context.Background(), map[string]string{"k": "v"})
+	assert.Equal(t, map[string]string{"k": "v"}, UserPropertiesFromContext(ctx))
+}

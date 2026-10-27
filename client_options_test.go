@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/gojek/courier-go/internal/driver"
 )
 
 type ClientOptionSuite struct {
@@ -239,6 +241,8 @@ func (s *ClientOptionSuite) Test_function_based_apply() {
 func (s *ClientOptionSuite) Test_defaultOptions() {
 	o := &clientOptions{
 		autoReconnect:               true,
+		mqttVersion:                 MQTTv311,
+		cleanStart:                  true,
 		maintainOrder:               true,
 		connectTimeout:              15 * time.Second,
 		writeTimeout:                10 * time.Second,
@@ -263,4 +267,31 @@ func (s *ClientOptionSuite) Test_defaultOptions() {
 func Test_defaultSharedSubscriptionPredicate(t *testing.T) {
 	assert.True(t, defaultSharedSubscriptionPredicate("$share/group/topic"))
 	assert.False(t, defaultSharedSubscriptionPredicate("topic"))
+}
+
+func TestWithMQTTVersion(t *testing.T) {
+	c, err := NewClient(WithAddress("127.0.0.1", 1883))
+	assert.NoError(t, err)
+	assert.Equal(t, MQTTv311, c.options.mqttVersion)
+	assert.NotContains(t, fmt.Sprintf("%T", c.mqttClient), "driver.V5")
+
+	c, err = NewClient(WithAddress("127.0.0.1", 1883), WithMQTTVersion(MQTTv5))
+	assert.NoError(t, err)
+	assert.IsType(t, &driver.V5{}, c.mqttClient)
+
+	c, err = NewClient(WithAddress("127.0.0.1", 1883), WithMQTTVersion(MQTTv5), WithPoolSize(2))
+	assert.NoError(t, err)
+	assert.IsType(t, &driver.V5{}, c.orderedClients[0].client)
+
+	_, err = NewClient(WithAddress("127.0.0.1", 1883), WithMQTTVersion(3))
+	assert.Error(t, err)
+}
+
+func TestWithSessionOptions(t *testing.T) {
+	c, err := NewClient(WithAddress("127.0.0.1", 1883), WithMQTTVersion(MQTTv5),
+		WithCleanSession(true), WithCleanStart(false), WithSessionExpiryInterval(90*time.Second))
+	assert.NoError(t, err)
+	assert.False(t, c.options.cleanStart)
+	assert.Equal(t, 90*time.Second, c.options.sessionExpiryInterval)
+	assert.True(t, c.options.cleanSession)
 }

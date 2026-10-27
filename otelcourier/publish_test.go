@@ -157,3 +157,23 @@ func (m *mockTextMapCarrier) Keys() []string {
 
 	return nil
 }
+
+func TestPublishInjectsUserProperties(t *testing.T) {
+	tp := trace.NewTracerProvider()
+	mwf := New("test-service", WithTracerProvider(tp), WithMeterProvider(metric.NewMeterProvider()),
+		WithTextMapPropagator(propagation.NewCompositeTextMapPropagator(&propagation.TraceContext{})))
+
+	var got map[string]string
+
+	p := mwf.PublisherMiddleware(courier.PublisherFunc(func(ctx context.Context, _ string, _ any, _ ...courier.Option) error {
+		got = courier.UserPropertiesFromContext(ctx)
+
+		return nil
+	}))
+
+	ctx := courier.WithUserProperties(context.Background(), map[string]string{"existing": "kept"})
+	require.NoError(t, p.Publish(ctx, "test-topic", "payload"))
+
+	assert.Equal(t, "kept", got["existing"])
+	assert.Regexp(t, `^\d{2}-\w{32}-\w{16}-\d{2}$`, got["traceparent"])
+}

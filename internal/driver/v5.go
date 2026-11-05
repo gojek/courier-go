@@ -357,6 +357,17 @@ func (v *V5) PublishWithPropsContext(
 
 	return v.run(ctx, func(ctx context.Context, cm *autopaho.ConnectionManager) error {
 		resp, err := cm.Publish(ctx, p)
+
+		// The v3 client stores a publish made while it is reconnecting and sends it on the new
+		// connection, so wait for the reconnect here rather than failing straight away.
+		if errors.Is(err, autopaho.ConnectionDownError) && v.opts.AutoReconnect {
+			if awaitErr := cm.AwaitConnection(ctx); awaitErr != nil {
+				return err
+			}
+
+			resp, err = cm.Publish(ctx, p)
+		}
+
 		if err != nil {
 			return err
 		}

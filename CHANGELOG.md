@@ -20,6 +20,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Cancelling the context passed to `Publish`, `Subscribe` or `Unsubscribe` now ends the in-flight MQTT v5 call
 - `WithAutoAckDisabled` and `Message.Ack` for acknowledging received messages from the handler, on both protocol versions
 
+### Fixed
+- An MQTT v5 publish made while the connection is down now waits for it to come back, as MQTT v3.1.1
+  does, instead of failing immediately
+
 ## [0.7.17]
 
 ### Changed

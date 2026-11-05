@@ -223,3 +223,33 @@ func TestV5_DeclaresEveryClientMethod(t *testing.T) {
 		assert.Contains(t, string(src), "func (v *V5) "+name+"(", "V5 must declare %s itself", name)
 	}
 }
+
+func TestV5_PublishWaitsForConnection(t *testing.T) {
+	broker := brokerOrSkip(t)
+
+	opts := mqtt.NewClientOptions().SetClientID(t.Name()).SetAutoReconnect(true).
+		SetKeepAlive(30 * time.Second).SetAckTimeout(10 * time.Second)
+	opts.Servers = []*url.URL{broker}
+
+	c := NewV5(opts, V5Options{CleanStart: true})
+
+	c.Connect() // publish without waiting for CONNACK, the connection is still down
+	t.Cleanup(func() { c.Disconnect(100) })
+
+	wait(t, c.Publish("metric/one", 1, false, "queued-until-up"))
+	assert.True(t, c.IsConnected())
+}
+
+func TestV5_PublishFailsWhenConnectionStaysDown(t *testing.T) {
+	opts := mqtt.NewClientOptions().SetClientID(t.Name()).SetAutoReconnect(true).SetAckTimeout(time.Second)
+	opts.Servers = []*url.URL{{Scheme: "tcp", Host: "127.0.0.1:1"}}
+
+	c := NewV5(opts, V5Options{CleanStart: true})
+
+	c.Connect()
+	t.Cleanup(func() { c.Disconnect(100) })
+
+	tk := c.Publish("metric/one", 1, false, "never-sent")
+	require.True(t, tk.WaitTimeout(5*time.Second))
+	assert.Error(t, tk.Error())
+}

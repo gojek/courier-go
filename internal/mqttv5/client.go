@@ -341,7 +341,7 @@ func (v *Client) PublishWithPropsContext(
 ) mqtt.Token {
 	b, err := toBytes(payload)
 	if err != nil {
-		return failed(err)
+		return completed(err)
 	}
 
 	p := &paho.Publish{Topic: topic, QoS: qos, Retain: retained, Payload: b}
@@ -478,27 +478,22 @@ func (v *Client) ack(p *paho.Publish) {
 	}
 }
 
-// run starts f in the background so the caller can wait on the token, ending it when
-// caller's ctx ends or opTimeout passes, whichever is first.
+// run calls f and returns an already completed token. The v5 library blocks until the broker
+// answers, unlike the v3 one, so there is nothing to wait for afterwards. The call ends when
+// the caller's ctx ends or opTimeout passes, whichever comes first.
 func (v *Client) run(ctx context.Context, f func(context.Context, *autopaho.ConnectionManager) error) mqtt.Token {
 	v.mu.Lock()
 	cm := v.cm
 	v.mu.Unlock()
 
 	if cm == nil {
-		return failed(ErrNotStarted)
+		return completed(ErrNotStarted)
 	}
 
-	t := newToken()
+	ctx, cancel := context.WithTimeout(ctx, v.opTimeout())
+	defer cancel()
 
-	go func() {
-		ctx, cancel := context.WithTimeout(ctx, v.opTimeout())
-		defer cancel()
-
-		t.complete(f(ctx, cm))
-	}()
-
-	return t
+	return completed(f(ctx, cm))
 }
 
 func (v *Client) opTimeout() time.Duration {
@@ -595,7 +590,8 @@ type token struct {
 
 func newToken() *token { return &token{done: make(chan struct{})} }
 
-func failed(err error) *token {
+// completed returns a token that already holds the result of a finished call.
+func completed(err error) *token {
 	t := newToken()
 	t.complete(err)
 

@@ -250,7 +250,14 @@ func TestV5_PublishFailsWhenConnectionStaysDown(t *testing.T) {
 	t.Cleanup(func() { c.Disconnect(100) })
 
 	tk := c.Publish("metric/one", 1, false, "never-sent")
-	require.True(t, tk.WaitTimeout(5*time.Second))
+
+	// the v5 library blocks until it has an answer, so the token is complete on return
+	select {
+	case <-tk.Done():
+	default:
+		t.Fatal("token must already be complete, the call is synchronous")
+	}
+
 	assert.Error(t, tk.Error())
 }
 

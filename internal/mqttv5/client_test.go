@@ -1,4 +1,4 @@
-package driver
+package mqttv5
 
 import (
 	"errors"
@@ -35,13 +35,13 @@ func brokerOrSkip(t *testing.T) *url.URL {
 	return &url.URL{Scheme: "tcp", Host: addr}
 }
 
-func newTestClient(t *testing.T, broker *url.URL, clean bool) *V5 {
+func newTestClient(t *testing.T, broker *url.URL, clean bool) *Client {
 	t.Helper()
 
 	opts := mqtt.NewClientOptions().SetClientID(t.Name()).SetCleanSession(clean).SetKeepAlive(30 * time.Second)
 	opts.Servers = []*url.URL{broker}
 
-	c := NewV5(opts, V5Options{CleanStart: clean})
+	c := New(opts, Options{CleanStart: clean})
 
 	tk := c.Connect()
 	require.True(t, tk.WaitTimeout(5*time.Second))
@@ -103,7 +103,7 @@ func TestV5_PublishWithoutProps(t *testing.T) {
 }
 
 func TestV5_NotConnected(t *testing.T) {
-	c := NewV5(mqtt.NewClientOptions(), V5Options{})
+	c := New(mqtt.NewClientOptions(), Options{})
 
 	assert.False(t, c.IsConnected())
 	assert.ErrorIs(t, c.Publish("a", 0, false, "x").Error(), ErrNotStarted)
@@ -111,7 +111,7 @@ func TestV5_NotConnected(t *testing.T) {
 }
 
 func TestV5_UnsupportedPayload(t *testing.T) {
-	c := NewV5(mqtt.NewClientOptions(), V5Options{})
+	c := New(mqtt.NewClientOptions(), Options{})
 
 	assert.Error(t, c.Publish("a", 0, false, 42).Error())
 }
@@ -120,25 +120,25 @@ func TestV5_ConnectFailureWithoutRetry(t *testing.T) {
 	opts := mqtt.NewClientOptions().SetConnectRetry(false).SetConnectTimeout(time.Second)
 	opts.Servers = []*url.URL{{Scheme: "tcp", Host: "127.0.0.1:1"}}
 
-	tk := NewV5(opts, V5Options{}).Connect()
+	tk := New(opts, Options{}).Connect()
 
 	require.True(t, tk.WaitTimeout(5*time.Second))
 	assert.Error(t, tk.Error())
 }
 
 func TestV5_SessionExpiryAndCleanStart(t *testing.T) {
-	cfg := NewV5(mqtt.NewClientOptions(), V5Options{CleanStart: true, SessionExpiryInterval: 90 * time.Second}).
+	cfg := New(mqtt.NewClientOptions(), Options{CleanStart: true, SessionExpiryInterval: 90 * time.Second}).
 		config(newToken(), func() {})
 
 	assert.True(t, cfg.CleanStartOnInitialConnection)
 	assert.EqualValues(t, 90, cfg.SessionExpiryInterval)
 
 	// CleanSession is a v3.1.1 setting and must not leak into v5
-	cfg = NewV5(mqtt.NewClientOptions().SetCleanSession(true), V5Options{}).config(newToken(), func() {})
+	cfg = New(mqtt.NewClientOptions().SetCleanSession(true), Options{}).config(newToken(), func() {})
 	assert.False(t, cfg.CleanStartOnInitialConnection)
 	assert.Zero(t, cfg.SessionExpiryInterval)
 
-	cfg = NewV5(mqtt.NewClientOptions(), V5Options{SessionExpiryInterval: 200 * 365 * 24 * time.Hour}).
+	cfg = New(mqtt.NewClientOptions(), Options{SessionExpiryInterval: 200 * 365 * 24 * time.Hour}).
 		config(newToken(), func() {})
 	assert.EqualValues(t, uint32(math.MaxUint32), cfg.SessionExpiryInterval)
 }
@@ -159,7 +159,7 @@ func TestReconnectBackoff(t *testing.T) {
 
 func TestV5_OnConnectError(t *testing.T) {
 	t.Run("initial connect fails the token when ConnectRetry is off", func(t *testing.T) {
-		v := NewV5(mqtt.NewClientOptions().SetConnectRetry(false), V5Options{})
+		v := New(mqtt.NewClientOptions().SetConnectRetry(false), Options{})
 
 		tok, cancelled := newToken(), false
 		v.config(tok, func() { cancelled = true }).OnConnectError(errors.New("refused"))
@@ -174,7 +174,7 @@ func TestV5_OnConnectError(t *testing.T) {
 		opts := mqtt.NewClientOptions().SetConnectRetry(false).SetAutoReconnect(true).
 			SetReconnectingHandler(func(mqtt.Client, *mqtt.ClientOptions) { calls <- struct{}{} })
 
-		v := NewV5(opts, V5Options{})
+		v := New(opts, Options{})
 		v.up.Store(true)
 
 		tok, cancelled := newToken(), false
@@ -198,7 +198,7 @@ func TestV5_OnConnectError(t *testing.T) {
 }
 
 func TestV5_ManualAck(t *testing.T) {
-	v := NewV5(mqtt.NewClientOptions().SetAutoAckDisabled(true), V5Options{})
+	v := New(mqtt.NewClientOptions().SetAutoAckDisabled(true), Options{})
 	assert.True(t, v.config(newToken(), func() {}).EnableManualAcknowledgment)
 
 	// without a live connection Ack must not panic, it is dropped with a logged error
@@ -209,7 +209,7 @@ func TestV5_DeclaresEveryClientMethod(t *testing.T) {
 	// V5 embeds a never-connected v3 client so OptionsReader keeps working. Any other
 	// mqtt.Client method it does not declare itself would silently reach that client
 	// instead of the broker, so fail here if the interface grows one.
-	src, err := os.ReadFile("v5.go")
+	src, err := os.ReadFile("client.go")
 	require.NoError(t, err)
 
 	iface := reflect.TypeOf((*mqtt.Client)(nil)).Elem()
@@ -220,7 +220,7 @@ func TestV5_DeclaresEveryClientMethod(t *testing.T) {
 			continue
 		}
 
-		assert.Contains(t, string(src), "func (v *V5) "+name+"(", "V5 must declare %s itself", name)
+		assert.Contains(t, string(src), "func (v *Client) "+name+"(", "V5 must declare %s itself", name)
 	}
 }
 
@@ -231,7 +231,7 @@ func TestV5_PublishWaitsForConnection(t *testing.T) {
 		SetKeepAlive(30 * time.Second).SetAckTimeout(10 * time.Second)
 	opts.Servers = []*url.URL{broker}
 
-	c := NewV5(opts, V5Options{CleanStart: true})
+	c := New(opts, Options{CleanStart: true})
 
 	c.Connect() // publish without waiting for CONNACK, the connection is still down
 	t.Cleanup(func() { c.Disconnect(100) })
@@ -244,7 +244,7 @@ func TestV5_PublishFailsWhenConnectionStaysDown(t *testing.T) {
 	opts := mqtt.NewClientOptions().SetClientID(t.Name()).SetAutoReconnect(true).SetAckTimeout(time.Second)
 	opts.Servers = []*url.URL{{Scheme: "tcp", Host: "127.0.0.1:1"}}
 
-	c := NewV5(opts, V5Options{CleanStart: true})
+	c := New(opts, Options{CleanStart: true})
 
 	c.Connect()
 	t.Cleanup(func() { c.Disconnect(100) })
@@ -269,7 +269,7 @@ func TestV5_ReconnectResubscribesAndFiresHooks(t *testing.T) {
 	opts.Servers = []*url.URL{broker}
 
 	// CleanStart drops the session, so the broker reports no session and the client must resubscribe
-	c := NewV5(opts, V5Options{CleanStart: true})
+	c := New(opts, Options{CleanStart: true})
 
 	tk := c.Connect()
 	require.True(t, tk.WaitTimeout(5*time.Second))

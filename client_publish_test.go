@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/gojek/courier-go/internal/driver"
+	"github.com/gojek/courier-go/internal/mqttv5"
 	mqtt "github.com/gojek/paho.mqtt.golang"
 	"github.com/gojekfarm/xtools/generic/slice"
 )
@@ -340,11 +340,11 @@ func (tm *testPublishMiddleware) Middleware(p Publisher) Publisher {
 	})
 }
 
-// v5Client is a driver.ContextClient so the publish path under MQTT v5 can be asserted without a broker.
+// v5Client is a mqttv5.ContextClient so the publish path under MQTT v5 can be asserted without a broker.
 type v5Client struct {
 	mqtt.Client
 	topic string
-	props *driver.PublishProps
+	props *mqttv5.PublishProps
 	ctx   context.Context
 }
 
@@ -359,7 +359,7 @@ func (v *v5Client) SubscribeMultipleContext(
 func (v *v5Client) UnsubscribeContext(context.Context, ...string) mqtt.Token { return &mockToken{} }
 
 func (v *v5Client) PublishWithPropsContext(
-	ctx context.Context, topic string, _ byte, _ bool, _ interface{}, props *driver.PublishProps,
+	ctx context.Context, topic string, _ byte, _ bool, _ interface{}, props *mqttv5.PublishProps,
 ) mqtt.Token {
 	v.ctx, v.topic, v.props = ctx, topic, props
 
@@ -393,7 +393,7 @@ func TestPublish_UserPropertiesFromContext(t *testing.T) {
 	ctx = WithResponseTopic(ctx, "reply/me")
 	ctx = WithCorrelationData(ctx, []byte("id-1"))
 	require.NoError(t, c.Publish(ctx, "topic", "payload"))
-	require.Equal(t, &driver.PublishProps{
+	require.Equal(t, &mqttv5.PublishProps{
 		UserProperties:  map[string]string{"k": "v"},
 		ContentType:     "application/json",
 		ResponseTopic:   "reply/me",

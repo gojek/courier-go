@@ -1,8 +1,8 @@
-// Package driver holds the MQTT v5 client used by courier when MQTTv5 is selected.
+// Package mqttv5 holds the MQTT v5 client used by courier when MQTTv5 is selected.
 //
-// V5 implements the gojek/paho.mqtt.golang Client interface on top of eclipse/paho.golang,
+// Client implements the gojek/paho.mqtt.golang Client interface on top of eclipse/paho.golang,
 // so the pool, resolver, telemetry and middleware code in courier works unchanged for both protocol versions.
-package driver
+package mqttv5
 
 import (
 	"context"
@@ -62,13 +62,13 @@ type subscription struct {
 	cb  mqtt.MessageHandler
 }
 
-// V5 is an MQTT v5 implementation of mqtt.Client.
-type V5 struct {
+// Client is an MQTT v5 implementation of mqtt.Client.
+type Client struct {
 	// never connected, only serves OptionsReader() so client metadata keeps working.
 	mqtt.Client
 
 	opts   *mqtt.ClientOptions
-	v5     V5Options
+	v5     Options
 	router *paho.StandardRouter
 	errs   log.Logger
 
@@ -85,20 +85,20 @@ type V5 struct {
 	reconnecting atomic.Bool
 }
 
-// V5Options are the settings that exist only in MQTT v5.
-type V5Options struct {
+// Options are the settings that exist only in MQTT v5.
+type Options struct {
 	// CleanStart clears any existing session on the first connection.
 	CleanStart bool
 	// SessionExpiryInterval is how long the broker keeps the session after disconnect, 0 ends it on disconnect.
 	SessionExpiryInterval time.Duration
 }
 
-// NewV5 creates an MQTT v5 client from v3 style options plus the v5 only V5Options.
+// New creates an MQTT v5 client from v3 style options plus the v5 only Options.
 // KeepAlive, ConnectTimeout and ConnectRetry(Interval) are read from opts, CleanSession is not used.
-func NewV5(opts *mqtt.ClientOptions, v5 V5Options) *V5 {
+func New(opts *mqtt.ClientOptions, v5 Options) *Client {
 	_, errs := pahoLoggers(opts)
 
-	return &V5{
+	return &Client{
 		Client: mqtt.NewClient(opts),
 		opts:   opts,
 		v5:     v5,
@@ -109,13 +109,13 @@ func NewV5(opts *mqtt.ClientOptions, v5 V5Options) *V5 {
 }
 
 // IsConnected reports whether the connection to the broker is up.
-func (v *V5) IsConnected() bool { return v.up.Load() }
+func (v *Client) IsConnected() bool { return v.up.Load() }
 
 // IsConnectionOpen reports whether the connection to the broker is up.
-func (v *V5) IsConnectionOpen() bool { return v.up.Load() }
+func (v *Client) IsConnectionOpen() bool { return v.up.Load() }
 
 // Connect starts connecting, the token completes on first CONNACK.
-func (v *V5) Connect() mqtt.Token {
+func (v *Client) Connect() mqtt.Token {
 	t := newToken()
 
 	v.closed.Store(false)
@@ -137,7 +137,7 @@ func (v *V5) Connect() mqtt.Token {
 	return t
 }
 
-func (v *V5) config(connectToken *token, cancel context.CancelFunc) autopaho.ClientConfig {
+func (v *Client) config(connectToken *token, cancel context.CancelFunc) autopaho.ClientConfig {
 	o := v.opts
 
 	debug, errs := pahoLoggers(o)
@@ -242,7 +242,7 @@ func reconnectBackoff(o *mqtt.ClientOptions) autopaho.Backoff {
 }
 
 // credentials is called for every connection attempt so refreshed credentials are picked up.
-func (v *V5) credentials(c *paho.Connect, _ *url.URL) (*paho.Connect, error) {
+func (v *Client) credentials(c *paho.Connect, _ *url.URL) (*paho.Connect, error) {
 	username, password := v.opts.Username, v.opts.Password
 	if v.opts.CredentialsProvider != nil {
 		username, password = v.opts.CredentialsProvider()
@@ -260,7 +260,7 @@ func (v *V5) credentials(c *paho.Connect, _ *url.URL) (*paho.Connect, error) {
 }
 
 // connectionLost can be called several times for one drop, only the first after a successful connect is acted on.
-func (v *V5) connectionLost(err error, cancel context.CancelFunc) {
+func (v *Client) connectionLost(err error, cancel context.CancelFunc) {
 	if !v.up.Swap(false) || v.closed.Load() {
 		return
 	}
@@ -283,7 +283,7 @@ func (v *V5) connectionLost(err error, cancel context.CancelFunc) {
 }
 
 // resubscribe restores subscriptions the broker did not retain across the reconnect.
-func (v *V5) resubscribe(cm *autopaho.ConnectionManager) {
+func (v *Client) resubscribe(cm *autopaho.ConnectionManager) {
 	v.mu.Lock()
 	subs := make([]paho.SubscribeOptions, 0, len(v.subs))
 
@@ -303,7 +303,7 @@ func (v *V5) resubscribe(cm *autopaho.ConnectionManager) {
 }
 
 // Disconnect ends the connection, quiesce is the time in milliseconds allowed for a clean shutdown.
-func (v *V5) Disconnect(quiesce uint) {
+func (v *Client) Disconnect(quiesce uint) {
 	v.closed.Store(true)
 
 	v.mu.Lock()
@@ -324,19 +324,19 @@ func (v *V5) Disconnect(quiesce uint) {
 }
 
 // Publish publishes without MQTT v5 properties.
-func (v *V5) Publish(topic string, qos byte, retained bool, payload interface{}) mqtt.Token {
+func (v *Client) Publish(topic string, qos byte, retained bool, payload interface{}) mqtt.Token {
 	return v.PublishWithPropsContext(context.Background(), topic, qos, retained, payload, nil)
 }
 
 // PublishWithProps publishes with the given MQTT v5 properties.
-func (v *V5) PublishWithProps(
+func (v *Client) PublishWithProps(
 	topic string, qos byte, retained bool, payload interface{}, props *PublishProps,
 ) mqtt.Token {
 	return v.PublishWithPropsContext(context.Background(), topic, qos, retained, payload, props)
 }
 
 // PublishWithPropsContext publishes with the given properties, ending the call when ctx ends.
-func (v *V5) PublishWithPropsContext(
+func (v *Client) PublishWithPropsContext(
 	ctx context.Context, topic string, qos byte, retained bool, payload interface{}, props *PublishProps,
 ) mqtt.Token {
 	b, err := toBytes(payload)
@@ -381,17 +381,17 @@ func (v *V5) PublishWithPropsContext(
 }
 
 // Subscribe subscribes to a single topic filter.
-func (v *V5) Subscribe(topic string, qos byte, callback mqtt.MessageHandler) mqtt.Token {
+func (v *Client) Subscribe(topic string, qos byte, callback mqtt.MessageHandler) mqtt.Token {
 	return v.SubscribeMultiple(map[string]byte{topic: qos}, callback)
 }
 
 // SubscribeMultiple subscribes to multiple topic filters.
-func (v *V5) SubscribeMultiple(filters map[string]byte, callback mqtt.MessageHandler) mqtt.Token {
+func (v *Client) SubscribeMultiple(filters map[string]byte, callback mqtt.MessageHandler) mqtt.Token {
 	return v.SubscribeMultipleContext(context.Background(), filters, callback)
 }
 
 // SubscribeMultipleContext subscribes to multiple topic filters, ending the call when ctx ends.
-func (v *V5) SubscribeMultipleContext(
+func (v *Client) SubscribeMultipleContext(
 	ctx context.Context, filters map[string]byte, callback mqtt.MessageHandler,
 ) mqtt.Token {
 	subs := make([]paho.SubscribeOptions, 0, len(filters))
@@ -420,12 +420,12 @@ func (v *V5) SubscribeMultipleContext(
 }
 
 // Unsubscribe removes the subscriptions for the topic filters.
-func (v *V5) Unsubscribe(topics ...string) mqtt.Token {
+func (v *Client) Unsubscribe(topics ...string) mqtt.Token {
 	return v.UnsubscribeContext(context.Background(), topics...)
 }
 
 // UnsubscribeContext removes the subscriptions, ending the call when ctx ends.
-func (v *V5) UnsubscribeContext(ctx context.Context, topics ...string) mqtt.Token {
+func (v *Client) UnsubscribeContext(ctx context.Context, topics ...string) mqtt.Token {
 	return v.run(ctx, func(ctx context.Context, cm *autopaho.ConnectionManager) error {
 		resp, err := cm.Unsubscribe(ctx, &paho.Unsubscribe{Topics: topics})
 		if err != nil {
@@ -441,11 +441,11 @@ func (v *V5) UnsubscribeContext(ctx context.Context, topics ...string) mqtt.Toke
 }
 
 // AddRoute adds a handler for messages on a topic filter without subscribing.
-func (v *V5) AddRoute(topic string, callback mqtt.MessageHandler) {
+func (v *Client) AddRoute(topic string, callback mqtt.MessageHandler) {
 	v.router.RegisterHandler(topic, v.handler(callback))
 }
 
-func (v *V5) addRoute(topic string, qos byte, callback mqtt.MessageHandler) {
+func (v *Client) addRoute(topic string, qos byte, callback mqtt.MessageHandler) {
 	v.mu.Lock()
 	v.subs[topic] = subscription{qos: qos, cb: callback}
 	v.mu.Unlock()
@@ -454,7 +454,7 @@ func (v *V5) addRoute(topic string, qos byte, callback mqtt.MessageHandler) {
 	v.router.RegisterHandler(topic, v.handler(callback))
 }
 
-func (v *V5) removeRoute(topic string) {
+func (v *Client) removeRoute(topic string) {
 	v.mu.Lock()
 	delete(v.subs, topic)
 	v.mu.Unlock()
@@ -462,12 +462,12 @@ func (v *V5) removeRoute(topic string) {
 	v.router.UnregisterHandler(topic)
 }
 
-func (v *V5) handler(callback mqtt.MessageHandler) paho.MessageHandler {
+func (v *Client) handler(callback mqtt.MessageHandler) paho.MessageHandler {
 	return func(p *paho.Publish) { callback(v, &message{p: p, ack: v.ack}) }
 }
 
 // ack acknowledges a message when manual acknowledgement is on, the library sends them in receipt order.
-func (v *V5) ack(p *paho.Publish) {
+func (v *Client) ack(p *paho.Publish) {
 	cli := v.cli.Load()
 	if cli == nil {
 		return
@@ -480,7 +480,7 @@ func (v *V5) ack(p *paho.Publish) {
 
 // run starts f in the background so the caller can wait on the token, ending it when
 // caller's ctx ends or opTimeout passes, whichever is first.
-func (v *V5) run(ctx context.Context, f func(context.Context, *autopaho.ConnectionManager) error) mqtt.Token {
+func (v *Client) run(ctx context.Context, f func(context.Context, *autopaho.ConnectionManager) error) mqtt.Token {
 	v.mu.Lock()
 	cm := v.cm
 	v.mu.Unlock()
@@ -501,7 +501,7 @@ func (v *V5) run(ctx context.Context, f func(context.Context, *autopaho.Connecti
 	return t
 }
 
-func (v *V5) opTimeout() time.Duration {
+func (v *Client) opTimeout() time.Duration {
 	if v.opts.AckTimeout > 0 {
 		return v.opts.AckTimeout
 	}

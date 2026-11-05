@@ -3,7 +3,7 @@ package courier
 import (
 	"context"
 
-	"github.com/gojek/courier-go/internal/driver"
+	"github.com/gojek/courier-go/internal/mqttv5"
 )
 
 type clientIDCallbackKey struct{}
@@ -77,8 +77,8 @@ func WithCorrelationData(ctx context.Context, data []byte) context.Context {
 	return context.WithValue(ctx, correlationDataKey{}, data)
 }
 
-func publishPropsFromContext(ctx context.Context) *driver.PublishProps {
-	props := &driver.PublishProps{UserProperties: UserPropertiesFromContext(ctx)}
+func publishPropsFromContext(ctx context.Context) *mqttv5.PublishProps {
+	props := &mqttv5.PublishProps{UserProperties: UserPropertiesFromContext(ctx)}
 
 	props.ContentType, _ = ctx.Value(contentTypeKey{}).(string)
 	props.ResponseTopic, _ = ctx.Value(responseTopicKey{}).(string)

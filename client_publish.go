@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/gojek/courier-go/internal/driver"
+	"github.com/gojek/courier-go/internal/mqttv5"
 	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
@@ -39,7 +39,7 @@ func publishHandler(c *Client) Publisher {
 		o := composeOptions(opts)
 
 		return c.execute(ctx, func(cc mqtt.Client) error {
-			if cp, ok := cc.(driver.ContextClient); ok {
+			if cp, ok := cc.(mqttv5.ContextClient); ok {
 				props := publishPropsFromContext(ctx)
 
 				return c.handleToken(ctx,

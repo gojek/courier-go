@@ -7,13 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/gojek/courier-go/internal/driver"
+	"github.com/gojek/courier-go/internal/mqttv5"
 	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
 type v5Message struct {
 	mqtt.Message
-	props *driver.PublishProps
+	props *mqttv5.PublishProps
 }
 
 func (m v5Message) Topic() string               { return "t" }
@@ -22,7 +22,7 @@ func (m v5Message) Duplicate() bool             { return false }
 func (m v5Message) Retained() bool              { return false }
 func (m v5Message) MessageID() uint16           { return 7 }
 func (m v5Message) Payload() []byte             { return []byte(`"body"`) }
-func (m v5Message) Props() *driver.PublishProps { return m.props }
+func (m v5Message) Props() *mqttv5.PublishProps { return m.props }
 
 func TestMessage_V5Fields(t *testing.T) {
 	c, err := NewClient(WithAddress("127.0.0.1", 1883))
@@ -32,7 +32,7 @@ func TestMessage_V5Fields(t *testing.T) {
 
 	cb := callbackWrapper(c, func(_ context.Context, _ PubSub, m *Message) { got = m })
 
-	cb(nil, v5Message{props: &driver.PublishProps{
+	cb(nil, v5Message{props: &mqttv5.PublishProps{
 		UserProperties:  map[string]string{"a": "b"},
 		ContentType:     "application/json",
 		ResponseTopic:   "reply",

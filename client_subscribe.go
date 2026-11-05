@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/gojek/courier-go/internal/driver"
+	"github.com/gojek/courier-go/internal/mqttv5"
 	mqtt "github.com/gojek/paho.mqtt.golang"
 	"github.com/gojekfarm/xtools/generic/slice"
 )
@@ -83,7 +83,7 @@ func subscriberFuncs(c *Client) Subscriber {
 			}
 
 			return c.execute(ctx, func(cc mqtt.Client) error {
-				if cp, ok := cc.(driver.ContextClient); ok {
+				if cp, ok := cc.(mqttv5.ContextClient); ok {
 					return c.handleToken(ctx, cp.SubscribeMultipleContext(ctx,
 						map[string]byte{topic: o.qos}, callbackWrapper(c, callback)), ErrSubscribeTimeout)
 				}
@@ -127,7 +127,7 @@ func subscriberFuncs(c *Client) Subscriber {
 func subscribeWithContext(
 	ctx context.Context, cc mqtt.Client, filters map[string]byte, callback mqtt.MessageHandler,
 ) mqtt.Token {
-	if cp, ok := cc.(driver.ContextClient); ok {
+	if cp, ok := cc.(mqttv5.ContextClient); ok {
 		return cp.SubscribeMultipleContext(ctx, filters, callback)
 	}
 
@@ -149,7 +149,7 @@ func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 		msg.QoS = QOSLevel(m.Qos())
 		msg.ack = m.Ack
 
-		if pm, ok := m.(driver.MessageWithProps); ok {
+		if pm, ok := m.(mqttv5.MessageWithProps); ok {
 			if p := pm.Props(); p != nil {
 				msg.UserProperties = p.UserProperties
 				msg.ContentType = p.ContentType

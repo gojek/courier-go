@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gojek/courier-go/internal/driver"
+	"github.com/gojek/courier-go/internal/mqttv5"
 	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
@@ -392,7 +392,7 @@ func onConnectHandler(client PubSub, o *clientOptions) mqtt.OnConnectHandler {
 // newMQTTClient creates the v5 client when MQTTv5 is configured, otherwise the (overridable) v3.1.1 client.
 func newMQTTClient(o *clientOptions, opts *mqtt.ClientOptions) mqtt.Client {
 	if o.mqttVersion == MQTTv5 {
-		return driver.NewV5(opts, driver.V5Options{
+		return mqttv5.New(opts, mqttv5.Options{
 			CleanStart:            o.cleanStart,
 			SessionExpiryInterval: o.sessionExpiryInterval,
 		})

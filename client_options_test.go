@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/gojek/courier-go/internal/driver"
+	"github.com/gojek/courier-go/internal/mqttv5"
 )
 
 type ClientOptionSuite struct {
@@ -273,15 +273,15 @@ func TestWithMQTTVersion(t *testing.T) {
 	c, err := NewClient(WithAddress("127.0.0.1", 1883))
 	assert.NoError(t, err)
 	assert.Equal(t, MQTTv311, c.options.mqttVersion)
-	assert.NotContains(t, fmt.Sprintf("%T", c.mqttClient), "driver.V5")
+	assert.NotContains(t, fmt.Sprintf("%T", c.mqttClient), "mqttv5.Client")
 
 	c, err = NewClient(WithAddress("127.0.0.1", 1883), WithMQTTVersion(MQTTv5))
 	assert.NoError(t, err)
-	assert.IsType(t, &driver.V5{}, c.mqttClient)
+	assert.IsType(t, &mqttv5.Client{}, c.mqttClient)
 
 	c, err = NewClient(WithAddress("127.0.0.1", 1883), WithMQTTVersion(MQTTv5), WithPoolSize(2))
 	assert.NoError(t, err)
-	assert.IsType(t, &driver.V5{}, c.orderedClients[0].client)
+	assert.IsType(t, &mqttv5.Client{}, c.orderedClients[0].client)
 
 	_, err = NewClient(WithAddress("127.0.0.1", 1883), WithMQTTVersion(3))
 	assert.Error(t, err)

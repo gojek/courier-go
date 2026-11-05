@@ -70,8 +70,9 @@ type V5 struct {
 	cancel context.CancelFunc
 	subs   map[string]subscription
 
-	up     atomic.Bool
-	closed atomic.Bool
+	up           atomic.Bool
+	closed       atomic.Bool
+	reconnecting atomic.Bool
 }
 
 // V5Options are the settings that exist only in MQTT v5.
@@ -142,6 +143,7 @@ func (v *V5) config(connectToken *token, cancel context.CancelFunc) autopaho.Cli
 		ConnectPacketBuilder:          v.credentials,
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, ack *paho.Connack) {
 			v.up.Store(true)
+			v.reconnecting.Store(false)
 			connectToken.complete(nil)
 
 			if !ack.SessionPresent {
@@ -153,6 +155,15 @@ func (v *V5) config(connectToken *token, cancel context.CancelFunc) autopaho.Cli
 			}
 		},
 		OnConnectError: func(err error) {
+			if v.reconnecting.Load() {
+				// v3 calls OnReconnecting before every retry, autopaho only reports after each failed attempt.
+				if o.AutoReconnect && o.OnReconnecting != nil {
+					go o.OnReconnecting(v, o)
+				}
+
+				return
+			}
+
 			if !o.ConnectRetry {
 				connectToken.complete(err)
 				cancel()
@@ -235,6 +246,8 @@ func (v *V5) connectionLost(err error, cancel context.CancelFunc) {
 	if !v.opts.AutoReconnect {
 		cancel() // autopaho always reconnects unless cancelled
 	}
+
+	v.reconnecting.Store(true)
 
 	go func() {
 		if v.opts.OnConnectionLost != nil {

@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"errors"
 	"math"
 	"net"
 	"net/url"
@@ -152,4 +153,44 @@ func TestReconnectBackoff(t *testing.T) {
 	d := reconnectBackoff(mqtt.NewClientOptions().SetConnectRetryInterval(0).SetMaxReconnectInterval(0))
 	assert.Equal(t, time.Second, d(1))
 	assert.Equal(t, defaultMaxReconnectInterval, d(100))
+}
+
+func TestV5_OnConnectError(t *testing.T) {
+	t.Run("initial connect fails the token when ConnectRetry is off", func(t *testing.T) {
+		v := NewV5(mqtt.NewClientOptions().SetConnectRetry(false), V5Options{})
+
+		tok, cancelled := newToken(), false
+		v.config(tok, func() { cancelled = true }).OnConnectError(errors.New("refused"))
+
+		require.True(t, tok.WaitTimeout(time.Second))
+		assert.EqualError(t, tok.Error(), "refused")
+		assert.True(t, cancelled)
+	})
+
+	t.Run("each reconnect attempt calls OnReconnecting and never cancels", func(t *testing.T) {
+		calls := make(chan struct{}, 4)
+		opts := mqtt.NewClientOptions().SetConnectRetry(false).SetAutoReconnect(true).
+			SetReconnectingHandler(func(mqtt.Client, *mqtt.ClientOptions) { calls <- struct{}{} })
+
+		v := NewV5(opts, V5Options{})
+		v.up.Store(true)
+
+		tok, cancelled := newToken(), false
+		cancel := func() { cancelled = true }
+		cfg := v.config(tok, cancel)
+
+		v.connectionLost(errors.New("lost"), cancel) // fires OnReconnecting once, like v3's first retry
+		cfg.OnConnectError(errors.New("refused"))    // then once per failed attempt
+		cfg.OnConnectError(errors.New("refused"))
+
+		for i := 0; i < 3; i++ {
+			select {
+			case <-calls:
+			case <-time.After(time.Second):
+				t.Fatalf("OnReconnecting called %d times, want 3", i)
+			}
+		}
+
+		assert.False(t, cancelled)
+	})
 }

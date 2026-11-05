@@ -106,6 +106,7 @@ func WithCleanSession(cleanSession bool) ClientOption {
 // Note that setting this to true does not guarantee in-order delivery
 // (this is subject to broker settings like "max_inflight_messages=1")
 // and if true then  MessageHandler callback must not block.
+// Ignored for MQTTv5, which always delivers in order.
 func WithMaintainOrder(maintainOrder bool) ClientOption {
 	return optionFunc(func(o *clientOptions) {
 		o.maintainOrder = maintainOrder
@@ -190,6 +191,7 @@ func WithConnectTimeout(duration time.Duration) ClientOption {
 // WithWriteTimeout limits how long the client will wait when trying to publish, subscribe or unsubscribe on topic
 // when a context deadline is not set while calling Publisher.Publish, Subscriber.Subscribe,
 // Subscriber.SubscribeMultiple or Unsubscriber.Unsubscribe.
+// Ignored for MQTTv5, where WithAckTimeout bounds the call instead.
 func WithWriteTimeout(duration time.Duration) ClientOption {
 	return optionFunc(func(o *clientOptions) {
 		o.writeTimeout = duration
@@ -283,6 +285,7 @@ var UseMultiConnectionMode = multiConnMode{}
 
 // ResumeSubscriptions allows resuming of stored (un)subscribe messages when connecting
 // but not reconnecting if CleanSession is false. Otherwise, these messages are discarded.
+// Ignored for MQTTv5, which resubscribes whenever the broker reports no existing session.
 var ResumeSubscriptions = resumeSubscriptions{}
 
 type multiConnMode struct{}

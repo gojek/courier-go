@@ -253,3 +253,59 @@ func TestV5_PublishFailsWhenConnectionStaysDown(t *testing.T) {
 	require.True(t, tk.WaitTimeout(5*time.Second))
 	assert.Error(t, tk.Error())
 }
+
+func TestV5_ReconnectResubscribesAndFiresHooks(t *testing.T) {
+	broker := brokerOrSkip(t)
+
+	lost := make(chan error, 4)
+	reconnecting := make(chan struct{}, 4)
+	connected := make(chan struct{}, 4)
+
+	opts := mqtt.NewClientOptions().SetClientID(t.Name()).SetAutoReconnect(true).
+		SetKeepAlive(30 * time.Second).SetAckTimeout(10 * time.Second).
+		SetConnectionLostHandler(func(_ mqtt.Client, err error) { lost <- err }).
+		SetReconnectingHandler(func(mqtt.Client, *mqtt.ClientOptions) { reconnecting <- struct{}{} }).
+		SetOnConnectHandler(func(mqtt.Client) { connected <- struct{}{} })
+	opts.Servers = []*url.URL{broker}
+
+	// CleanStart drops the session, so the broker reports no session and the client must resubscribe
+	c := NewV5(opts, V5Options{CleanStart: true})
+
+	tk := c.Connect()
+	require.True(t, tk.WaitTimeout(5*time.Second))
+	require.NoError(t, tk.Error())
+
+	t.Cleanup(func() { c.Disconnect(100) })
+	recv(t, connected, "OnConnect after the first connection")
+
+	got := make(chan mqtt.Message, 1)
+	wait(t, c.Subscribe("v5/reconnect", 1, func(_ mqtt.Client, m mqtt.Message) { got <- m }))
+
+	c.cm.TerminateConnectionForTest()
+
+	recv(t, lost, "OnConnectionLost after the connection drops")
+	recv(t, reconnecting, "OnReconnecting after the connection drops")
+	recv(t, connected, "OnConnect after the reconnect")
+
+	require.Eventually(t, c.IsConnected, 10*time.Second, 50*time.Millisecond)
+
+	// the subscription survives only if resubscribe ran on the new connection
+	wait(t, c.Publish("v5/reconnect", 1, false, "after-reconnect"))
+
+	select {
+	case m := <-got:
+		assert.Equal(t, []byte("after-reconnect"), m.Payload())
+	case <-time.After(5 * time.Second):
+		t.Fatal("message not received after the reconnect, the resubscribe did not happen")
+	}
+}
+
+func recv[T any](t *testing.T, ch <-chan T, what string) {
+	t.Helper()
+
+	select {
+	case <-ch:
+	case <-time.After(10 * time.Second):
+		t.Fatalf("timed out waiting for %s", what)
+	}
+}

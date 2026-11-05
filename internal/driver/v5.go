@@ -40,9 +40,14 @@ type PublishProps struct {
 	CorrelationData []byte
 }
 
-// PropsPublisher is implemented by clients that can publish with MQTT v5 properties.
-type PropsPublisher interface {
-	PublishWithProps(topic string, qos byte, retained bool, payload interface{}, props *PublishProps) mqtt.Token
+// ContextClient is implemented by clients that can publish MQTT v5 properties and
+// that end an in-flight call when the caller's context does.
+type ContextClient interface {
+	PublishWithPropsContext(
+		ctx context.Context, topic string, qos byte, retained bool, payload interface{}, props *PublishProps,
+	) mqtt.Token
+	SubscribeMultipleContext(ctx context.Context, filters map[string]byte, callback mqtt.MessageHandler) mqtt.Token
+	UnsubscribeContext(ctx context.Context, topics ...string) mqtt.Token
 }
 
 // MessageWithProps is implemented by received messages that carry MQTT v5 properties.
@@ -303,12 +308,19 @@ func (v *V5) Disconnect(quiesce uint) {
 
 // Publish publishes without MQTT v5 properties.
 func (v *V5) Publish(topic string, qos byte, retained bool, payload interface{}) mqtt.Token {
-	return v.PublishWithProps(topic, qos, retained, payload, nil)
+	return v.PublishWithPropsContext(context.Background(), topic, qos, retained, payload, nil)
 }
 
 // PublishWithProps publishes with the given MQTT v5 properties.
 func (v *V5) PublishWithProps(
 	topic string, qos byte, retained bool, payload interface{}, props *PublishProps,
+) mqtt.Token {
+	return v.PublishWithPropsContext(context.Background(), topic, qos, retained, payload, props)
+}
+
+// PublishWithPropsContext publishes with the given properties, ending the call when ctx ends.
+func (v *V5) PublishWithPropsContext(
+	ctx context.Context, topic string, qos byte, retained bool, payload interface{}, props *PublishProps,
 ) mqtt.Token {
 	b, err := toBytes(payload)
 	if err != nil {
@@ -326,7 +338,7 @@ func (v *V5) PublishWithProps(
 		}
 	}
 
-	return v.run(func(ctx context.Context, cm *autopaho.ConnectionManager) error {
+	return v.run(ctx, func(ctx context.Context, cm *autopaho.ConnectionManager) error {
 		resp, err := cm.Publish(ctx, p)
 		if err != nil {
 			return err
@@ -347,12 +359,19 @@ func (v *V5) Subscribe(topic string, qos byte, callback mqtt.MessageHandler) mqt
 
 // SubscribeMultiple subscribes to multiple topic filters.
 func (v *V5) SubscribeMultiple(filters map[string]byte, callback mqtt.MessageHandler) mqtt.Token {
+	return v.SubscribeMultipleContext(context.Background(), filters, callback)
+}
+
+// SubscribeMultipleContext subscribes to multiple topic filters, ending the call when ctx ends.
+func (v *V5) SubscribeMultipleContext(
+	ctx context.Context, filters map[string]byte, callback mqtt.MessageHandler,
+) mqtt.Token {
 	subs := make([]paho.SubscribeOptions, 0, len(filters))
 	for topic, qos := range filters {
 		subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: qos})
 	}
 
-	return v.run(func(ctx context.Context, cm *autopaho.ConnectionManager) error {
+	return v.run(ctx, func(ctx context.Context, cm *autopaho.ConnectionManager) error {
 		for topic, qos := range filters {
 			v.addRoute(topic, qos, callback)
 		}
@@ -374,7 +393,12 @@ func (v *V5) SubscribeMultiple(filters map[string]byte, callback mqtt.MessageHan
 
 // Unsubscribe removes the subscriptions for the topic filters.
 func (v *V5) Unsubscribe(topics ...string) mqtt.Token {
-	return v.run(func(ctx context.Context, cm *autopaho.ConnectionManager) error {
+	return v.UnsubscribeContext(context.Background(), topics...)
+}
+
+// UnsubscribeContext removes the subscriptions, ending the call when ctx ends.
+func (v *V5) UnsubscribeContext(ctx context.Context, topics ...string) mqtt.Token {
+	return v.run(ctx, func(ctx context.Context, cm *autopaho.ConnectionManager) error {
 		resp, err := cm.Unsubscribe(ctx, &paho.Unsubscribe{Topics: topics})
 		if err != nil {
 			return err
@@ -414,7 +438,9 @@ func (v *V5) handler(callback mqtt.MessageHandler) paho.MessageHandler {
 	return func(p *paho.Publish) { callback(v, &message{p: p}) }
 }
 
-func (v *V5) run(f func(context.Context, *autopaho.ConnectionManager) error) mqtt.Token {
+// run starts f in the background so the caller can wait on the token, ending it when
+// caller's ctx ends or opTimeout passes, whichever is first.
+func (v *V5) run(ctx context.Context, f func(context.Context, *autopaho.ConnectionManager) error) mqtt.Token {
 	v.mu.Lock()
 	cm := v.cm
 	v.mu.Unlock()
@@ -426,7 +452,7 @@ func (v *V5) run(f func(context.Context, *autopaho.ConnectionManager) error) mqt
 	t := newToken()
 
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), v.opTimeout())
+		ctx, cancel := context.WithTimeout(ctx, v.opTimeout())
 		defer cancel()
 
 		t.complete(f(ctx, cm))

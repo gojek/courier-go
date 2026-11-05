@@ -340,19 +340,28 @@ func (tm *testPublishMiddleware) Middleware(p Publisher) Publisher {
 	})
 }
 
-// v5Client is a PropsPublisher so the publish path under MQTT v5 can be asserted without a broker.
+// v5Client is a driver.ContextClient so the publish path under MQTT v5 can be asserted without a broker.
 type v5Client struct {
 	mqtt.Client
 	topic string
 	props *driver.PublishProps
+	ctx   context.Context
 }
 
 func (v *v5Client) OptionsReader() mqtt.ClientOptionsReader { return mqtt.ClientOptionsReader{} }
 
-func (v *v5Client) PublishWithProps(
-	topic string, _ byte, _ bool, _ interface{}, props *driver.PublishProps,
+func (v *v5Client) SubscribeMultipleContext(
+	context.Context, map[string]byte, mqtt.MessageHandler,
 ) mqtt.Token {
-	v.topic, v.props = topic, props
+	return &mockToken{}
+}
+
+func (v *v5Client) UnsubscribeContext(context.Context, ...string) mqtt.Token { return &mockToken{} }
+
+func (v *v5Client) PublishWithPropsContext(
+	ctx context.Context, topic string, _ byte, _ bool, _ interface{}, props *driver.PublishProps,
+) mqtt.Token {
+	v.ctx, v.topic, v.props = ctx, topic, props
 
 	tk := &mockToken{}
 	tk.On("WaitTimeout", 10*time.Second).Return(true)
@@ -374,6 +383,7 @@ func TestPublish_UserPropertiesFromContext(t *testing.T) {
 	require.NoError(t, c.Publish(ctx, "topic", "payload"))
 
 	require.Equal(t, "topic", fake.topic)
+	require.Equal(t, ctx, fake.ctx) // the caller's context reaches the driver
 	require.Equal(t, map[string]string{"k": "v"}, fake.props.UserProperties)
 
 	require.NoError(t, c.Publish(context.Background(), "topic", "payload"))

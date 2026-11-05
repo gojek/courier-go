@@ -139,3 +139,17 @@ func TestV5_SessionExpiryAndCleanStart(t *testing.T) {
 		config(newToken(), func() {})
 	assert.EqualValues(t, uint32(math.MaxUint32), cfg.SessionExpiryInterval)
 }
+
+func TestReconnectBackoff(t *testing.T) {
+	o := mqtt.NewClientOptions().SetConnectRetryInterval(time.Second).SetMaxReconnectInterval(8 * time.Second)
+	b := reconnectBackoff(o)
+
+	for attempt, want := range []time.Duration{0, time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 8 * time.Second} {
+		assert.Equal(t, want, b(attempt), "attempt %d", attempt)
+	}
+
+	// unset options fall back to 1s doubling up to the v3 default cap
+	d := reconnectBackoff(mqtt.NewClientOptions().SetConnectRetryInterval(0).SetMaxReconnectInterval(0))
+	assert.Equal(t, time.Second, d(1))
+	assert.Equal(t, defaultMaxReconnectInterval, d(100))
+}

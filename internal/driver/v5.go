@@ -23,6 +23,8 @@ import (
 
 const (
 	defaultOpTimeout = 30 * time.Second
+	// defaultMaxReconnectInterval matches the v3 client's default.
+	defaultMaxReconnectInterval = 10 * time.Minute
 	// MQTT v5 reason codes at or above this value are failures.
 	reasonFailure = 0x80
 )
@@ -99,8 +101,6 @@ func (v *V5) IsConnected() bool { return v.up.Load() }
 func (v *V5) IsConnectionOpen() bool { return v.up.Load() }
 
 // Connect starts connecting, the token completes on first CONNACK.
-// shortcut: reconnect delay is constant (ConnectRetryInterval), upgrade to
-// autopaho.NewExponentialBackoff if brokers need it.
 func (v *V5) Connect() mqtt.Token {
 	t := newToken()
 
@@ -138,18 +138,8 @@ func (v *V5) config(connectToken *token, cancel context.CancelFunc) autopaho.Cli
 		KeepAlive:                     uint16(o.KeepAlive),
 		CleanStartOnInitialConnection: v.v5.CleanStart,
 		ConnectTimeout:                o.ConnectTimeout,
-		ReconnectBackoff: func(attempt int) time.Duration {
-			if attempt == 0 { // autopaho also waits before the first attempt
-				return 0
-			}
-
-			if o.ConnectRetryInterval > 0 {
-				return o.ConnectRetryInterval
-			}
-
-			return 10 * time.Second
-		},
-		ConnectPacketBuilder: v.credentials,
+		ReconnectBackoff:              reconnectBackoff(o),
+		ConnectPacketBuilder:          v.credentials,
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, ack *paho.Connack) {
 			v.up.Store(true)
 			connectToken.complete(nil)
@@ -186,6 +176,36 @@ func (v *V5) config(connectToken *token, cancel context.CancelFunc) autopaho.Cli
 	}
 
 	return cfg
+}
+
+// reconnectBackoff doubles the delay on every attempt up to MaxReconnectInterval, like the v3 client.
+func reconnectBackoff(o *mqtt.ClientOptions) autopaho.Backoff {
+	start := o.ConnectRetryInterval
+	if start <= 0 {
+		start = time.Second
+	}
+
+	maxDelay := o.MaxReconnectInterval
+	if maxDelay <= 0 {
+		maxDelay = defaultMaxReconnectInterval
+	}
+
+	return func(attempt int) time.Duration {
+		if attempt == 0 { // autopaho also waits before the first attempt
+			return 0
+		}
+
+		d := start
+		for i := 1; i < attempt && d < maxDelay; i++ {
+			d *= 2
+		}
+
+		if d > maxDelay {
+			return maxDelay
+		}
+
+		return d
+	}
 }
 
 // credentials is called for every connection attempt so refreshed credentials are picked up.

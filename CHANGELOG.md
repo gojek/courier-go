@@ -18,6 +18,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `WithPahoLogLevel` now also controls the MQTT v5 library logs (JSON on stdout, same as v3)
 - MQTT v5 reconnect delay now doubles on each attempt up to `WithMaxReconnectInterval`, matching MQTT v3.1.1
 - Cancelling the context passed to `Publish`, `Subscribe` or `Unsubscribe` now ends the in-flight MQTT v5 call
+- `WithAutoAckDisabled` and `Message.Ack` for acknowledging received messages from the handler, on both protocol versions
 
 ## [0.7.17]
 

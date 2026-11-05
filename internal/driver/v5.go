@@ -17,6 +17,7 @@ import (
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
+	"github.com/eclipse/paho.golang/paho/log"
 
 	mqtt "github.com/gojek/paho.mqtt.golang"
 )
@@ -69,11 +70,15 @@ type V5 struct {
 	opts   *mqtt.ClientOptions
 	v5     V5Options
 	router *paho.StandardRouter
+	errs   log.Logger
 
 	mu     sync.Mutex
 	cm     *autopaho.ConnectionManager
 	cancel context.CancelFunc
 	subs   map[string]subscription
+
+	// paho client of the current connection, used to acknowledge messages manually.
+	cli atomic.Pointer[paho.Client]
 
 	up           atomic.Bool
 	closed       atomic.Bool
@@ -91,11 +96,14 @@ type V5Options struct {
 // NewV5 creates an MQTT v5 client from v3 style options plus the v5 only V5Options.
 // KeepAlive, ConnectTimeout and ConnectRetry(Interval) are read from opts, CleanSession is not used.
 func NewV5(opts *mqtt.ClientOptions, v5 V5Options) *V5 {
+	_, errs := pahoLoggers(opts)
+
 	return &V5{
 		Client: mqtt.NewClient(opts),
 		opts:   opts,
 		v5:     v5,
 		router: paho.NewStandardRouter(),
+		errs:   errs,
 		subs:   map[string]subscription{},
 	}
 }
@@ -175,9 +183,18 @@ func (v *V5) config(connectToken *token, cancel context.CancelFunc) autopaho.Cli
 			}
 		},
 		ClientConfig: paho.ClientConfig{
-			ClientID:      o.ClientID,
-			Router:        v.router,
-			PacketTimeout: o.AckTimeout,
+			ClientID:                   o.ClientID,
+			Router:                     v.router,
+			PacketTimeout:              o.AckTimeout,
+			EnableManualAcknowledgment: o.AutoAckDisabled,
+			// runs before the router, which the library appends to this slice.
+			OnPublishReceived: []func(paho.PublishReceived) (bool, error){
+				func(pr paho.PublishReceived) (bool, error) {
+					v.cli.Store(pr.Client)
+
+					return false, nil
+				},
+			},
 			OnClientError: func(err error) { v.connectionLost(err, cancel) },
 			OnServerDisconnect: func(d *paho.Disconnect) {
 				v.connectionLost(fmt.Errorf("courier: server disconnected, reason code 0x%x", d.ReasonCode), cancel)
@@ -435,7 +452,19 @@ func (v *V5) removeRoute(topic string) {
 }
 
 func (v *V5) handler(callback mqtt.MessageHandler) paho.MessageHandler {
-	return func(p *paho.Publish) { callback(v, &message{p: p}) }
+	return func(p *paho.Publish) { callback(v, &message{p: p, ack: v.ack}) }
+}
+
+// ack acknowledges a message when manual acknowledgement is on, the library sends them in receipt order.
+func (v *V5) ack(p *paho.Publish) {
+	cli := v.cli.Load()
+	if cli == nil {
+		return
+	}
+
+	if err := cli.Ack(p); err != nil {
+		v.errs.Printf("courier: acknowledging message on %q failed: %v", p.Topic, err)
+	}
 }
 
 // run starts f in the background so the caller can wait on the token, ending it when
@@ -509,7 +538,10 @@ func userProperties(m map[string]string) paho.UserProperties {
 }
 
 // message adapts a received PUBLISH to mqtt.Message and MessageWithProps.
-type message struct{ p *paho.Publish }
+type message struct {
+	p   *paho.Publish
+	ack func(*paho.Publish)
+}
 
 func (m *message) Duplicate() bool   { return m.p.Duplicate() }
 func (m *message) Qos() byte         { return m.p.QoS }
@@ -517,7 +549,11 @@ func (m *message) Retained() bool    { return m.p.Retain }
 func (m *message) Topic() string     { return m.p.Topic }
 func (m *message) MessageID() uint16 { return m.p.PacketID }
 func (m *message) Payload() []byte   { return m.p.Payload }
-func (m *message) Ack()              {}
+func (m *message) Ack() {
+	if m.ack != nil {
+		m.ack(m.p)
+	}
+}
 
 func (m *message) Props() *PublishProps {
 	if m.p.Properties == nil {

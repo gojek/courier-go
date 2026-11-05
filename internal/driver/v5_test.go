@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/eclipse/paho.golang/paho"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -193,4 +194,12 @@ func TestV5_OnConnectError(t *testing.T) {
 
 		assert.False(t, cancelled)
 	})
+}
+
+func TestV5_ManualAck(t *testing.T) {
+	v := NewV5(mqtt.NewClientOptions().SetAutoAckDisabled(true), V5Options{})
+	assert.True(t, v.config(newToken(), func() {}).EnableManualAcknowledgment)
+
+	// without a live connection Ack must not panic, it is dropped with a logged error
+	v.handler(func(_ mqtt.Client, m mqtt.Message) { m.Ack() })(&paho.Publish{Topic: "t", QoS: 1})
 }

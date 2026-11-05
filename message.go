@@ -16,6 +16,7 @@ type Message struct {
 	CorrelationData []byte
 
 	payloadDecoder Decoder
+	ack            func()
 }
 
 // NewMessageWithDecoder is a helper to create Message, ideally payloadDecoder should not be mutated once created.
@@ -24,6 +25,14 @@ func NewMessageWithDecoder(
 ) *Message {
 	return &Message{
 		payloadDecoder: payloadDecoder,
+	}
+}
+
+// Ack acknowledges the message when WithAutoAckDisabled(true) is set, and does nothing otherwise.
+// Acknowledgements are sent in the order the messages were received.
+func (m *Message) Ack() {
+	if m.ack != nil {
+		m.ack()
 	}
 }
 

@@ -54,3 +54,14 @@ func TestMessage_V5Fields(t *testing.T) {
 	assert.Empty(t, got.UserProperties["missing"])
 	assert.Empty(t, got.ContentType)
 }
+
+func TestMessage_Ack(t *testing.T) {
+	m := NewMessageWithDecoder(nil)
+	m.Ack() // no-op when auto ack is on
+
+	acked := false
+	m.ack = func() { acked = true }
+	m.Ack()
+
+	assert.True(t, acked)
+}

@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -202,4 +203,23 @@ func TestV5_ManualAck(t *testing.T) {
 
 	// without a live connection Ack must not panic, it is dropped with a logged error
 	v.handler(func(_ mqtt.Client, m mqtt.Message) { m.Ack() })(&paho.Publish{Topic: "t", QoS: 1})
+}
+
+func TestV5_DeclaresEveryClientMethod(t *testing.T) {
+	// V5 embeds a never-connected v3 client so OptionsReader keeps working. Any other
+	// mqtt.Client method it does not declare itself would silently reach that client
+	// instead of the broker, so fail here if the interface grows one.
+	src, err := os.ReadFile("v5.go")
+	require.NoError(t, err)
+
+	iface := reflect.TypeOf((*mqtt.Client)(nil)).Elem()
+
+	for i := 0; i < iface.NumMethod(); i++ {
+		name := iface.Method(i).Name
+		if name == "OptionsReader" {
+			continue
+		}
+
+		assert.Contains(t, string(src), "func (v *V5) "+name+"(", "V5 must declare %s itself", name)
+	}
 }

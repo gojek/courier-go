@@ -126,7 +126,13 @@ func (v *V5) Connect() mqtt.Token {
 func (v *V5) config(connectToken *token, cancel context.CancelFunc) autopaho.ClientConfig {
 	o := v.opts
 
+	debug, errs := pahoLoggers(o)
+
 	cfg := autopaho.ClientConfig{
+		Debug:                         debug,
+		Errors:                        errs,
+		PahoDebug:                     debug,
+		PahoErrors:                    errs,
 		ServerUrls:                    o.Servers,
 		TlsCfg:                        o.TLSConfig,
 		KeepAlive:                     uint16(o.KeepAlive),

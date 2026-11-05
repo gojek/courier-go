@@ -15,6 +15,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `WithCleanStart` (default `true`) and `WithSessionExpiryInterval` options for MQTT v5 sessions
 - MQTT v5 publish properties via `WithUserProperties`, `WithContentType`, `WithResponseTopic` and `WithCorrelationData`, received on `Message` (`UserProperties`, `ContentType`, `ResponseTopic`, `CorrelationData`)
 - otelcourier propagates W3C trace context in MQTT v5 User Properties
+- `WithPahoLogLevel` now also controls the MQTT v5 library logs (JSON on stdout, same as v3)
 
 ## [0.7.17]
 

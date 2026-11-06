@@ -22,3 +22,13 @@ type OnReconnectHandler func(PubSub)
 // MessageHandler is the type that all callbacks being passed
 // to Subscriber must satisfy.
 type MessageHandler func(context.Context, PubSub, *Message)
+
+// MQTTVersion is the MQTT protocol version used to connect to the broker.
+type MQTTVersion uint8
+
+const (
+	// MQTTv311 is MQTT v3.1.1, the default.
+	MQTTv311 MQTTVersion = 4 // matches the protocol level in the CONNECT packet
+	// MQTTv5 is MQTT v5.0.
+	MQTTv5 MQTTVersion = 5
+)

@@ -20,6 +20,25 @@ MQTT has 3 built-in QoS levels for Reliable Message Delivery:
 - QoS 1(At least once) - the message is re-tried by the sender multiple times until acknowledgement is received (acknowledged delivery).
 - QoS 2(Exactly once) - the sender and receiver engage in a two-level handshake to ensure only one copy of the message is received (assured delivery).
 
+### MQTT version
+
+The client connects with MQTT v3.1.1 by default. To use MQTT v5, opt in with `WithMQTTVersion`:
+
+```go
+c, err := courier.NewClient(
+	courier.WithAddress("localhost", 1883),
+	courier.WithMQTTVersion(courier.MQTTv5),
+)
+```
+
+MQTT v5 sessions are configured with `WithCleanStart` and `WithSessionExpiryInterval` (`WithCleanSession` applies to v3.1.1 only). `CleanStart` defaults to `true`; to resume a persistent session set `WithCleanStart(false)` and a non-zero `WithSessionExpiryInterval`.
+User Properties are sent with `courier.WithUserProperties` and received on `courier.Message.UserProperties`:
+
+```go
+ctx := courier.WithUserProperties(context.Background(), map[string]string{"tenant": "acme"})
+_ = c.Publish(ctx, "topic", "payload", courier.QOSOne)
+```
+
 ### Usage
 
 ```bash

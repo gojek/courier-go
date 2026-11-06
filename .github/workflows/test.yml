@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    container: golang:1.24
+    container: golang:1.26
     services:
       mqtt:
         image: emqx/emqx:latest

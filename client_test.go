@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	mqtt "github.com/gojek/paho.mqtt.golang"
@@ -503,4 +505,61 @@ func TestClient_removeStoredSubsCalled(t *testing.T) {
 
 	assert.Empty(t, c.mqttClients["clientID-1"].subsCalled)
 	assert.NotEmpty(t, c.mqttClients["clientID-2"].subsCalled)
+}
+
+// TestClient_EndToEnd runs connect, subscribe, publish and stop against the test broker for every MQTT version.
+func TestClient_EndToEnd(t *testing.T) {
+	conn, err := net.DialTimeout("tcp", testBrokerAddress.String(), time.Second)
+	if err != nil {
+		t.Skipf("no MQTT broker at %s: %v", testBrokerAddress, err)
+	}
+
+	_ = conn.Close()
+
+	for name, version := range map[string]MQTTVersion{"v3.1.1": MQTTv311, "v5": MQTTv5} {
+		t.Run(name, func(t *testing.T) {
+			c, err := NewClient(append(defOpts,
+				WithClientID("e2e-"+name), WithMQTTVersion(version), WithGracefulShutdownPeriod(time.Second),
+			)...)
+			require.NoError(t, err)
+			require.NoError(t, c.Start())
+			require.Eventually(t, c.IsConnected, 5*time.Second, 50*time.Millisecond)
+
+			defer c.Stop()
+
+			got := make(chan *Message, 1)
+			topic := "courier/e2e/" + name
+
+			require.NoError(t, c.Subscribe(context.Background(), topic, func(_ context.Context, _ PubSub, m *Message) {
+				got <- m
+			}, QOSOne))
+
+			ctx := WithUserProperties(context.Background(), map[string]string{"k": "v"})
+			ctx = WithContentType(ctx, "application/json")
+			ctx = WithResponseTopic(ctx, "reply")
+			ctx = WithCorrelationData(ctx, []byte("id"))
+			require.NoError(t, c.Publish(ctx, topic, "hello", QOSOne))
+
+			select {
+			case m := <-got:
+				var body string
+				require.NoError(t, m.DecodePayload(&body))
+				assert.Equal(t, "hello", body)
+
+				if version == MQTTv5 {
+					assert.Equal(t, map[string]string{"k": "v"}, m.UserProperties)
+					assert.Equal(t, "application/json", m.ContentType)
+					assert.Equal(t, "reply", m.ResponseTopic)
+					assert.Equal(t, []byte("id"), m.CorrelationData)
+				} else {
+					assert.Empty(t, m.UserProperties)
+					assert.Empty(t, m.ContentType)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("message not received")
+			}
+
+			require.NoError(t, c.Unsubscribe(context.Background(), topic))
+		})
+	}
 }

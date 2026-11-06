@@ -340,3 +340,30 @@ func Test_instrumentCallbackDisabled(t *testing.T) {
 	spans := sr.Ended()
 	require.Len(t, spans, 0)
 }
+
+func Test_instrumentCallbackExtractsUserProperties(t *testing.T) {
+	tp := trace.NewTracerProvider()
+	sr := tracetest.NewSpanRecorder()
+	tp.RegisterSpanProcessor(sr)
+
+	m := New("test-service",
+		WithTracerProvider(tp),
+		WithMeterProvider(metric.NewMeterProvider()),
+		WithTextMapPropagator(propagation.NewCompositeTextMapPropagator(&propagation.TraceContext{})),
+	)
+
+	callback := m.instrumentCallback(func(context.Context, courier.PubSub, *courier.Message) {})
+
+	c, _ := courier.NewClient()
+	callback(context.Background(), c, &courier.Message{
+		Topic: "test-topic",
+		UserProperties: map[string]string{
+			"traceparent": "00-c8e801456e8232f618c49c6f65f101db-1986c136102242cd-01",
+		},
+	})
+
+	spans := sr.Ended()
+	require.Len(t, spans, 1)
+	assert.Equal(t, "c8e801456e8232f618c49c6f65f101db", spans[0].SpanContext().TraceID().String())
+	assert.Equal(t, "1986c136102242cd", spans[0].Parent().SpanID().String())
+}

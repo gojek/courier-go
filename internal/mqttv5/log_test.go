@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/eclipse/paho.golang/paho/log"
-	mqtt "github.com/gojek/paho.mqtt.golang"
 	"github.com/stretchr/testify/assert"
+
+	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 
 func TestPahoLoggers(t *testing.T) {

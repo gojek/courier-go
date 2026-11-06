@@ -3,11 +3,12 @@ package mqttv5
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/eclipse/paho.golang/paho/log"
+	"log/slog"
+
 	mqtt "github.com/gojek/paho.mqtt.golang"
 )
 

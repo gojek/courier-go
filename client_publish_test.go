@@ -346,6 +346,7 @@ type v5Client struct {
 	topic string
 	props *mqttv5.PublishProps
 	ctx   context.Context
+	err   error
 }
 
 func (v *v5Client) OptionsReader() mqtt.ClientOptionsReader { return mqtt.ClientOptionsReader{} }
@@ -363,11 +364,35 @@ func (v *v5Client) PublishWithPropsContext(
 ) mqtt.Token {
 	v.ctx, v.topic, v.props = ctx, topic, props
 
+	done := make(chan struct{})
+	close(done)
+
 	tk := &mockToken{}
 	tk.On("WaitTimeout", 10*time.Second).Return(true)
-	tk.On("Error").Return(nil)
+	tk.On("Done").Return((<-chan struct{})(done))
+	tk.On("Error").Return(v.err)
 
 	return tk
+}
+
+func TestPublish_V5TimeoutReportsPublishTimeout(t *testing.T) {
+	// The v5 client bounds the call itself and completes the token with the context error.
+	fake := &v5Client{err: context.DeadlineExceeded}
+
+	newClientFunc.Store(func(*mqtt.ClientOptions) mqtt.Client { return fake })
+	defer newClientFunc.Store(mqtt.NewClient)
+
+	c, err := NewClient(WithAddress("127.0.0.1", 1883))
+	require.NoError(t, err)
+
+	// No deadline of the caller's own, so the one that expired was ours.
+	require.ErrorIs(t, c.Publish(context.Background(), "topic", "payload"), ErrPublishTimeout)
+
+	// The caller's own deadline is reported as theirs, unchanged.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	require.ErrorIs(t, c.Publish(ctx, "topic", "payload"), context.DeadlineExceeded)
 }
 
 func TestPublish_UserPropertiesFromContext(t *testing.T) {

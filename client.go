@@ -178,6 +178,12 @@ func (c *Client) handleToken(ctx context.Context, t mqtt.Token, timeoutErr error
 	}
 
 	if err := t.Error(); err != nil {
+		// MQTT v5 bounds the call itself and reports a timeout as the context error. With no deadline
+		// of the caller's own that deadline is ours, so report it as v3 does, with the operation's error.
+		if _, ok := ctx.Deadline(); !ok && errors.Is(err, context.DeadlineExceeded) {
+			return timeoutErr
+		}
+
 		return err
 	}
 

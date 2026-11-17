@@ -342,3 +342,23 @@ func recv[T any](t *testing.T, ch <-chan T, what string) {
 		t.Fatalf("timed out waiting for %s", what)
 	}
 }
+
+func TestV5_ConnectIsNotReentrant(t *testing.T) {
+	o := mqtt.NewClientOptions().SetConnectRetry(true).SetConnectRetryInterval(time.Hour)
+	o.Servers = []*url.URL{{Scheme: "tcp", Host: "127.0.0.1:1"}} // nothing listens, so the attempt stays open
+
+	v := New(o, Options{})
+	v.reconnecting.Store(true)
+
+	first := v.Connect()
+	t.Cleanup(func() { v.Disconnect(10) })
+
+	cm := v.cm
+
+	assert.False(t, v.reconnecting.Load(), "Connect starts a fresh attempt")
+	assert.Same(t, first, v.Connect(), "a second Connect joins the attempt already running")
+	assert.Same(t, cm, v.cm, "a second connection manager would fight the first over the client ID")
+
+	v.Disconnect(10)
+	assert.NotSame(t, first, v.Connect(), "Connect after Disconnect starts a new attempt")
+}

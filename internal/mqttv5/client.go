@@ -83,10 +83,13 @@ type Client struct {
 	lastAttempt time.Time
 	lastDelay   time.Duration
 
-	mu     sync.Mutex
-	cm     *autopaho.ConnectionManager
-	cancel context.CancelFunc
-	subs   map[string]subscription
+	connectMu sync.Mutex
+
+	mu           sync.Mutex
+	cm           *autopaho.ConnectionManager
+	cancel       context.CancelFunc
+	connectToken *token
+	subs         map[string]subscription
 
 	// paho client of the current connection, used to acknowledge messages manually.
 	cli atomic.Pointer[paho.Client]
@@ -126,10 +129,24 @@ func (v *Client) IsConnected() bool { return v.up.Load() }
 func (v *Client) IsConnectionOpen() bool { return v.up.Load() }
 
 // Connect starts connecting, the token completes on first CONNACK.
+// Calling it again before Disconnect returns the token of the attempt already running.
 func (v *Client) Connect() mqtt.Token {
-	t := newToken()
+	v.connectMu.Lock()
+	defer v.connectMu.Unlock()
+
+	v.mu.Lock()
+	running, t := v.cm != nil && !v.closed.Load(), v.connectToken
+	v.mu.Unlock()
+
+	// a second manager would keep retrying under the same client ID and take over the first one's session
+	if running {
+		return t
+	}
+
+	t = newToken()
 
 	v.closed.Store(false)
+	v.reconnecting.Store(false)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -142,7 +159,7 @@ func (v *Client) Connect() mqtt.Token {
 	}
 
 	v.mu.Lock()
-	v.cm, v.cancel = cm, cancel
+	v.cm, v.cancel, v.connectToken = cm, cancel, t
 	v.mu.Unlock()
 
 	return t

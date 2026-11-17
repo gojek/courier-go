@@ -143,18 +143,44 @@ func TestV5_SessionExpiryAndCleanStart(t *testing.T) {
 	assert.EqualValues(t, uint32(math.MaxUint32), cfg.SessionExpiryInterval)
 }
 
-func TestReconnectBackoff(t *testing.T) {
-	o := mqtt.NewClientOptions().SetConnectRetryInterval(time.Second).SetMaxReconnectInterval(8 * time.Second)
-	b := reconnectBackoff(o)
+func TestReconnectBackoff_InitialConnect(t *testing.T) {
+	v := New(mqtt.NewClientOptions().SetConnectRetryInterval(5*time.Second), Options{})
 
-	for attempt, want := range []time.Duration{0, time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 8 * time.Second} {
-		assert.Equal(t, want, b(attempt), "attempt %d", attempt)
+	// v3 retries the first connection at a fixed interval, it does not back off
+	assert.Equal(t, time.Duration(0), v.reconnectBackoff(0))
+	for _, attempt := range []int{1, 2, 10} {
+		assert.Equal(t, 5*time.Second, v.reconnectBackoff(attempt), "attempt %d", attempt)
 	}
 
-	// unset options fall back to 1s doubling up to the v3 default cap
-	d := reconnectBackoff(mqtt.NewClientOptions().SetConnectRetryInterval(0).SetMaxReconnectInterval(0))
-	assert.Equal(t, time.Second, d(1))
-	assert.Equal(t, defaultMaxReconnectInterval, d(100))
+	d := New(mqtt.NewClientOptions().SetConnectRetryInterval(0), Options{})
+	assert.Equal(t, defaultConnectRetryInterval, d.reconnectBackoff(1))
+}
+
+func TestReconnectBackoff_AfterLoss(t *testing.T) {
+	now := time.Now()
+	nowFunc = func() time.Time { return now }
+
+	t.Cleanup(func() { nowFunc = time.Now })
+
+	v := New(mqtt.NewClientOptions().SetMaxReconnectInterval(8*time.Second), Options{})
+	v.reconnecting.Store(true)
+
+	// autopaho resets attempt to 0 on every CONNACK, so a flapping connection always asks for attempt 0
+	for _, want := range []time.Duration{0, time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 8 * time.Second} {
+		assert.Equal(t, want, v.reconnectBackoff(0))
+
+		now = now.Add(want)
+	}
+
+	// a connection that held starts over
+	now = now.Add(time.Minute)
+	assert.Equal(t, time.Duration(0), v.reconnectBackoff(0))
+
+	u := New(mqtt.NewClientOptions().SetMaxReconnectInterval(0), Options{})
+	u.reconnecting.Store(true)
+	u.lastAttempt, u.lastDelay = now, defaultMaxReconnectInterval
+
+	assert.Equal(t, defaultMaxReconnectInterval, u.reconnectBackoff(0))
 }
 
 func TestV5_OnConnectError(t *testing.T) {

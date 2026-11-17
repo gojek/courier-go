@@ -28,10 +28,17 @@ const (
 	defaultMaxReconnectInterval = 10 * time.Minute
 	// MQTT v5 reason codes at or above this value are failures.
 	reasonFailure = 0x80
+	// defaultConnectRetryInterval matches the v3 client's default.
+	defaultConnectRetryInterval = 30 * time.Second
+	// stableConnection is how long a connection must hold for the next loss to count as a fresh one.
+	stableConnection = 3 * time.Second
 )
 
 // ErrNotStarted is returned when an operation is attempted before Connect.
 var ErrNotStarted = errors.New("courier: mqtt v5 client not connected")
+
+// nowFunc is swapped in tests.
+var nowFunc = time.Now
 
 // PublishProps are the MQTT v5 properties of a PUBLISH packet.
 type PublishProps struct {
@@ -71,6 +78,10 @@ type Client struct {
 	v5     Options
 	router *paho.StandardRouter
 	errs   log.Logger
+
+	bmu         sync.Mutex
+	lastAttempt time.Time
+	lastDelay   time.Duration
 
 	mu     sync.Mutex
 	cm     *autopaho.ConnectionManager
@@ -152,7 +163,7 @@ func (v *Client) config(connectToken *token, cancel context.CancelFunc) autopaho
 		KeepAlive:                     uint16(o.KeepAlive),
 		CleanStartOnInitialConnection: v.v5.CleanStart,
 		ConnectTimeout:                o.ConnectTimeout,
-		ReconnectBackoff:              reconnectBackoff(o),
+		ReconnectBackoff:              v.reconnectBackoff,
 		ConnectPacketBuilder:          v.credentials,
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, ack *paho.Connack) {
 			v.up.Store(true)
@@ -211,34 +222,55 @@ func (v *Client) config(connectToken *token, cancel context.CancelFunc) autopaho
 	return cfg
 }
 
-// reconnectBackoff doubles the delay on every attempt up to MaxReconnectInterval, like the v3 client.
-func reconnectBackoff(o *mqtt.ClientOptions) autopaho.Backoff {
-	start := o.ConnectRetryInterval
-	if start <= 0 {
-		start = time.Second
+// reconnectBackoff is the delay before a connection attempt. The v3 client treats the two cases
+// differently: a fixed ConnectRetryInterval until it first connects, and a doubling delay after a loss.
+func (v *Client) reconnectBackoff(attempt int) time.Duration {
+	if v.reconnecting.Load() {
+		return v.lossBackoff()
 	}
 
-	maxDelay := o.MaxReconnectInterval
+	if attempt == 0 {
+		return 0
+	}
+
+	if d := v.opts.ConnectRetryInterval; d > 0 {
+		return d
+	}
+
+	return defaultConnectRetryInterval
+}
+
+// lossBackoff mirrors the v3 backoff controller: a connection that stayed up starts over with no
+// delay, otherwise the delay starts at 1s and doubles up to MaxReconnectInterval.
+// autopaho resets its own attempt counter on every CONNACK, so the count has to be kept here.
+func (v *Client) lossBackoff() time.Duration {
+	maxDelay := v.opts.MaxReconnectInterval
 	if maxDelay <= 0 {
 		maxDelay = defaultMaxReconnectInterval
 	}
 
-	return func(attempt int) time.Duration {
-		if attempt == 0 { // autopaho also waits before the first attempt
-			return 0
-		}
+	v.bmu.Lock()
+	defer v.bmu.Unlock()
 
-		d := start
-		for i := 1; i < attempt && d < maxDelay; i++ {
-			d *= 2
-		}
+	now := nowFunc()
+	if now.Sub(v.lastAttempt) > 2*stableConnection+v.lastDelay {
+		v.lastAttempt, v.lastDelay = now, 0
 
-		if d > maxDelay {
-			return maxDelay
-		}
-
-		return d
+		return 0
 	}
+
+	v.lastAttempt = now
+
+	switch {
+	case v.lastDelay <= 0:
+		v.lastDelay = time.Second
+	case v.lastDelay*2 >= maxDelay:
+		v.lastDelay = maxDelay
+	default:
+		v.lastDelay *= 2
+	}
+
+	return v.lastDelay
 }
 
 // credentials is called for every connection attempt so refreshed credentials are picked up.

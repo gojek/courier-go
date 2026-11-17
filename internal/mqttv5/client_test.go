@@ -228,7 +228,9 @@ func TestV5_ManualAck(t *testing.T) {
 	assert.True(t, v.config(newToken(), func() {}).EnableManualAcknowledgment)
 
 	// without a live connection Ack must not panic, it is dropped with a logged error
-	v.handler(func(_ mqtt.Client, m mqtt.Message) { m.Ack() })(&paho.Publish{Topic: "t", QoS: 1})
+	v.AddRoute("t", func(_ mqtt.Client, m mqtt.Message) { m.Ack() })
+	_, err := v.route(paho.PublishReceived{Packet: &paho.Publish{Topic: "t", QoS: 1}})
+	assert.NoError(t, err)
 }
 
 func TestV5_DeclaresEveryClientMethod(t *testing.T) {
@@ -361,4 +363,62 @@ func TestV5_ConnectIsNotReentrant(t *testing.T) {
 
 	v.Disconnect(10)
 	assert.NotSame(t, first, v.Connect(), "Connect after Disconnect starts a new attempt")
+}
+
+func TestTopicMatches(t *testing.T) {
+	for _, tc := range []struct {
+		filter, topic string
+		want          bool
+	}{
+		{"a/b", "a/b", true},
+		{"a/b", "a/c", false},
+		{"a/+", "a/b", true},
+		{"a/+", "a/b/c", false},
+		{"a/+/c", "a/b/c", true},
+		{"a/#", "a/b/c", true},
+		{"a/#", "a", true},
+		{"#", "a/b", true},
+		{"a/b", "a/b/c", false},
+		{"a/b/c", "a/b", false},
+		{"$share/group/a/b", "a/b", true},
+		{"$share/group/a/#", "a/b/c", true},
+		{"$share/group/a/b", "a/c", false},
+	} {
+		assert.Equal(t, tc.want, topicMatches(tc.filter, tc.topic), "%q vs %q", tc.filter, tc.topic)
+	}
+}
+
+func TestV5_HandlerCanSubscribe(t *testing.T) {
+	// paho's own router runs handlers under a read lock it also needs to register one
+	v := New(mqtt.NewClientOptions(), Options{})
+
+	done := make(chan struct{})
+
+	v.AddRoute("a/b", func(c mqtt.Client, _ mqtt.Message) {
+		c.Subscribe("reply/1", 1, func(mqtt.Client, mqtt.Message) {})
+		c.Unsubscribe("a/b")
+		close(done)
+	})
+
+	go func() { _, _ = v.route(paho.PublishReceived{Packet: &paho.Publish{Topic: "a/b"}}) }()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("a handler that subscribes deadlocked")
+	}
+}
+
+func TestV5_UnmatchedMessageIsLogged(t *testing.T) {
+	v := New(mqtt.NewClientOptions().SetLogLevel(mqtt.LogLevelError), Options{})
+
+	p := &capturePrinter{}
+	v.errs = p
+
+	handled, err := v.route(paho.PublishReceived{Packet: &paho.Publish{Topic: "nobody/listening"}})
+
+	assert.NoError(t, err)
+	assert.False(t, handled)
+	require.Len(t, p.lines, 1)
+	assert.Contains(t, p.lines[0], "nobody/listening")
 }

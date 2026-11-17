@@ -11,6 +11,7 @@ import (
 	"math"
 	"net/url"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -67,6 +68,8 @@ type MessageWithProps interface {
 type subscription struct {
 	qos byte
 	cb  mqtt.MessageHandler
+	// from AddRoute, which registers a handler without subscribing
+	noSub bool
 }
 
 // Client is an MQTT v5 implementation of mqtt.Client.
@@ -74,10 +77,9 @@ type Client struct {
 	// never connected, only serves OptionsReader() so client metadata keeps working.
 	mqtt.Client
 
-	opts   *mqtt.ClientOptions
-	v5     Options
-	router *paho.StandardRouter
-	errs   log.Logger
+	opts *mqtt.ClientOptions
+	v5   Options
+	errs log.Logger
 
 	bmu         sync.Mutex
 	lastAttempt time.Time
@@ -116,7 +118,6 @@ func New(opts *mqtt.ClientOptions, v5 Options) *Client {
 		Client: mqtt.NewClient(opts),
 		opts:   opts,
 		v5:     v5,
-		router: paho.NewStandardRouter(),
 		errs:   errs,
 		subs:   map[string]subscription{},
 	}
@@ -212,18 +213,10 @@ func (v *Client) config(connectToken *token, cancel context.CancelFunc) autopaho
 		},
 		ClientConfig: paho.ClientConfig{
 			ClientID:                   o.ClientID,
-			Router:                     v.router,
 			PacketTimeout:              o.AckTimeout,
 			EnableManualAcknowledgment: o.AutoAckDisabled,
-			// runs before the router, which the library appends to this slice.
-			OnPublishReceived: []func(paho.PublishReceived) (bool, error){
-				func(pr paho.PublishReceived) (bool, error) {
-					v.cli.Store(pr.Client)
-
-					return false, nil
-				},
-			},
-			OnClientError: func(err error) { v.connectionLost(err, cancel) },
+			OnPublishReceived:          []func(paho.PublishReceived) (bool, error){v.route},
+			OnClientError:              func(err error) { v.connectionLost(err, cancel) },
 			OnServerDisconnect: func(d *paho.Disconnect) {
 				v.connectionLost(fmt.Errorf("courier: server disconnected, reason code 0x%x", d.ReasonCode), cancel)
 			},
@@ -337,6 +330,10 @@ func (v *Client) resubscribe(cm *autopaho.ConnectionManager) {
 	subs := make([]paho.SubscribeOptions, 0, len(v.subs))
 
 	for topic, s := range v.subs {
+		if s.noSub {
+			continue
+		}
+
 		subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: s.qos})
 	}
 	v.mu.Unlock()
@@ -514,28 +511,78 @@ func (v *Client) UnsubscribeContext(ctx context.Context, topics ...string) mqtt.
 
 // AddRoute adds a handler for messages on a topic filter without subscribing.
 func (v *Client) AddRoute(topic string, callback mqtt.MessageHandler) {
-	v.router.RegisterHandler(topic, v.handler(callback))
+	v.mu.Lock()
+	v.subs[topic] = subscription{cb: callback, noSub: true}
+	v.mu.Unlock()
 }
 
 func (v *Client) addRoute(topic string, qos byte, callback mqtt.MessageHandler) {
 	v.mu.Lock()
 	v.subs[topic] = subscription{qos: qos, cb: callback}
 	v.mu.Unlock()
-
-	v.router.UnregisterHandler(topic)
-	v.router.RegisterHandler(topic, v.handler(callback))
 }
 
 func (v *Client) removeRoute(topic string) {
 	v.mu.Lock()
 	delete(v.subs, topic)
 	v.mu.Unlock()
-
-	v.router.UnregisterHandler(topic)
 }
 
-func (v *Client) handler(callback mqtt.MessageHandler) paho.MessageHandler {
-	return func(p *paho.Publish) { callback(v, &message{p: p, ack: v.ack}) }
+// route delivers a received message to the handlers whose filter matches it. paho's own router runs
+// handlers while holding a read lock it also needs to register one, so a handler that subscribes
+// there deadlocks. The handlers are copied out first so none of them runs under v.mu.
+func (v *Client) route(pr paho.PublishReceived) (bool, error) {
+	v.cli.Store(pr.Client)
+
+	v.mu.Lock()
+	handlers := make([]mqtt.MessageHandler, 0, len(v.subs))
+
+	for filter, s := range v.subs {
+		if topicMatches(filter, pr.Packet.Topic) {
+			handlers = append(handlers, s.cb)
+		}
+	}
+	v.mu.Unlock()
+
+	if len(handlers) == 0 {
+		// paho acks it anyway, so the broker drops it, and withholding the ack would stall every
+		// later one behind it in paho's in-order tracker.
+		v.errs.Printf("courier: no handler for a message on %q, it was dropped", pr.Packet.Topic)
+
+		return false, nil
+	}
+
+	for _, h := range handlers {
+		h(v, &message{p: pr.Packet, ack: v.ack})
+	}
+
+	return true, nil
+}
+
+// topicMatches reports whether an MQTT topic filter matches a topic name.
+func topicMatches(filter, topic string) bool {
+	if filter == topic {
+		return true
+	}
+
+	f := strings.Split(filter, "/")
+	if len(f) > 2 && f[0] == "$share" {
+		f = f[2:] // a shared subscription is delivered under the topic behind the group
+	}
+
+	t := strings.Split(topic, "/")
+
+	for i, part := range f {
+		if part == "#" {
+			return i == len(f)-1
+		}
+
+		if i >= len(t) || (part != "+" && part != t[i]) {
+			return false
+		}
+	}
+
+	return len(f) == len(t)
 }
 
 // ack acknowledges a message when manual acknowledgement is on, the library sends them in receipt order.

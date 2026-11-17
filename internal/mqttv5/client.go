@@ -299,7 +299,30 @@ func (v *Client) resubscribe(cm *autopaho.ConnectionManager) {
 	ctx, cancel := context.WithTimeout(context.Background(), v.opTimeout())
 	defer cancel()
 
-	_, _ = cm.Subscribe(ctx, &paho.Subscribe{Subscriptions: subs})
+	resp, err := cm.Subscribe(ctx, &paho.Subscribe{Subscriptions: subs})
+
+	// Nothing can return this failure to a caller, and the client stays connected but deaf.
+	logResubscribeFailures(v.errs, subs, resp, err)
+}
+
+// logResubscribeFailures reports a resubscribe the broker refused, naming each topic it refused.
+func logResubscribeFailures(errs log.Logger, subs []paho.SubscribeOptions, resp *paho.Suback, err error) {
+	if err != nil {
+		errs.Printf("courier: resubscribing to %d topic(s) failed, they receive nothing: %v", len(subs), err)
+
+		return
+	}
+
+	if resp == nil {
+		return
+	}
+
+	for i, r := range resp.Reasons {
+		if r >= reasonFailure && i < len(subs) {
+			errs.Printf("courier: resubscribing to %q rejected, reason code 0x%x, it receives nothing",
+				subs[i].Topic, r)
+		}
+	}
 }
 
 // Disconnect ends the connection, quiesce is the time in milliseconds allowed for a clean shutdown.

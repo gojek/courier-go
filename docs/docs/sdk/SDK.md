@@ -356,7 +356,7 @@ func main() {
 </details>
 
 <a name="Client.AckTimeout"></a>
-### func \(\*Client\) [AckTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L427)
+### func \(\*Client\) [AckTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L433)
 
 ```go
 func (c *Client) AckTimeout() time.Duration
@@ -365,7 +365,7 @@ func (c *Client) AckTimeout() time.Duration
 AckTimeout returns the ack timeout duration configured for the client
 
 <a name="Client.ConnectTimeout"></a>
-### func \(\*Client\) [ConnectTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L422)
+### func \(\*Client\) [ConnectTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L428)
 
 ```go
 func (c *Client) ConnectTimeout() time.Duration
@@ -392,7 +392,7 @@ func (c *Client) IsConnected() bool
 IsConnected checks whether the client is connected to the broker
 
 <a name="Client.KeepAlive"></a>
-### func \(\*Client\) [KeepAlive](https://github.com/gojek/courier-go/blob/main/client.go#L412)
+### func \(\*Client\) [KeepAlive](https://github.com/gojek/courier-go/blob/main/client.go#L418)
 
 ```go
 func (c *Client) KeepAlive() time.Duration
@@ -401,7 +401,7 @@ func (c *Client) KeepAlive() time.Duration
 KeepAlive returns the keep alive duration configured for the client
 
 <a name="Client.PoolSize"></a>
-### func \(\*Client\) [PoolSize](https://github.com/gojek/courier-go/blob/main/client.go#L432)
+### func \(\*Client\) [PoolSize](https://github.com/gojek/courier-go/blob/main/client.go#L438)
 
 ```go
 func (c *Client) PoolSize() int
@@ -509,7 +509,7 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc)
 UseUnsubscriberMiddleware appends a UnsubscriberMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip subscriptions. They are executed in the order that they are applied to the Client.
 
 <a name="Client.WriteTimeout"></a>
-### func \(\*Client\) [WriteTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L417)
+### func \(\*Client\) [WriteTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L423)
 
 ```go
 func (c *Client) WriteTimeout() time.Duration

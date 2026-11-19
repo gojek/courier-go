@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/gojek/courier-go/internal/mqttv5"
 	mqtt "github.com/gojek/paho.mqtt.golang"
 	"github.com/gojekfarm/xtools/generic/slice"
 )
@@ -337,4 +338,90 @@ func (tm *testPublishMiddleware) Middleware(p Publisher) Publisher {
 		tm.timesCalled++
 		return p.Publish(ctx, topic, message, opts...)
 	})
+}
+
+// v5Client is a mqttv5.ContextClient so the publish path under MQTT v5 can be asserted without a broker.
+type v5Client struct {
+	mqtt.Client
+	topic string
+	props *mqttv5.PublishProps
+	ctx   context.Context
+	err   error
+}
+
+func (v *v5Client) OptionsReader() mqtt.ClientOptionsReader { return mqtt.ClientOptionsReader{} }
+
+func (v *v5Client) SubscribeMultipleContext(
+	context.Context, map[string]byte, mqtt.MessageHandler,
+) mqtt.Token {
+	return &mockToken{}
+}
+
+func (v *v5Client) UnsubscribeContext(context.Context, ...string) mqtt.Token { return &mockToken{} }
+
+func (v *v5Client) PublishWithPropsContext(
+	ctx context.Context, topic string, _ byte, _ bool, _ interface{}, props *mqttv5.PublishProps,
+) mqtt.Token {
+	v.ctx, v.topic, v.props = ctx, topic, props
+
+	done := make(chan struct{})
+	close(done)
+
+	tk := &mockToken{}
+	tk.On("WaitTimeout", 10*time.Second).Return(true)
+	tk.On("Done").Return((<-chan struct{})(done))
+	tk.On("Error").Return(v.err)
+
+	return tk
+}
+
+func TestPublish_V5TimeoutReportsPublishTimeout(t *testing.T) {
+	// The v5 client bounds the call itself and completes the token with the context error.
+	fake := &v5Client{err: context.DeadlineExceeded}
+
+	newClientFunc.Store(func(*mqtt.ClientOptions) mqtt.Client { return fake })
+	defer newClientFunc.Store(mqtt.NewClient)
+
+	c, err := NewClient(WithAddress("127.0.0.1", 1883))
+	require.NoError(t, err)
+
+	// No deadline of the caller's own, so the one that expired was ours.
+	require.ErrorIs(t, c.Publish(context.Background(), "topic", "payload"), ErrPublishTimeout)
+
+	// The caller's own deadline is reported as theirs, unchanged.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	require.ErrorIs(t, c.Publish(ctx, "topic", "payload"), context.DeadlineExceeded)
+}
+
+func TestPublish_UserPropertiesFromContext(t *testing.T) {
+	fake := &v5Client{}
+
+	newClientFunc.Store(func(*mqtt.ClientOptions) mqtt.Client { return fake })
+	defer newClientFunc.Store(mqtt.NewClient)
+
+	c, err := NewClient(WithAddress("127.0.0.1", 1883))
+	require.NoError(t, err)
+
+	ctx := WithUserProperties(context.Background(), map[string]string{"k": "v"})
+	require.NoError(t, c.Publish(ctx, "topic", "payload"))
+
+	require.Equal(t, "topic", fake.topic)
+	require.Equal(t, ctx, fake.ctx) // the caller's context reaches the driver
+	require.Equal(t, map[string]string{"k": "v"}, fake.props.UserProperties)
+
+	require.NoError(t, c.Publish(context.Background(), "topic", "payload"))
+	require.Empty(t, fake.props.UserProperties)
+
+	ctx = WithContentType(ctx, "application/json")
+	ctx = WithResponseTopic(ctx, "reply/me")
+	ctx = WithCorrelationData(ctx, []byte("id-1"))
+	require.NoError(t, c.Publish(ctx, "topic", "payload"))
+	require.Equal(t, &mqttv5.PublishProps{
+		UserProperties:  map[string]string{"k": "v"},
+		ContentType:     "application/json",
+		ResponseTopic:   "reply/me",
+		CorrelationData: []byte("id-1"),
+	}, fake.props)
 }

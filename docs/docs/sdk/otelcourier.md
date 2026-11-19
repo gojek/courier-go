@@ -8,6 +8,8 @@ import "github.com/gojek/courier-go/otelcourier"
 
 Package otelcourier instruments the github.com/gojek/courier\-go package.
 
+With MQTT v5 \(courier.WithMQTTVersion\(courier.MQTTv5\)\) the W3C trace context is propagated transparently in native MQTT User Properties: the publisher middleware injects traceparent/tracestate with courier.WithUserProperties and subscriber callbacks continue the trace from courier.Message.UserProperties, the payload is never modified. With MQTT v3.1.1 there are no headers, use WithTextMapCarrierExtractFunc or a propagation.TextMapCarrier message.
+
 ## Index
 
 - [Constants](#constants)
@@ -142,58 +144,78 @@ New creates a new OTel with Option\(s\).
 
 
 ```go
-tp := trace.NewTracerProvider()
-defer tp.Shutdown(context.Background())
+package main
 
-exporter, err := prometheus.New(
-/* Add a non-default prometheus registry here with `prometheus.WithRegisterer` option, if needed. */
+import (
+	"context"
+	"os"
+	"os/signal"
+	"strings"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/prometheus"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/trace"
+
+	"github.com/gojek/courier-go"
+	"github.com/gojek/courier-go/otelcourier"
 )
-if err != nil {
-	panic(err)
-}
-mp := metric.NewMeterProvider(metric.WithReader(exporter))
 
-otel.SetTracerProvider(tp)
-otel.SetMeterProvider(mp)
-otel.SetTextMapPropagator(&propagation.TraceContext{})
+func main() {
+	tp := trace.NewTracerProvider()
+	defer tp.Shutdown(context.Background())
 
-metricLabelMapper := otelcourier.TopicAttributeTransformer(func(ctx context.Context, topic string) string {
-	if strings.HasPrefix(topic, "test") {
-		return "test"
+	exporter, err := prometheus.New(
+	/* Add a non-default prometheus registry here with `prometheus.WithRegisterer` option, if needed. */
+	)
+	if err != nil {
+		panic(err)
+	}
+	mp := metric.NewMeterProvider(metric.WithReader(exporter))
+
+	otel.SetTracerProvider(tp)
+	otel.SetMeterProvider(mp)
+	otel.SetTextMapPropagator(&propagation.TraceContext{})
+
+	metricLabelMapper := otelcourier.TopicAttributeTransformer(func(ctx context.Context, topic string) string {
+		if strings.HasPrefix(topic, "test") {
+			return "test"
+		}
+
+		return "other"
+	})
+
+	c, _ := courier.NewClient()
+	otelcourier.New(
+		"service-name",
+		// Use this to also track active connections.
+		otelcourier.WithInfoHandlerFrom(c),
+		metricLabelMapper,
+	).ApplyMiddlewares(c)
+
+	if err := c.Start(); err != nil {
+		panic(err)
 	}
 
-	return "other"
-})
+	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 
-c, _ := courier.NewClient()
-otelcourier.New(
-	"service-name",
-	// Use this to also track active connections.
-	otelcourier.WithInfoHandlerFrom(c),
-	metricLabelMapper,
-).ApplyMiddlewares(c)
+	if err := c.Publish(
+		context.Background(), "test-topic", "message", courier.QOSOne); err != nil {
+		panic(err)
+	}
 
-if err := c.Start(); err != nil {
-	panic(err)
+	if err := c.Publish(
+		context.Background(), "other-topic", "message", courier.QOSOne); err != nil {
+		panic(err)
+	}
+
+	// Here, you can expose the metrics at /metrics endpoint for prometheus.DefaultRegisterer.
+
+	<-ctx.Done()
+
+	c.Stop()
 }
-
-ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-
-if err := c.Publish(
-	context.Background(), "test-topic", "message", courier.QOSOne); err != nil {
-	panic(err)
-}
-
-if err := c.Publish(
-	context.Background(), "other-topic", "message", courier.QOSOne); err != nil {
-	panic(err)
-}
-
-// Here, you can expose the metrics at /metrics endpoint for prometheus.DefaultRegisterer.
-
-<-ctx.Done()
-
-c.Stop()
 ```
 
 </p>
@@ -254,7 +276,7 @@ func (t *OTel) StopMiddleware(next courier.Stopper) courier.Stopper
 StopMiddleware returns a Stopper middleware that ensures OTel async metric is unregistered when the client stops.
 
 <a name="OTel.SubscriberMiddleware"></a>
-### func \(\*OTel\) [SubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/subscribe.go#L43)
+### func \(\*OTel\) [SubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/subscribe.go#L44)
 
 ```go
 func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber

@@ -26,7 +26,7 @@ Find the end-to-end courier example [here][e2e-example].
 
 ## Features
 
-- Supports MQTT v3.1.1
+- Supports MQTT v3.1.1 and MQTT v5.0
 - Flexible Encoder/Decoder support from Go type to MQTT payload conversion and back
 - Middleware chaining
 - [OpenTelemetry](https://github.com/open-telemetry/opentelemetry-go) support

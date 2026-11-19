@@ -26,6 +26,37 @@ func WithClientID(clientID string) ClientOption {
 	})
 }
 
+// WithMQTTVersion sets the MQTT protocol version, the default is MQTTv311.
+// MQTT v5 uses WithCleanStart and WithSessionExpiryInterval, WithCleanSession only applies to MQTTv311.
+func WithMQTTVersion(version MQTTVersion) ClientOption {
+	return optionFunc(func(o *clientOptions) {
+		o.mqttVersion = version
+	})
+}
+
+// WithAutoAckDisabled stops the client acknowledging received messages automatically,
+// the MessageHandler must call Message.Ack instead.
+func WithAutoAckDisabled(disabled bool) ClientOption {
+	return optionFunc(func(o *clientOptions) { o.autoAckDisabled = disabled })
+}
+
+// WithCleanStart sets the MQTT v5 "clean start" flag (default true), existing session state for the client is discarded
+// on the first connection (reconnects always resume). It is ignored for MQTTv311, see WithCleanSession.
+func WithCleanStart(cleanStart bool) ClientOption {
+	return optionFunc(func(o *clientOptions) {
+		o.cleanStart = cleanStart
+	})
+}
+
+// WithSessionExpiryInterval sets how long the broker keeps the MQTT v5 session after the client disconnects,
+// with the default of 0 the session ends on disconnect. It is truncated to whole seconds
+// and ignored for MQTTv311.
+func WithSessionExpiryInterval(d time.Duration) ClientOption {
+	return optionFunc(func(o *clientOptions) {
+		o.sessionExpiryInterval = d
+	})
+}
+
 // WithUsername sets the username to be used while connecting to an MQTT broker.
 func WithUsername(username string) ClientOption {
 	return optionFunc(func(o *clientOptions) {
@@ -75,6 +106,7 @@ func WithCleanSession(cleanSession bool) ClientOption {
 // Note that setting this to true does not guarantee in-order delivery
 // (this is subject to broker settings like "max_inflight_messages=1")
 // and if true then  MessageHandler callback must not block.
+// Ignored for MQTTv5, which always delivers in order.
 func WithMaintainOrder(maintainOrder bool) ClientOption {
 	return optionFunc(func(o *clientOptions) {
 		o.maintainOrder = maintainOrder
@@ -159,6 +191,7 @@ func WithConnectTimeout(duration time.Duration) ClientOption {
 // WithWriteTimeout limits how long the client will wait when trying to publish, subscribe or unsubscribe on topic
 // when a context deadline is not set while calling Publisher.Publish, Subscriber.Subscribe,
 // Subscriber.SubscribeMultiple or Unsubscriber.Unsubscribe.
+// Ignored for MQTTv5, where WithAckTimeout bounds the call instead.
 func WithWriteTimeout(duration time.Duration) ClientOption {
 	return optionFunc(func(o *clientOptions) {
 		o.writeTimeout = duration
@@ -252,6 +285,7 @@ var UseMultiConnectionMode = multiConnMode{}
 
 // ResumeSubscriptions allows resuming of stored (un)subscribe messages when connecting
 // but not reconnecting if CleanSession is false. Otherwise, these messages are discarded.
+// Ignored for MQTTv5, which resubscribes whenever the broker reports no existing session.
 var ResumeSubscriptions = resumeSubscriptions{}
 
 type multiConnMode struct{}
@@ -294,6 +328,11 @@ type clientOptions struct {
 	store      Store
 
 	poolSize int
+
+	mqttVersion           MQTTVersion
+	cleanStart            bool
+	autoAckDisabled       bool
+	sessionExpiryInterval time.Duration
 }
 
 type connectRetryPolicy struct {
@@ -308,6 +347,8 @@ func (f optionFunc) apply(o *clientOptions) { f(o) }
 func defaultClientOptions() *clientOptions {
 	return &clientOptions{
 		autoReconnect:               true,
+		mqttVersion:                 MQTTv311,
+		cleanStart:                  true,
 		maintainOrder:               true,
 		connectTimeout:              15 * time.Second,
 		writeTimeout:                10 * time.Second,

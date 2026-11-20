@@ -26,6 +26,12 @@ func WithClientID(clientID string) ClientOption {
 	})
 }
 
+// WithAutoAckDisabled stops the client acknowledging received messages automatically,
+// the MessageHandler must call Message.Ack instead.
+func WithAutoAckDisabled(disabled bool) ClientOption {
+	return optionFunc(func(o *clientOptions) { o.autoAckDisabled = disabled })
+}
+
 // WithUsername sets the username to be used while connecting to an MQTT broker.
 func WithUsername(username string) ClientOption {
 	return optionFunc(func(o *clientOptions) {
@@ -294,6 +300,8 @@ type clientOptions struct {
 	store      Store
 
 	poolSize int
+
+	autoAckDisabled bool
 }
 
 type connectRetryPolicy struct {

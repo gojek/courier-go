@@ -132,6 +132,7 @@ func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 		msg.Duplicate = m.Duplicate()
 		msg.Retained = m.Retained()
 		msg.QoS = QOSLevel(m.Qos())
+		msg.ack = m.Ack
 
 		callback(ctx, c, msg)
 	}

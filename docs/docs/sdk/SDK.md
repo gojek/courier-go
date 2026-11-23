@@ -13,9 +13,14 @@ Package courier contains the client that can be used to interact with the courie
 - [Variables](#variables)
 - [func ClientIDFromContext\(ctx context.Context\) string](#ClientIDFromContext)
 - [func ExponentialStartStrategy\(ctx context.Context, c interface\{ Start\(\) error \}, opts ...StartOption\)](#ExponentialStartStrategy)
+- [func UserPropertiesFromContext\(ctx context.Context\) map\[string\]string](#UserPropertiesFromContext)
 - [func Version\(\) string](#Version)
 - [func WaitForConnection\(c ConnectionInformer, waitFor time.Duration, tick time.Duration\) bool](#WaitForConnection)
 - [func WithClientIDCallback\(ctx context.Context, cb ClientIDCallback\) context.Context](#WithClientIDCallback)
+- [func WithContentType\(ctx context.Context, contentType string\) context.Context](#WithContentType)
+- [func WithCorrelationData\(ctx context.Context, data \[\]byte\) context.Context](#WithCorrelationData)
+- [func WithResponseTopic\(ctx context.Context, topic string\) context.Context](#WithResponseTopic)
+- [func WithUserProperties\(ctx context.Context, props map\[string\]string\) context.Context](#WithUserProperties)
 - [type Client](#Client)
   - [func NewClient\(opts ...ClientOption\) \(\*Client, error\)](#NewClient)
   - [func \(c \*Client\) AckTimeout\(\) time.Duration](#Client.AckTimeout)
@@ -174,7 +179,7 @@ var UseMultiConnectionMode = multiConnMode{}
 ```
 
 <a name="ClientIDFromContext"></a>
-## func [ClientIDFromContext](https://github.com/gojek/courier-go/blob/main/context.go#L29)
+## func [ClientIDFromContext](https://github.com/gojek/courier-go/blob/main/context.go#L33)
 
 ```go
 func ClientIDFromContext(ctx context.Context) string
@@ -190,6 +195,15 @@ func ExponentialStartStrategy(ctx context.Context, c interface{ Start() error },
 ```
 
 ExponentialStartStrategy will keep attempting to call Client.Start in the background and retry on error, it will never exit unless the context used to invoke is cancelled. This will NOT stop the client, that is the responsibility of caller.
+
+<a name="UserPropertiesFromContext"></a>
+## func [UserPropertiesFromContext](https://github.com/gojek/courier-go/blob/main/context.go#L50)
+
+```go
+func UserPropertiesFromContext(ctx context.Context) map[string]string
+```
+
+UserPropertiesFromContext returns the user properties set with WithUserProperties, nil if none.
 
 <a name="Version"></a>
 ## func [Version](https://github.com/gojek/courier-go/blob/main/version.go#L4)
@@ -210,13 +224,49 @@ func WaitForConnection(c ConnectionInformer, waitFor time.Duration, tick time.Du
 WaitForConnection checks if the Client is connected, it calls ConnectionInformer.IsConnected after every tick and waitFor is the maximum duration it can block. Returns true only when ConnectionInformer.IsConnected returns true
 
 <a name="WithClientIDCallback"></a>
-## func [WithClientIDCallback](https://github.com/gojek/courier-go/blob/main/context.go#L13)
+## func [WithClientIDCallback](https://github.com/gojek/courier-go/blob/main/context.go#L17)
 
 ```go
 func WithClientIDCallback(ctx context.Context, cb ClientIDCallback) context.Context
 ```
 
 WithClientIDCallback returns a context with the callback that will receive the client ID of the underlying MQTT client used for an operation.
+
+<a name="WithContentType"></a>
+## func [WithContentType](https://github.com/gojek/courier-go/blob/main/context.go#L64)
+
+```go
+func WithContentType(ctx context.Context, contentType string) context.Context
+```
+
+WithContentType returns a context carrying the MQTT v5 Content Type to be sent with Publish, it is ignored when the client uses MQTT v3.1.1.
+
+<a name="WithCorrelationData"></a>
+## func [WithCorrelationData](https://github.com/gojek/courier-go/blob/main/context.go#L76)
+
+```go
+func WithCorrelationData(ctx context.Context, data []byte) context.Context
+```
+
+WithCorrelationData returns a context carrying the MQTT v5 Correlation Data to be sent with Publish, it is ignored when the client uses MQTT v3.1.1.
+
+<a name="WithResponseTopic"></a>
+## func [WithResponseTopic](https://github.com/gojek/courier-go/blob/main/context.go#L70)
+
+```go
+func WithResponseTopic(ctx context.Context, topic string) context.Context
+```
+
+WithResponseTopic returns a context carrying the MQTT v5 Response Topic to be sent with Publish, it is ignored when the client uses MQTT v3.1.1.
+
+<a name="WithUserProperties"></a>
+## func [WithUserProperties](https://github.com/gojek/courier-go/blob/main/context.go#L45)
+
+```go
+func WithUserProperties(ctx context.Context, props map[string]string) context.Context
+```
+
+WithUserProperties returns a context carrying MQTT v5 user properties to be sent with Publish, they are ignored when the client uses MQTT v3.1.1.
 
 <a name="Client"></a>
 ## type [Client](https://github.com/gojek/courier-go/blob/main/client.go#L23-L47)
@@ -358,7 +408,7 @@ func (c *Client) PoolSize() int
 PoolSize returns the size of the connection pool configured for the client
 
 <a name="Client.Publish"></a>
-### func \(\*Client\) [Publish](https://github.com/gojek/courier-go/blob/main/client_publish.go#L11)
+### func \(\*Client\) [Publish](https://github.com/gojek/courier-go/blob/main/client_publish.go#L12)
 
 ```go
 func (c *Client) Publish(ctx context.Context, topic string, message interface{}, opts ...Option) error
@@ -394,7 +444,7 @@ func (c *Client) Stop()
 Stop will disconnect from the broker and finish up any pending work on internal communication workers. This can only block until the period configured with the ClientOption WithGracefulShutdownPeriod.
 
 <a name="Client.Subscribe"></a>
-### func \(\*Client\) [Subscribe](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L16)
+### func \(\*Client\) [Subscribe](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L17)
 
 ```go
 func (c *Client) Subscribe(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error
@@ -405,7 +455,7 @@ Subscribe allows to subscribe to messages from an MQTT broker.
 On MQTT v5, Subscribe may be called before Start: the handler is registered immediately so it sees whatever a resumed session \(WithCleanStart\(false\)\) already had queued, instead of losing those messages before a handler exists to receive them.
 
 <a name="Client.SubscribeMultiple"></a>
-### func \(\*Client\) [SubscribeMultiple](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L34-L38)
+### func \(\*Client\) [SubscribeMultiple](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L35-L39)
 
 ```go
 func (c *Client) SubscribeMultiple(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error
@@ -414,7 +464,7 @@ func (c *Client) SubscribeMultiple(ctx context.Context, topicsWithQos map[string
 SubscribeMultiple allows to subscribe to messages on multiple topics from an MQTT broker. See Subscribe for calling it on MQTT v5 before Start.
 
 <a name="Client.Unsubscribe"></a>
-### func \(\*Client\) [Unsubscribe](https://github.com/gojek/courier-go/blob/main/client_unsubscribe.go#L10)
+### func \(\*Client\) [Unsubscribe](https://github.com/gojek/courier-go/blob/main/client_unsubscribe.go#L11)
 
 ```go
 func (c *Client) Unsubscribe(ctx context.Context, topics ...string) error
@@ -423,7 +473,7 @@ func (c *Client) Unsubscribe(ctx context.Context, topics ...string) error
 Unsubscribe removes any subscription to messages from an MQTT broker
 
 <a name="Client.UsePublisherMiddleware"></a>
-### func \(\*Client\) [UsePublisherMiddleware](https://github.com/gojek/courier-go/blob/main/client_publish.go#L18)
+### func \(\*Client\) [UsePublisherMiddleware](https://github.com/gojek/courier-go/blob/main/client_publish.go#L19)
 
 ```go
 func (c *Client) UsePublisherMiddleware(mwf ...PublisherMiddlewareFunc)
@@ -441,7 +491,7 @@ func (c *Client) UseStopMiddleware(mwf StopMiddlewareFunc)
 UseStopMiddleware allows setting a Stopper middleware to intercept Stop calls.
 
 <a name="Client.UseSubscriberMiddleware"></a>
-### func \(\*Client\) [UseSubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L61)
+### func \(\*Client\) [UseSubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L62)
 
 ```go
 func (c *Client) UseSubscriberMiddleware(mwf ...SubscriberMiddlewareFunc)
@@ -450,7 +500,7 @@ func (c *Client) UseSubscriberMiddleware(mwf ...SubscriberMiddlewareFunc)
 UseSubscriberMiddleware appends a SubscriberMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip subscriptions. They are executed in the order that they are applied to the Client.
 
 <a name="Client.UseUnsubscriberMiddleware"></a>
-### func \(\*Client\) [UseUnsubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/client_unsubscribe.go#L27)
+### func \(\*Client\) [UseUnsubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/client_unsubscribe.go#L28)
 
 ```go
 func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc)
@@ -468,7 +518,7 @@ func (c *Client) WriteTimeout() time.Duration
 WriteTimeout returns the write timeout duration configured for the client
 
 <a name="ClientIDCallback"></a>
-## type [ClientIDCallback](https://github.com/gojek/courier-go/blob/main/context.go#L9)
+## type [ClientIDCallback](https://github.com/gojek/courier-go/blob/main/context.go#L13)
 
 ClientIDCallback is a function that receives the client ID used for an operation.
 
@@ -1018,7 +1068,7 @@ const (
 ```
 
 <a name="Message"></a>
-## type [Message](https://github.com/gojek/courier-go/blob/main/message.go#L4-L12)
+## type [Message](https://github.com/gojek/courier-go/blob/main/message.go#L4-L19)
 
 Message represents the entity that is being relayed via the courier MQTT brokers from Publisher\(s\) to Subscriber\(s\).
 
@@ -1029,12 +1079,19 @@ type Message struct {
     Duplicate bool
     Retained  bool
     QoS       QOSLevel
+
+    // MQTT v5 only, empty when the connection uses MQTT v3.1.1 or the publisher did not set them.
+    // UserProperties keeps the last value for a repeated key.
+    UserProperties  map[string]string
+    ContentType     string
+    ResponseTopic   string
+    CorrelationData []byte
     // contains filtered or unexported fields
 }
 ```
 
 <a name="NewMessageWithDecoder"></a>
-### func [NewMessageWithDecoder](https://github.com/gojek/courier-go/blob/main/message.go#L15-L17)
+### func [NewMessageWithDecoder](https://github.com/gojek/courier-go/blob/main/message.go#L22-L24)
 
 ```go
 func NewMessageWithDecoder(payloadDecoder Decoder) *Message
@@ -1043,7 +1100,7 @@ func NewMessageWithDecoder(payloadDecoder Decoder) *Message
 NewMessageWithDecoder is a helper to create Message, ideally payloadDecoder should not be mutated once created.
 
 <a name="Message.DecodePayload"></a>
-### func \(\*Message\) [DecodePayload](https://github.com/gojek/courier-go/blob/main/message.go#L24)
+### func \(\*Message\) [DecodePayload](https://github.com/gojek/courier-go/blob/main/message.go#L31)
 
 ```go
 func (m *Message) DecodePayload(v interface{}) error

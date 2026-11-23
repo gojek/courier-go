@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/gojek/courier-go/internal/mqttv5"
 	mqtt "github.com/gojek/paho.mqtt.golang"
 	"github.com/gojekfarm/xtools/generic/slice"
 )
@@ -87,6 +88,11 @@ func subscriberFuncs(c *Client) Subscriber {
 			}
 
 			return c.execute(ctx, func(cc mqtt.Client) error {
+				if cp, ok := cc.(mqttv5.ContextClient); ok {
+					return c.handleToken(ctx, cp.SubscribeMultipleContext(ctx,
+						map[string]byte{topic: o.qos}, callbackWrapper(c, callback)), ErrSubscribeTimeout)
+				}
+
 				return c.handleToken(ctx, cc.Subscribe(topic, o.qos, callbackWrapper(c, callback)), ErrSubscribeTimeout)
 			}, eo)
 		},
@@ -98,9 +104,8 @@ func subscriberFuncs(c *Client) Subscriber {
 			if len(sharedSubs) > 0 {
 				execs = append(execs, func(ctx context.Context) error {
 					return c.execute(ctx, func(cc mqtt.Client) error {
-						return c.handleToken(ctx, cc.SubscribeMultiple(
-							sharedSubs,
-							callbackWrapper(c, callback),
+						return c.handleToken(ctx, subscribeWithContext(ctx, cc,
+							sharedSubs, callbackWrapper(c, callback),
 						), ErrSubscribeMultipleTimeout)
 					}, execAll)
 				})
@@ -109,9 +114,8 @@ func subscriberFuncs(c *Client) Subscriber {
 			if len(normalSubs) > 0 {
 				execs = append(execs, func(ctx context.Context) error {
 					return c.execute(ctx, func(cc mqtt.Client) error {
-						return c.handleToken(ctx, cc.SubscribeMultiple(
-							normalSubs,
-							callbackWrapper(c, callback),
+						return c.handleToken(ctx, subscribeWithContext(ctx, cc,
+							normalSubs, callbackWrapper(c, callback),
 						), ErrSubscribeMultipleTimeout)
 					}, execOneRandom)
 				})
@@ -122,6 +126,17 @@ func subscriberFuncs(c *Client) Subscriber {
 			), accumulateErrors)
 		},
 	)
+}
+
+// subscribeWithContext passes the caller's context to clients that honour it.
+func subscribeWithContext(
+	ctx context.Context, cc mqtt.Client, filters map[string]byte, callback mqtt.MessageHandler,
+) mqtt.Token {
+	if cp, ok := cc.(mqttv5.ContextClient); ok {
+		return cp.SubscribeMultipleContext(ctx, filters, callback)
+	}
+
+	return cc.SubscribeMultiple(filters, callback)
 }
 
 func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
@@ -137,6 +152,15 @@ func callbackWrapper(c *Client, callback MessageHandler) mqtt.MessageHandler {
 		msg.Duplicate = m.Duplicate()
 		msg.Retained = m.Retained()
 		msg.QoS = QOSLevel(m.Qos())
+
+		if pm, ok := m.(mqttv5.MessageWithProps); ok {
+			if p := pm.Props(); p != nil {
+				msg.UserProperties = p.UserProperties
+				msg.ContentType = p.ContentType
+				msg.ResponseTopic = p.ResponseTopic
+				msg.CorrelationData = p.CorrelationData
+			}
+		}
 
 		callback(ctx, c, msg)
 	}

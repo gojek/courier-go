@@ -7,6 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+- MQTT v5 support, opt-in with `WithMQTTVersion(MQTTv5)`, MQTT v3.1.1 stays the default
+- `WithCleanStart` (default `true`) and `WithSessionExpiryInterval` options for MQTT v5 sessions
+- MQTT v5 reconnect delay now doubles on each attempt up to `WithMaxReconnectInterval`, matching MQTT v3.1.1
+
+### Fixed
+- An MQTT v5 publish made while the connection is down now waits for it to come back, as MQTT v3.1.1
+  does, instead of failing immediately
+
 ## [0.7.17]
 
 ### Changed

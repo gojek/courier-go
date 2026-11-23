@@ -3,6 +3,7 @@ module github.com/gojek/courier-go
 go 1.24
 
 require (
+	github.com/eclipse/paho.golang v0.22.0
 	github.com/gojek/paho.mqtt.golang v1.7.1
 	github.com/gojekfarm/xtools/generic v0.7.0
 	github.com/hashicorp/go-multierror v1.1.1

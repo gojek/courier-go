@@ -34,6 +34,12 @@ func WithMQTTVersion(version MQTTVersion) ClientOption {
 	})
 }
 
+// WithAutoAckDisabled stops the client acknowledging received messages automatically,
+// the MessageHandler must call Message.Ack instead. Ignored for MQTTv311.
+func WithAutoAckDisabled(disabled bool) ClientOption {
+	return optionFunc(func(o *clientOptions) { o.autoAckDisabled = disabled })
+}
+
 // WithCleanStart sets the MQTT v5 "clean start" flag (default true), existing session state for the client is discarded
 // on the first connection (reconnects always resume). It is ignored for MQTTv311, see WithCleanSession.
 func WithCleanStart(cleanStart bool) ClientOption {
@@ -325,6 +331,7 @@ type clientOptions struct {
 
 	mqttVersion           MQTTVersion
 	cleanStart            bool
+	autoAckDisabled       bool
 	sessionExpiryInterval time.Duration
 }
 

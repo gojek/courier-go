@@ -11,6 +11,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 - MQTT v5 support, opt-in with `WithMQTTVersion(MQTTv5)`, MQTT v3.1.1 stays the default
 - `WithCleanStart` (default `true`) and `WithSessionExpiryInterval` options for MQTT v5 sessions
+- `WithPahoLogLevel` now also controls the MQTT v5 library logs (JSON on stdout, same as v3)
 - MQTT v5 reconnect delay now doubles on each attempt up to `WithMaxReconnectInterval`, matching MQTT v3.1.1
 
 ### Fixed

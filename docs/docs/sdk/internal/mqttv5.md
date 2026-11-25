@@ -21,10 +21,17 @@ Client implements the gojek/paho.mqtt.golang Client interface on top of eclipse/
   - [func \(v \*Client\) IsConnected\(\) bool](#Client.IsConnected)
   - [func \(v \*Client\) IsConnectionOpen\(\) bool](#Client.IsConnectionOpen)
   - [func \(v \*Client\) Publish\(topic string, qos byte, retained bool, payload interface\{\}\) mqtt.Token](#Client.Publish)
+  - [func \(v \*Client\) PublishWithProps\(topic string, qos byte, retained bool, payload interface\{\}, props \*PublishProps\) mqtt.Token](#Client.PublishWithProps)
+  - [func \(v \*Client\) PublishWithPropsContext\(ctx context.Context, topic string, qos byte, retained bool, payload interface\{\}, props \*PublishProps\) mqtt.Token](#Client.PublishWithPropsContext)
   - [func \(v \*Client\) Subscribe\(topic string, qos byte, callback mqtt.MessageHandler\) mqtt.Token](#Client.Subscribe)
   - [func \(v \*Client\) SubscribeMultiple\(filters map\[string\]byte, callback mqtt.MessageHandler\) mqtt.Token](#Client.SubscribeMultiple)
+  - [func \(v \*Client\) SubscribeMultipleContext\(ctx context.Context, filters map\[string\]byte, callback mqtt.MessageHandler\) mqtt.Token](#Client.SubscribeMultipleContext)
   - [func \(v \*Client\) Unsubscribe\(topics ...string\) mqtt.Token](#Client.Unsubscribe)
+  - [func \(v \*Client\) UnsubscribeContext\(ctx context.Context, topics ...string\) mqtt.Token](#Client.UnsubscribeContext)
+- [type ContextClient](#ContextClient)
+- [type MessageWithProps](#MessageWithProps)
 - [type Options](#Options)
+- [type PublishProps](#PublishProps)
 
 
 ## Variables
@@ -36,7 +43,7 @@ var ErrNotStarted = errors.New("courier: mqtt v5 client not connected")
 ```
 
 <a name="Client"></a>
-## type [Client](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L51-L74)
+## type [Client](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L76-L99)
 
 Client is an MQTT v5 implementation of mqtt.Client.
 
@@ -49,7 +56,7 @@ type Client struct {
 ```
 
 <a name="New"></a>
-### func [New](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L86)
+### func [New](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L111)
 
 ```go
 func New(opts *mqtt.ClientOptions, v5 Options) *Client
@@ -58,7 +65,7 @@ func New(opts *mqtt.ClientOptions, v5 Options) *Client
 New creates an MQTT v5 client from v3 style options plus the v5 only Options. KeepAlive, ConnectTimeout and ConnectRetry\(Interval\) are read from opts, CleanSession is not used.
 
 <a name="Client.AddRoute"></a>
-### func \(\*Client\) [AddRoute](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L460)
+### func \(\*Client\) [AddRoute](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L520)
 
 ```go
 func (v *Client) AddRoute(topic string, callback mqtt.MessageHandler)
@@ -67,7 +74,7 @@ func (v *Client) AddRoute(topic string, callback mqtt.MessageHandler)
 AddRoute adds a handler for messages on a topic filter without subscribing.
 
 <a name="Client.Connect"></a>
-### func \(\*Client\) [Connect](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L106)
+### func \(\*Client\) [Connect](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L131)
 
 ```go
 func (v *Client) Connect() mqtt.Token
@@ -76,7 +83,7 @@ func (v *Client) Connect() mqtt.Token
 Connect starts connecting, the token completes on first CONNACK. Calling it again before Disconnect returns the token of the attempt already running.
 
 <a name="Client.Disconnect"></a>
-### func \(\*Client\) [Disconnect](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L346)
+### func \(\*Client\) [Disconnect](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L371)
 
 ```go
 func (v *Client) Disconnect(quiesce uint)
@@ -85,7 +92,7 @@ func (v *Client) Disconnect(quiesce uint)
 Disconnect ends the connection, quiesce is the time in milliseconds allowed for a clean shutdown.
 
 <a name="Client.IsConnected"></a>
-### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L99)
+### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L124)
 
 ```go
 func (v *Client) IsConnected() bool
@@ -94,7 +101,7 @@ func (v *Client) IsConnected() bool
 IsConnected reports whether the connection to the broker is up.
 
 <a name="Client.IsConnectionOpen"></a>
-### func \(\*Client\) [IsConnectionOpen](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L102)
+### func \(\*Client\) [IsConnectionOpen](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L127)
 
 ```go
 func (v *Client) IsConnectionOpen() bool
@@ -103,16 +110,34 @@ func (v *Client) IsConnectionOpen() bool
 IsConnectionOpen reports whether the connection to the broker is up.
 
 <a name="Client.Publish"></a>
-### func \(\*Client\) [Publish](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L367)
+### func \(\*Client\) [Publish](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L392)
 
 ```go
 func (v *Client) Publish(topic string, qos byte, retained bool, payload interface{}) mqtt.Token
 ```
 
-Publish publishes a message.
+Publish publishes without MQTT v5 properties.
+
+<a name="Client.PublishWithProps"></a>
+### func \(\*Client\) [PublishWithProps](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L397-L399)
+
+```go
+func (v *Client) PublishWithProps(topic string, qos byte, retained bool, payload interface{}, props *PublishProps) mqtt.Token
+```
+
+PublishWithProps publishes with the given MQTT v5 properties.
+
+<a name="Client.PublishWithPropsContext"></a>
+### func \(\*Client\) [PublishWithPropsContext](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L404-L406)
+
+```go
+func (v *Client) PublishWithPropsContext(ctx context.Context, topic string, qos byte, retained bool, payload interface{}, props *PublishProps) mqtt.Token
+```
+
+PublishWithPropsContext publishes with the given properties, ending the call when ctx ends.
 
 <a name="Client.Subscribe"></a>
-### func \(\*Client\) [Subscribe](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L401)
+### func \(\*Client\) [Subscribe](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L449)
 
 ```go
 func (v *Client) Subscribe(topic string, qos byte, callback mqtt.MessageHandler) mqtt.Token
@@ -121,16 +146,25 @@ func (v *Client) Subscribe(topic string, qos byte, callback mqtt.MessageHandler)
 Subscribe subscribes to a single topic filter.
 
 <a name="Client.SubscribeMultiple"></a>
-### func \(\*Client\) [SubscribeMultiple](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L409)
+### func \(\*Client\) [SubscribeMultiple](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L454)
 
 ```go
 func (v *Client) SubscribeMultiple(filters map[string]byte, callback mqtt.MessageHandler) mqtt.Token
 ```
 
-SubscribeMultiple subscribes to multiple topic filters. The route is registered immediately even if the client is not yet connected, so a handler added before Connect sees whatever a resumed session already had queued; the broker gets the wire SUBSCRIBE once connected, unless the session resumed and already has it.
+SubscribeMultiple subscribes to multiple topic filters.
+
+<a name="Client.SubscribeMultipleContext"></a>
+### func \(\*Client\) [SubscribeMultipleContext](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L462-L464)
+
+```go
+func (v *Client) SubscribeMultipleContext(ctx context.Context, filters map[string]byte, callback mqtt.MessageHandler) mqtt.Token
+```
+
+SubscribeMultipleContext subscribes to multiple topic filters, ending the call when ctx ends. The route is registered immediately even if the client is not yet connected, so a handler added before Connect sees whatever a resumed session already had queued; the broker gets the wire SUBSCRIBE once connected, unless the session resumed and already has it.
 
 <a name="Client.Unsubscribe"></a>
-### func \(\*Client\) [Unsubscribe](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L444)
+### func \(\*Client\) [Unsubscribe](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L499)
 
 ```go
 func (v *Client) Unsubscribe(topics ...string) mqtt.Token
@@ -138,8 +172,44 @@ func (v *Client) Unsubscribe(topics ...string) mqtt.Token
 
 Unsubscribe removes the subscriptions for the topic filters.
 
+<a name="Client.UnsubscribeContext"></a>
+### func \(\*Client\) [UnsubscribeContext](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L504)
+
+```go
+func (v *Client) UnsubscribeContext(ctx context.Context, topics ...string) mqtt.Token
+```
+
+UnsubscribeContext removes the subscriptions, ending the call when ctx ends.
+
+<a name="ContextClient"></a>
+## type [ContextClient](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L54-L60)
+
+ContextClient is implemented by clients that can publish MQTT v5 properties and that end an in\-flight call when the caller's context does.
+
+```go
+type ContextClient interface {
+    PublishWithPropsContext(
+        ctx context.Context, topic string, qos byte, retained bool, payload interface{}, props *PublishProps,
+    ) mqtt.Token
+    SubscribeMultipleContext(ctx context.Context, filters map[string]byte, callback mqtt.MessageHandler) mqtt.Token
+    UnsubscribeContext(ctx context.Context, topics ...string) mqtt.Token
+}
+```
+
+<a name="MessageWithProps"></a>
+## type [MessageWithProps](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L63-L66)
+
+MessageWithProps is implemented by received messages that carry MQTT v5 properties.
+
+```go
+type MessageWithProps interface {
+    mqtt.Message
+    Props() *PublishProps
+}
+```
+
 <a name="Options"></a>
-## type [Options](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L77-L82)
+## type [Options](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L102-L107)
 
 Options are the settings that exist only in MQTT v5.
 
@@ -149,6 +219,20 @@ type Options struct {
     CleanStart bool
     // SessionExpiryInterval is how long the broker keeps the session after disconnect, 0 ends it on disconnect.
     SessionExpiryInterval time.Duration
+}
+```
+
+<a name="PublishProps"></a>
+## type [PublishProps](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L45-L50)
+
+PublishProps are the MQTT v5 properties of a PUBLISH packet.
+
+```go
+type PublishProps struct {
+    UserProperties  map[string]string
+    ContentType     string
+    ResponseTopic   string
+    CorrelationData []byte
 }
 ```
 

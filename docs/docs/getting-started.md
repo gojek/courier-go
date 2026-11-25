@@ -32,6 +32,12 @@ c, err := courier.NewClient(
 ```
 
 MQTT v5 sessions are configured with `WithCleanStart` and `WithSessionExpiryInterval` (`WithCleanSession` applies to v3.1.1 only). `CleanStart` defaults to `true`; to resume a persistent session set `WithCleanStart(false)` and a non-zero `WithSessionExpiryInterval`. Call `Subscribe` for those topics *before* `Start` so the broker's queued messages have a handler to arrive at the moment the session resumes.
+User Properties are sent with `courier.WithUserProperties` and received on `courier.Message.UserProperties`:
+
+```go
+ctx := courier.WithUserProperties(context.Background(), map[string]string{"tenant": "acme"})
+_ = c.Publish(ctx, "topic", "payload", courier.QOSOne)
+```
 
 ### Usage
 

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -39,6 +40,30 @@ var ErrNotStarted = errors.New("courier: mqtt v5 client not connected")
 
 // nowFunc is swapped in tests.
 var nowFunc = time.Now
+
+// PublishProps are the MQTT v5 properties of a PUBLISH packet.
+type PublishProps struct {
+	UserProperties  map[string]string
+	ContentType     string
+	ResponseTopic   string
+	CorrelationData []byte
+}
+
+// ContextClient is implemented by clients that can publish MQTT v5 properties and
+// that end an in-flight call when the caller's context does.
+type ContextClient interface {
+	PublishWithPropsContext(
+		ctx context.Context, topic string, qos byte, retained bool, payload interface{}, props *PublishProps,
+	) mqtt.Token
+	SubscribeMultipleContext(ctx context.Context, filters map[string]byte, callback mqtt.MessageHandler) mqtt.Token
+	UnsubscribeContext(ctx context.Context, topics ...string) mqtt.Token
+}
+
+// MessageWithProps is implemented by received messages that carry MQTT v5 properties.
+type MessageWithProps interface {
+	mqtt.Message
+	Props() *PublishProps
+}
 
 type subscription struct {
 	qos byte
@@ -363,8 +388,22 @@ func (v *Client) Disconnect(quiesce uint) {
 	v.up.Store(false)
 }
 
-// Publish publishes a message.
+// Publish publishes without MQTT v5 properties.
 func (v *Client) Publish(topic string, qos byte, retained bool, payload interface{}) mqtt.Token {
+	return v.PublishWithPropsContext(context.Background(), topic, qos, retained, payload, nil)
+}
+
+// PublishWithProps publishes with the given MQTT v5 properties.
+func (v *Client) PublishWithProps(
+	topic string, qos byte, retained bool, payload interface{}, props *PublishProps,
+) mqtt.Token {
+	return v.PublishWithPropsContext(context.Background(), topic, qos, retained, payload, props)
+}
+
+// PublishWithPropsContext publishes with the given properties, ending the call when ctx ends.
+func (v *Client) PublishWithPropsContext(
+	ctx context.Context, topic string, qos byte, retained bool, payload interface{}, props *PublishProps,
+) mqtt.Token {
 	b, err := toBytes(payload)
 	if err != nil {
 		return completed(err)
@@ -372,7 +411,16 @@ func (v *Client) Publish(topic string, qos byte, retained bool, payload interfac
 
 	p := &paho.Publish{Topic: topic, QoS: qos, Retain: retained, Payload: b}
 
-	return v.run(context.Background(), func(ctx context.Context, cm *autopaho.ConnectionManager) error {
+	if props != nil {
+		p.Properties = &paho.PublishProperties{
+			ContentType:     props.ContentType,
+			ResponseTopic:   props.ResponseTopic,
+			CorrelationData: props.CorrelationData,
+			User:            userProperties(props.UserProperties),
+		}
+	}
+
+	return v.run(ctx, func(ctx context.Context, cm *autopaho.ConnectionManager) error {
 		resp, err := cm.Publish(ctx, p)
 
 		// The v3 client stores a publish made while it is reconnecting and sends it on the new
@@ -402,11 +450,18 @@ func (v *Client) Subscribe(topic string, qos byte, callback mqtt.MessageHandler)
 	return v.SubscribeMultiple(map[string]byte{topic: qos}, callback)
 }
 
-// SubscribeMultiple subscribes to multiple topic filters. The route is registered
-// immediately even if the client is not yet connected, so a handler added before Connect
-// sees whatever a resumed session already had queued; the broker gets the wire SUBSCRIBE
-// once connected, unless the session resumed and already has it.
+// SubscribeMultiple subscribes to multiple topic filters.
 func (v *Client) SubscribeMultiple(filters map[string]byte, callback mqtt.MessageHandler) mqtt.Token {
+	return v.SubscribeMultipleContext(context.Background(), filters, callback)
+}
+
+// SubscribeMultipleContext subscribes to multiple topic filters, ending the call when ctx ends.
+// The route is registered immediately even if the client is not yet connected, so a handler
+// added before Connect sees whatever a resumed session already had queued; the broker gets
+// the wire SUBSCRIBE once connected, unless the session resumed and already has it.
+func (v *Client) SubscribeMultipleContext(
+	ctx context.Context, filters map[string]byte, callback mqtt.MessageHandler,
+) mqtt.Token {
 	for topic, qos := range filters {
 		v.addRoute(topic, qos, callback)
 	}
@@ -424,7 +479,7 @@ func (v *Client) SubscribeMultiple(filters map[string]byte, callback mqtt.Messag
 		subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: qos})
 	}
 
-	return v.run(context.Background(), func(ctx context.Context, cm *autopaho.ConnectionManager) error {
+	return v.run(ctx, func(ctx context.Context, cm *autopaho.ConnectionManager) error {
 		resp, err := cm.Subscribe(ctx, &paho.Subscribe{Subscriptions: subs})
 		if err == nil {
 			err = firstFailure("subscribe", resp.Reasons)
@@ -442,7 +497,12 @@ func (v *Client) SubscribeMultiple(filters map[string]byte, callback mqtt.Messag
 
 // Unsubscribe removes the subscriptions for the topic filters.
 func (v *Client) Unsubscribe(topics ...string) mqtt.Token {
-	return v.run(context.Background(), func(ctx context.Context, cm *autopaho.ConnectionManager) error {
+	return v.UnsubscribeContext(context.Background(), topics...)
+}
+
+// UnsubscribeContext removes the subscriptions, ending the call when ctx ends.
+func (v *Client) UnsubscribeContext(ctx context.Context, topics ...string) mqtt.Token {
+	return v.run(ctx, func(ctx context.Context, cm *autopaho.ConnectionManager) error {
 		resp, err := cm.Unsubscribe(ctx, &paho.Unsubscribe{Topics: topics})
 		if err != nil {
 			return err
@@ -566,6 +626,22 @@ func firstFailure(op string, reasons []byte) error {
 	return nil
 }
 
+func userProperties(m map[string]string) paho.UserProperties {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	up := make(paho.UserProperties, 0, len(keys))
+	for _, k := range keys {
+		up.Add(k, m[k])
+	}
+
+	return up
+}
+
 func toBytes(payload interface{}) ([]byte, error) {
 	switch p := payload.(type) {
 	case []byte:
@@ -579,7 +655,7 @@ func toBytes(payload interface{}) ([]byte, error) {
 	}
 }
 
-// message adapts a received PUBLISH to mqtt.Message.
+// message adapts a received PUBLISH to mqtt.Message and MessageWithProps.
 type message struct {
 	p *paho.Publish
 }
@@ -591,6 +667,27 @@ func (m *message) Topic() string     { return m.p.Topic }
 func (m *message) MessageID() uint16 { return m.p.PacketID }
 func (m *message) Payload() []byte   { return m.p.Payload }
 func (m *message) Ack()              {}
+
+func (m *message) Props() *PublishProps {
+	if m.p.Properties == nil {
+		return nil
+	}
+
+	props := &PublishProps{
+		ContentType:     m.p.Properties.ContentType,
+		ResponseTopic:   m.p.Properties.ResponseTopic,
+		CorrelationData: m.p.Properties.CorrelationData,
+	}
+
+	if len(m.p.Properties.User) > 0 {
+		props.UserProperties = make(map[string]string, len(m.p.Properties.User))
+		for _, u := range m.p.Properties.User {
+			props.UserProperties[u.Key] = u.Value
+		}
+	}
+
+	return props
+}
 
 type token struct {
 	once sync.Once

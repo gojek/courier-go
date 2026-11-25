@@ -82,6 +82,33 @@ func TestV5_PublishSubscribe(t *testing.T) {
 	case m := <-got:
 		assert.Equal(t, "v5/test/a", m.Topic())
 		assert.Equal(t, []byte("hello"), m.Payload())
+		assert.Empty(t, m.(MessageWithProps).Props().UserProperties)
+	case <-time.After(5 * time.Second):
+		t.Fatal("message not received")
+	}
+
+	wait(t, c.Unsubscribe("v5/test/+"))
+}
+
+func TestV5_PublishSubscribeWithProps(t *testing.T) {
+	c := newTestClient(t, brokerOrSkip(t), true)
+
+	got := make(chan mqtt.Message, 1)
+	wait(t, c.Subscribe("v5/test/+", 1, func(_ mqtt.Client, m mqtt.Message) { got <- m }))
+
+	wait(t, c.PublishWithProps("v5/test/a", 1, false, []byte("hello"), &PublishProps{
+		UserProperties: map[string]string{"traceparent": "00-abc-def-01"},
+		ContentType:    "text/plain",
+	}))
+
+	select {
+	case m := <-got:
+		assert.Equal(t, "v5/test/a", m.Topic())
+		assert.Equal(t, []byte("hello"), m.Payload())
+
+		p := m.(MessageWithProps).Props()
+		assert.Equal(t, map[string]string{"traceparent": "00-abc-def-01"}, p.UserProperties)
+		assert.Equal(t, "text/plain", p.ContentType)
 	case <-time.After(5 * time.Second):
 		t.Fatal("message not received")
 	}

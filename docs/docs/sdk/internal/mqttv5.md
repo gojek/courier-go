@@ -58,7 +58,7 @@ func New(opts *mqtt.ClientOptions, v5 Options) *Client
 New creates an MQTT v5 client from v3 style options plus the v5 only Options. KeepAlive, ConnectTimeout and ConnectRetry\(Interval\) are read from opts, CleanSession is not used.
 
 <a name="Client.AddRoute"></a>
-### func \(\*Client\) [AddRoute](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L456)
+### func \(\*Client\) [AddRoute](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L460)
 
 ```go
 func (v *Client) AddRoute(topic string, callback mqtt.MessageHandler)
@@ -67,7 +67,7 @@ func (v *Client) AddRoute(topic string, callback mqtt.MessageHandler)
 AddRoute adds a handler for messages on a topic filter without subscribing.
 
 <a name="Client.Connect"></a>
-### func \(\*Client\) [Connect](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L104)
+### func \(\*Client\) [Connect](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L106)
 
 ```go
 func (v *Client) Connect() mqtt.Token
@@ -76,7 +76,7 @@ func (v *Client) Connect() mqtt.Token
 Connect starts connecting, the token completes on first CONNACK. Calling it again before Disconnect returns the token of the attempt already running.
 
 <a name="Client.Disconnect"></a>
-### func \(\*Client\) [Disconnect](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L342)
+### func \(\*Client\) [Disconnect](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L346)
 
 ```go
 func (v *Client) Disconnect(quiesce uint)
@@ -85,7 +85,7 @@ func (v *Client) Disconnect(quiesce uint)
 Disconnect ends the connection, quiesce is the time in milliseconds allowed for a clean shutdown.
 
 <a name="Client.IsConnected"></a>
-### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L97)
+### func \(\*Client\) [IsConnected](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L99)
 
 ```go
 func (v *Client) IsConnected() bool
@@ -94,7 +94,7 @@ func (v *Client) IsConnected() bool
 IsConnected reports whether the connection to the broker is up.
 
 <a name="Client.IsConnectionOpen"></a>
-### func \(\*Client\) [IsConnectionOpen](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L100)
+### func \(\*Client\) [IsConnectionOpen](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L102)
 
 ```go
 func (v *Client) IsConnectionOpen() bool
@@ -103,7 +103,7 @@ func (v *Client) IsConnectionOpen() bool
 IsConnectionOpen reports whether the connection to the broker is up.
 
 <a name="Client.Publish"></a>
-### func \(\*Client\) [Publish](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L363)
+### func \(\*Client\) [Publish](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L367)
 
 ```go
 func (v *Client) Publish(topic string, qos byte, retained bool, payload interface{}) mqtt.Token
@@ -112,7 +112,7 @@ func (v *Client) Publish(topic string, qos byte, retained bool, payload interfac
 Publish publishes a message.
 
 <a name="Client.Subscribe"></a>
-### func \(\*Client\) [Subscribe](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L397)
+### func \(\*Client\) [Subscribe](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L401)
 
 ```go
 func (v *Client) Subscribe(topic string, qos byte, callback mqtt.MessageHandler) mqtt.Token
@@ -121,7 +121,7 @@ func (v *Client) Subscribe(topic string, qos byte, callback mqtt.MessageHandler)
 Subscribe subscribes to a single topic filter.
 
 <a name="Client.SubscribeMultiple"></a>
-### func \(\*Client\) [SubscribeMultiple](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L405)
+### func \(\*Client\) [SubscribeMultiple](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L409)
 
 ```go
 func (v *Client) SubscribeMultiple(filters map[string]byte, callback mqtt.MessageHandler) mqtt.Token
@@ -130,7 +130,7 @@ func (v *Client) SubscribeMultiple(filters map[string]byte, callback mqtt.Messag
 SubscribeMultiple subscribes to multiple topic filters. The route is registered immediately even if the client is not yet connected, so a handler added before Connect sees whatever a resumed session already had queued; the broker gets the wire SUBSCRIBE once connected, unless the session resumed and already has it.
 
 <a name="Client.Unsubscribe"></a>
-### func \(\*Client\) [Unsubscribe](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L440)
+### func \(\*Client\) [Unsubscribe](https://github.com/gojek/courier-go/blob/main/internal/mqttv5/client.go#L444)
 
 ```go
 func (v *Client) Unsubscribe(topics ...string) mqtt.Token

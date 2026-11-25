@@ -84,11 +84,13 @@ type Options struct {
 // New creates an MQTT v5 client from v3 style options plus the v5 only Options.
 // KeepAlive, ConnectTimeout and ConnectRetry(Interval) are read from opts, CleanSession is not used.
 func New(opts *mqtt.ClientOptions, v5 Options) *Client {
+	_, errs := pahoLoggers(opts)
+
 	return &Client{
 		Client: mqtt.NewClient(opts),
 		opts:   opts,
 		v5:     v5,
-		errs:   log.NOOPLogger{},
+		errs:   errs,
 		subs:   map[string]subscription{},
 	}
 }
@@ -139,11 +141,13 @@ func (v *Client) Connect() mqtt.Token {
 func (v *Client) config(connectToken *token, cancel context.CancelFunc) autopaho.ClientConfig {
 	o := v.opts
 
+	debug, errs := pahoLoggers(o)
+
 	cfg := autopaho.ClientConfig{
-		Debug:                         log.NOOPLogger{},
-		Errors:                        log.NOOPLogger{},
-		PahoDebug:                     log.NOOPLogger{},
-		PahoErrors:                    log.NOOPLogger{},
+		Debug:                         debug,
+		Errors:                        errs,
+		PahoDebug:                     debug,
+		PahoErrors:                    errs,
 		ServerUrls:                    o.Servers,
 		TlsCfg:                        o.TLSConfig,
 		KeepAlive:                     uint16(o.KeepAlive),

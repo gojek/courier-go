@@ -14,6 +14,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - MQTT v5 publish properties via `WithUserProperties`, `WithContentType`, `WithResponseTopic` and `WithCorrelationData`, received on `Message` (`UserProperties`, `ContentType`, `ResponseTopic`, `CorrelationData`)
 - `WithPahoLogLevel` now also controls the MQTT v5 library logs (JSON on stdout, same as v3)
 - Cancelling the context passed to `Publish`, `Subscribe` or `Unsubscribe` now ends the in-flight MQTT v5 call
+- `WithAutoAckDisabled` and `Message.Ack` for acknowledging MQTT v5 received messages from the handler
 - MQTT v5 reconnect delay now doubles on each attempt up to `WithMaxReconnectInterval`, matching MQTT v3.1.1
 
 ### Fixed

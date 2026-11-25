@@ -287,6 +287,16 @@ func TestWithMQTTVersion(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestWithAutoAckDisabled_IgnoredOnV311(t *testing.T) {
+	c, err := NewClient(WithAddress("127.0.0.1", 1883), WithAutoAckDisabled(true))
+	assert.NoError(t, err)
+	assert.False(t, toClientOptions(c, c.options, "").AutoAckDisabled)
+
+	c, err = NewClient(WithAddress("127.0.0.1", 1883), WithMQTTVersion(MQTTv5), WithAutoAckDisabled(true))
+	assert.NoError(t, err)
+	assert.True(t, toClientOptions(c, c.options, "").AutoAckDisabled)
+}
+
 func TestWithSessionOptions(t *testing.T) {
 	c, err := NewClient(WithAddress("127.0.0.1", 1883), WithMQTTVersion(MQTTv5),
 		WithCleanSession(true), WithCleanStart(false), WithSessionExpiryInterval(90*time.Second))

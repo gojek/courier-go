@@ -93,6 +93,9 @@ type Client struct {
 	connectToken *token
 	subs         map[string]subscription
 
+	// paho client of the current connection, used to acknowledge messages manually.
+	cli atomic.Pointer[paho.Client]
+
 	up           atomic.Bool
 	closed       atomic.Bool
 	reconnecting atomic.Bool
@@ -209,10 +212,11 @@ func (v *Client) config(connectToken *token, cancel context.CancelFunc) autopaho
 			}
 		},
 		ClientConfig: paho.ClientConfig{
-			ClientID:          o.ClientID,
-			PacketTimeout:     o.AckTimeout,
-			OnPublishReceived: []func(paho.PublishReceived) (bool, error){v.route},
-			OnClientError:     func(err error) { v.connectionLost(err, cancel) },
+			ClientID:                   o.ClientID,
+			PacketTimeout:              o.AckTimeout,
+			EnableManualAcknowledgment: o.AutoAckDisabled,
+			OnPublishReceived:          []func(paho.PublishReceived) (bool, error){v.route},
+			OnClientError:              func(err error) { v.connectionLost(err, cancel) },
 			OnServerDisconnect: func(d *paho.Disconnect) {
 				v.connectionLost(fmt.Errorf("courier: server disconnected, reason code 0x%x", d.ReasonCode), cancel)
 			},
@@ -539,6 +543,8 @@ func (v *Client) removeRoute(topic string) {
 // handlers while holding a read lock it also needs to register one, so a handler that subscribes
 // there deadlocks. The handlers are copied out first so none of them runs under v.mu.
 func (v *Client) route(pr paho.PublishReceived) (bool, error) {
+	v.cli.Store(pr.Client)
+
 	v.mu.Lock()
 	handlers := make([]mqtt.MessageHandler, 0, len(v.subs))
 
@@ -558,7 +564,7 @@ func (v *Client) route(pr paho.PublishReceived) (bool, error) {
 	}
 
 	for _, h := range handlers {
-		h(v, &message{p: pr.Packet})
+		h(v, &message{p: pr.Packet, ack: v.ack})
 	}
 
 	return true, nil
@@ -588,6 +594,18 @@ func topicMatches(filter, topic string) bool {
 	}
 
 	return len(f) == len(t)
+}
+
+// ack acknowledges a message when manual acknowledgement is on, the library sends them in receipt order.
+func (v *Client) ack(p *paho.Publish) {
+	cli := v.cli.Load()
+	if cli == nil {
+		return
+	}
+
+	if err := cli.Ack(p); err != nil {
+		v.errs.Printf("courier: acknowledging message on %q failed: %v", p.Topic, err)
+	}
 }
 
 // run calls f and returns an already completed token. The v5 library blocks until the broker
@@ -626,6 +644,19 @@ func firstFailure(op string, reasons []byte) error {
 	return nil
 }
 
+func toBytes(payload interface{}) ([]byte, error) {
+	switch p := payload.(type) {
+	case []byte:
+		return p, nil
+	case string:
+		return []byte(p), nil
+	case nil:
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("courier: unsupported payload type %T", payload)
+	}
+}
+
 func userProperties(m map[string]string) paho.UserProperties {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -642,22 +673,10 @@ func userProperties(m map[string]string) paho.UserProperties {
 	return up
 }
 
-func toBytes(payload interface{}) ([]byte, error) {
-	switch p := payload.(type) {
-	case []byte:
-		return p, nil
-	case string:
-		return []byte(p), nil
-	case nil:
-		return nil, nil
-	default:
-		return nil, fmt.Errorf("courier: unsupported payload type %T", payload)
-	}
-}
-
 // message adapts a received PUBLISH to mqtt.Message and MessageWithProps.
 type message struct {
-	p *paho.Publish
+	p   *paho.Publish
+	ack func(*paho.Publish)
 }
 
 func (m *message) Duplicate() bool   { return m.p.Duplicate() }
@@ -666,7 +685,11 @@ func (m *message) Retained() bool    { return m.p.Retain }
 func (m *message) Topic() string     { return m.p.Topic }
 func (m *message) MessageID() uint16 { return m.p.PacketID }
 func (m *message) Payload() []byte   { return m.p.Payload }
-func (m *message) Ack()              {}
+func (m *message) Ack() {
+	if m.ack != nil {
+		m.ack(m.p)
+	}
+}
 
 func (m *message) Props() *PublishProps {
 	if m.p.Properties == nil {

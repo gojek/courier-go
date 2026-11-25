@@ -302,6 +302,10 @@ func toClientOptions(c *Client, o *clientOptions, idSuffix string) *mqtt.ClientO
 		SetLogLevel(o.pahoLogLevel).
 		SetAckTimeout(o.ackTimeout)
 
+	if o.mqttVersion == MQTTv5 {
+		opts.SetAutoAckDisabled(o.autoAckDisabled)
+	}
+
 	return opts
 }
 
@@ -386,6 +390,14 @@ func connectionLostHandler(c *Client, o *clientOptions) mqtt.ConnectionLostHandl
 	}
 }
 
+func onConnectHandler(client PubSub, o *clientOptions) mqtt.OnConnectHandler {
+	return func(_ mqtt.Client) {
+		if o.onConnectHandler != nil {
+			o.onConnectHandler(client)
+		}
+	}
+}
+
 // newMQTTClient creates the v5 client when MQTTv5 is configured, otherwise the (overridable) v3.1.1 client.
 func newMQTTClient(o *clientOptions, opts *mqtt.ClientOptions) mqtt.Client {
 	if o.mqttVersion == MQTTv5 {
@@ -396,14 +408,6 @@ func newMQTTClient(o *clientOptions, opts *mqtt.ClientOptions) mqtt.Client {
 	}
 
 	return newClientFunc.Load().(func(*mqtt.ClientOptions) mqtt.Client)(opts)
-}
-
-func onConnectHandler(client PubSub, o *clientOptions) mqtt.OnConnectHandler {
-	return func(_ mqtt.Client) {
-		if o.onConnectHandler != nil {
-			o.onConnectHandler(client)
-		}
-	}
 }
 
 func defaultNewClientFunc() *atomic.Value {

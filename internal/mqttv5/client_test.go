@@ -491,3 +491,13 @@ func TestV5_ResumedSessionDeliversQueuedMessage(t *testing.T) {
 		t.Fatal("the resumed session's queued message was not delivered")
 	}
 }
+
+func TestV5_ManualAck(t *testing.T) {
+	v := New(mqtt.NewClientOptions().SetAutoAckDisabled(true), Options{})
+	assert.True(t, v.config(newToken(), func() {}).EnableManualAcknowledgment)
+
+	// without a live connection Ack must not panic, it is dropped with a logged error
+	v.AddRoute("t", func(_ mqtt.Client, m mqtt.Message) { m.Ack() })
+	_, err := v.route(paho.PublishReceived{Packet: &paho.Publish{Topic: "t", QoS: 1}})
+	assert.NoError(t, err)
+}

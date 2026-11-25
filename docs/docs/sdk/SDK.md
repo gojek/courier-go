@@ -48,6 +48,7 @@ Package courier contains the client that can be used to interact with the courie
 - [type ClientOption](#ClientOption)
   - [func WithAckTimeout\(duration time.Duration\) ClientOption](#WithAckTimeout)
   - [func WithAddress\(host string, port uint16\) ClientOption](#WithAddress)
+  - [func WithAutoAckDisabled\(disabled bool\) ClientOption](#WithAutoAckDisabled)
   - [func WithAutoReconnect\(autoReconnect bool\) ClientOption](#WithAutoReconnect)
   - [func WithCleanSession\(cleanSession bool\) ClientOption](#WithCleanSession)
   - [func WithCleanStart\(cleanStart bool\) ClientOption](#WithCleanStart)
@@ -97,6 +98,7 @@ Package courier contains the client that can be used to interact with the courie
 - [type MQTTVersion](#MQTTVersion)
 - [type Message](#Message)
   - [func NewMessageWithDecoder\(payloadDecoder Decoder\) \*Message](#NewMessageWithDecoder)
+  - [func \(m \*Message\) Ack\(\)](#Message.Ack)
   - [func \(m \*Message\) DecodePayload\(v interface\{\}\) error](#Message.DecodePayload)
 - [type MessageHandler](#MessageHandler)
 - [type OnConnectHandler](#OnConnectHandler)
@@ -354,7 +356,7 @@ func main() {
 </details>
 
 <a name="Client.AckTimeout"></a>
-### func \(\*Client\) [AckTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L432)
+### func \(\*Client\) [AckTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L436)
 
 ```go
 func (c *Client) AckTimeout() time.Duration
@@ -363,7 +365,7 @@ func (c *Client) AckTimeout() time.Duration
 AckTimeout returns the ack timeout duration configured for the client
 
 <a name="Client.ConnectTimeout"></a>
-### func \(\*Client\) [ConnectTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L427)
+### func \(\*Client\) [ConnectTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L431)
 
 ```go
 func (c *Client) ConnectTimeout() time.Duration
@@ -390,7 +392,7 @@ func (c *Client) IsConnected() bool
 IsConnected checks whether the client is connected to the broker
 
 <a name="Client.KeepAlive"></a>
-### func \(\*Client\) [KeepAlive](https://github.com/gojek/courier-go/blob/main/client.go#L417)
+### func \(\*Client\) [KeepAlive](https://github.com/gojek/courier-go/blob/main/client.go#L421)
 
 ```go
 func (c *Client) KeepAlive() time.Duration
@@ -399,7 +401,7 @@ func (c *Client) KeepAlive() time.Duration
 KeepAlive returns the keep alive duration configured for the client
 
 <a name="Client.PoolSize"></a>
-### func \(\*Client\) [PoolSize](https://github.com/gojek/courier-go/blob/main/client.go#L437)
+### func \(\*Client\) [PoolSize](https://github.com/gojek/courier-go/blob/main/client.go#L441)
 
 ```go
 func (c *Client) PoolSize() int
@@ -509,7 +511,7 @@ func (c *Client) UseUnsubscriberMiddleware(mwf ...UnsubscriberMiddlewareFunc)
 UseUnsubscriberMiddleware appends a UnsubscriberMiddlewareFunc to the chain. Middleware can be used to intercept or otherwise modify, process or skip subscriptions. They are executed in the order that they are applied to the Client.
 
 <a name="Client.WriteTimeout"></a>
-### func \(\*Client\) [WriteTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L422)
+### func \(\*Client\) [WriteTimeout](https://github.com/gojek/courier-go/blob/main/client.go#L426)
 
 ```go
 func (c *Client) WriteTimeout() time.Duration
@@ -575,7 +577,7 @@ type ClientOption interface {
 ```
 
 <a name="WithAckTimeout"></a>
-### func [WithAckTimeout](https://github.com/gojek/courier-go/blob/main/client_options.go#L253)
+### func [WithAckTimeout](https://github.com/gojek/courier-go/blob/main/client_options.go#L259)
 
 ```go
 func WithAckTimeout(duration time.Duration) ClientOption
@@ -584,7 +586,7 @@ func WithAckTimeout(duration time.Duration) ClientOption
 
 
 <a name="WithAddress"></a>
-### func [WithAddress](https://github.com/gojek/courier-go/blob/main/client_options.go#L148)
+### func [WithAddress](https://github.com/gojek/courier-go/blob/main/client_options.go#L154)
 
 ```go
 func WithAddress(host string, port uint16) ClientOption
@@ -592,8 +594,17 @@ func WithAddress(host string, port uint16) ClientOption
 
 WithAddress sets the broker address to be used. To establish a TLS connection, use WithTLS Option along with this. Default values for hostname is "127.0.0.1" and for port is 1883.
 
+<a name="WithAutoAckDisabled"></a>
+### func [WithAutoAckDisabled](https://github.com/gojek/courier-go/blob/main/client_options.go#L39)
+
+```go
+func WithAutoAckDisabled(disabled bool) ClientOption
+```
+
+WithAutoAckDisabled stops the client acknowledging received messages automatically, the MessageHandler must call Message.Ack instead. Ignored for MQTTv311.
+
 <a name="WithAutoReconnect"></a>
-### func [WithAutoReconnect](https://github.com/gojek/courier-go/blob/main/client_options.go#L77)
+### func [WithAutoReconnect](https://github.com/gojek/courier-go/blob/main/client_options.go#L83)
 
 ```go
 func WithAutoReconnect(autoReconnect bool) ClientOption
@@ -602,7 +613,7 @@ func WithAutoReconnect(autoReconnect bool) ClientOption
 WithAutoReconnect sets whether the automatic reconnection logic should be used when the connection is lost, even if disabled the WithOnConnectionLost is still called.
 
 <a name="WithCleanSession"></a>
-### func [WithCleanSession](https://github.com/gojek/courier-go/blob/main/client_options.go#L89)
+### func [WithCleanSession](https://github.com/gojek/courier-go/blob/main/client_options.go#L95)
 
 ```go
 func WithCleanSession(cleanSession bool) ClientOption
@@ -611,7 +622,7 @@ func WithCleanSession(cleanSession bool) ClientOption
 WithCleanSession will set the "clean session" flag in the connect message when this client connects to an MQTT broker. By setting this flag, you are indicating that no messages saved by the broker for this client should be delivered. Any messages that were going to be sent by this client before disconnecting but didn't, will not be sent upon connecting to the broker.
 
 <a name="WithCleanStart"></a>
-### func [WithCleanStart](https://github.com/gojek/courier-go/blob/main/client_options.go#L39)
+### func [WithCleanStart](https://github.com/gojek/courier-go/blob/main/client_options.go#L45)
 
 ```go
 func WithCleanStart(cleanStart bool) ClientOption
@@ -629,7 +640,7 @@ func WithClientID(clientID string) ClientOption
 WithClientID sets the clientID to be used while connecting to an MQTT broker. According to the MQTT v3.1 specification, a client id must be no longer than 23 characters.
 
 <a name="WithConnectTimeout"></a>
-### func [WithConnectTimeout](https://github.com/gojek/courier-go/blob/main/client_options.go#L179)
+### func [WithConnectTimeout](https://github.com/gojek/courier-go/blob/main/client_options.go#L185)
 
 ```go
 func WithConnectTimeout(duration time.Duration) ClientOption
@@ -647,7 +658,7 @@ func WithCredentialFetcher(fetcher CredentialFetcher) ClientOption
 WithCredentialFetcher sets the specified CredentialFetcher.
 
 <a name="WithCustomDecoder"></a>
-### func [WithCustomDecoder](https://github.com/gojek/courier-go/blob/main/client_options.go#L222)
+### func [WithCustomDecoder](https://github.com/gojek/courier-go/blob/main/client_options.go#L228)
 
 ```go
 func WithCustomDecoder(decoderFunc DecoderFunc) ClientOption
@@ -656,7 +667,7 @@ func WithCustomDecoder(decoderFunc DecoderFunc) ClientOption
 WithCustomDecoder allows to decode message bytes into the desired object.
 
 <a name="WithCustomEncoder"></a>
-### func [WithCustomEncoder](https://github.com/gojek/courier-go/blob/main/client_options.go#L219)
+### func [WithCustomEncoder](https://github.com/gojek/courier-go/blob/main/client_options.go#L225)
 
 ```go
 func WithCustomEncoder(encoderFunc EncoderFunc) ClientOption
@@ -665,7 +676,7 @@ func WithCustomEncoder(encoderFunc EncoderFunc) ClientOption
 WithCustomEncoder allows to transform objects into the desired message bytes.
 
 <a name="WithExponentialStartOptions"></a>
-### func [WithExponentialStartOptions](https://github.com/gojek/courier-go/blob/main/client_options.go#L244)
+### func [WithExponentialStartOptions](https://github.com/gojek/courier-go/blob/main/client_options.go#L250)
 
 ```go
 func WithExponentialStartOptions(options ...StartOption) ClientOption
@@ -674,7 +685,7 @@ func WithExponentialStartOptions(options ...StartOption) ClientOption
 WithExponentialStartOptions configures the client to use ExponentialStartStrategy along with the passed StartOption\(s\) when using the Client.Run method.
 
 <a name="WithGracefulShutdownPeriod"></a>
-### func [WithGracefulShutdownPeriod](https://github.com/gojek/courier-go/blob/main/client_options.go#L204)
+### func [WithGracefulShutdownPeriod](https://github.com/gojek/courier-go/blob/main/client_options.go#L210)
 
 ```go
 func WithGracefulShutdownPeriod(duration time.Duration) ClientOption
@@ -683,7 +694,7 @@ func WithGracefulShutdownPeriod(duration time.Duration) ClientOption
 WithGracefulShutdownPeriod sets the limit that is allowed for existing work to be completed.
 
 <a name="WithKeepAlive"></a>
-### func [WithKeepAlive](https://github.com/gojek/courier-go/blob/main/client_options.go#L170)
+### func [WithKeepAlive](https://github.com/gojek/courier-go/blob/main/client_options.go#L176)
 
 ```go
 func WithKeepAlive(duration time.Duration) ClientOption
@@ -710,7 +721,7 @@ func WithMQTTVersion(version MQTTVersion) ClientOption
 WithMQTTVersion sets the MQTT protocol version, the default is MQTTv311. MQTT v5 uses WithCleanStart and WithSessionExpiryInterval, WithCleanSession only applies to MQTTv311.
 
 <a name="WithMaintainOrder"></a>
-### func [WithMaintainOrder](https://github.com/gojek/courier-go/blob/main/client_options.go#L104)
+### func [WithMaintainOrder](https://github.com/gojek/courier-go/blob/main/client_options.go#L110)
 
 ```go
 func WithMaintainOrder(maintainOrder bool) ClientOption
@@ -719,7 +730,7 @@ func WithMaintainOrder(maintainOrder bool) ClientOption
 WithMaintainOrder will set the message routing to guarantee order within each QoS level. By default, this value is true. If set to false \(recommended\), this flag indicates that messages can be delivered asynchronously from the client to the application and possibly arrive out of order. Specifically, the message handler is called in its own go routine. Note that setting this to true does not guarantee in\-order delivery \(this is subject to broker settings like "max\_inflight\_messages=1"\) and if true then MessageHandler callback must not block. Ignored for MQTTv5, which always delivers in order.
 
 <a name="WithMaxReconnectInterval"></a>
-### func [WithMaxReconnectInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L197)
+### func [WithMaxReconnectInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L203)
 
 ```go
 func WithMaxReconnectInterval(duration time.Duration) ClientOption
@@ -728,7 +739,7 @@ func WithMaxReconnectInterval(duration time.Duration) ClientOption
 WithMaxReconnectInterval sets the maximum time that will be waited between reconnection attempts. when connection is lost
 
 <a name="WithOnConnect"></a>
-### func [WithOnConnect](https://github.com/gojek/courier-go/blob/main/client_options.go#L112)
+### func [WithOnConnect](https://github.com/gojek/courier-go/blob/main/client_options.go#L118)
 
 ```go
 func WithOnConnect(handler OnConnectHandler) ClientOption
@@ -737,7 +748,7 @@ func WithOnConnect(handler OnConnectHandler) ClientOption
 WithOnConnect will set the OnConnectHandler callback to be called when the client is connected. Both at initial connection time and upon automatic reconnect.
 
 <a name="WithOnConnectionLost"></a>
-### func [WithOnConnectionLost](https://github.com/gojek/courier-go/blob/main/client_options.go#L120)
+### func [WithOnConnectionLost](https://github.com/gojek/courier-go/blob/main/client_options.go#L126)
 
 ```go
 func WithOnConnectionLost(handler OnConnectionLostHandler) ClientOption
@@ -746,7 +757,7 @@ func WithOnConnectionLost(handler OnConnectionLostHandler) ClientOption
 WithOnConnectionLost will set the OnConnectionLostHandler callback to be executed in the case where the client unexpectedly loses connection with the MQTT broker.
 
 <a name="WithOnReconnect"></a>
-### func [WithOnReconnect](https://github.com/gojek/courier-go/blob/main/client_options.go#L128)
+### func [WithOnReconnect](https://github.com/gojek/courier-go/blob/main/client_options.go#L134)
 
 ```go
 func WithOnReconnect(handler OnReconnectHandler) ClientOption
@@ -764,7 +775,7 @@ func WithPahoLogLevel(level LogLevel) ClientOption
 WithPahoLogLevel sets the log level for the underlying Paho MQTT client.
 
 <a name="WithPassword"></a>
-### func [WithPassword](https://github.com/gojek/courier-go/blob/main/client_options.go#L62)
+### func [WithPassword](https://github.com/gojek/courier-go/blob/main/client_options.go#L68)
 
 ```go
 func WithPassword(password string) ClientOption
@@ -773,7 +784,7 @@ func WithPassword(password string) ClientOption
 WithPassword sets the password to be used while connecting to an MQTT broker.
 
 <a name="WithPersistence"></a>
-### func [WithPersistence](https://github.com/gojek/courier-go/blob/main/client_options.go#L212)
+### func [WithPersistence](https://github.com/gojek/courier-go/blob/main/client_options.go#L218)
 
 ```go
 func WithPersistence(store Store) ClientOption
@@ -782,7 +793,7 @@ func WithPersistence(store Store) ClientOption
 WithPersistence allows to configure the store to be used by broker Default persistence is in\-memory persistence with mqtt.MemoryStore
 
 <a name="WithPoolSize"></a>
-### func [WithPoolSize](https://github.com/gojek/courier-go/blob/main/client_options.go#L233)
+### func [WithPoolSize](https://github.com/gojek/courier-go/blob/main/client_options.go#L239)
 
 ```go
 func WithPoolSize(size int) ClientOption
@@ -800,7 +811,7 @@ func WithResolver(resolver Resolver) ClientOption
 WithResolver sets the specified Resolver.
 
 <a name="WithSessionExpiryInterval"></a>
-### func [WithSessionExpiryInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L48)
+### func [WithSessionExpiryInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L54)
 
 ```go
 func WithSessionExpiryInterval(d time.Duration) ClientOption
@@ -809,7 +820,7 @@ func WithSessionExpiryInterval(d time.Duration) ClientOption
 WithSessionExpiryInterval sets how long the broker keeps the MQTT v5 session after the client disconnects, with the default of 0 the session ends on disconnect. It is truncated to whole seconds and ignored for MQTTv311.
 
 <a name="WithTCPAddress"></a>
-### func [WithTCPAddress](https://github.com/gojek/courier-go/blob/main/client_options.go#L139)
+### func [WithTCPAddress](https://github.com/gojek/courier-go/blob/main/client_options.go#L145)
 
 ```go
 func WithTCPAddress(host string, port uint16) ClientOption
@@ -820,7 +831,7 @@ WithTCPAddress sets the broker address to be used. Default values for hostname i
 Deprecated: This Option used to work with plain TCP connections, it's now possible to use TLS with WithAddress and WithTLS combination.
 
 <a name="WithTLS"></a>
-### func [WithTLS](https://github.com/gojek/courier-go/blob/main/client_options.go#L69)
+### func [WithTLS](https://github.com/gojek/courier-go/blob/main/client_options.go#L75)
 
 ```go
 func WithTLS(tlsConfig *tls.Config) ClientOption
@@ -829,7 +840,7 @@ func WithTLS(tlsConfig *tls.Config) ClientOption
 WithTLS sets the TLs configuration to be used while connecting to an MQTT broker.
 
 <a name="WithUseBase64Decoder"></a>
-### func [WithUseBase64Decoder](https://github.com/gojek/courier-go/blob/main/client_options.go#L226)
+### func [WithUseBase64Decoder](https://github.com/gojek/courier-go/blob/main/client_options.go#L232)
 
 ```go
 func WithUseBase64Decoder() ClientOption
@@ -838,7 +849,7 @@ func WithUseBase64Decoder() ClientOption
 WithUseBase64Decoder configures a json decoder with a base64.StdEncoding wrapped decoder which decodes base64 encoded message bytes into the passed object.
 
 <a name="WithUsername"></a>
-### func [WithUsername](https://github.com/gojek/courier-go/blob/main/client_options.go#L55)
+### func [WithUsername](https://github.com/gojek/courier-go/blob/main/client_options.go#L61)
 
 ```go
 func WithUsername(username string) ClientOption
@@ -847,7 +858,7 @@ func WithUsername(username string) ClientOption
 WithUsername sets the username to be used while connecting to an MQTT broker.
 
 <a name="WithWriteTimeout"></a>
-### func [WithWriteTimeout](https://github.com/gojek/courier-go/blob/main/client_options.go#L189)
+### func [WithWriteTimeout](https://github.com/gojek/courier-go/blob/main/client_options.go#L195)
 
 ```go
 func WithWriteTimeout(duration time.Duration) ClientOption
@@ -856,7 +867,7 @@ func WithWriteTimeout(duration time.Duration) ClientOption
 WithWriteTimeout limits how long the client will wait when trying to publish, subscribe or unsubscribe on topic when a context deadline is not set while calling Publisher.Publish, Subscriber.Subscribe, Subscriber.SubscribeMultiple or Unsubscriber.Unsubscribe. Ignored for MQTTv5, where WithAckTimeout bounds the call instead.
 
 <a name="ConnectRetryInterval"></a>
-## type [ConnectRetryInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L261)
+## type [ConnectRetryInterval](https://github.com/gojek/courier-go/blob/main/client_options.go#L267)
 
 ConnectRetryInterval allows to configure the interval between connection retries. Default value is 10 seconds.
 
@@ -978,7 +989,7 @@ func ChainEncoderFunc(encoders ...EncoderFunc) EncoderFunc
 ChainEncoderFunc creates an EncoderFunc that tries multiple encoders in sequence. It attempts each encoder in order; if successful, it stops. If all fail, it returns a combined error containing all individual errors.
 
 <a name="KeepAlive"></a>
-## type [KeepAlive](https://github.com/gojek/courier-go/blob/main/client_options.go#L161)
+## type [KeepAlive](https://github.com/gojek/courier-go/blob/main/client_options.go#L167)
 
 KeepAlive will set the amount of time that the client should wait before sending a PING request to the broker. This will allow the client to know that a connection has not been lost with the server. Default value is 60 seconds. Note: Practically, when KeepAlive \>= 10s, the client will check every 5s, if it needs to send a PING. In other cases, the client will check every KeepAlive/2.
 
@@ -1068,7 +1079,7 @@ const (
 ```
 
 <a name="Message"></a>
-## type [Message](https://github.com/gojek/courier-go/blob/main/message.go#L4-L19)
+## type [Message](https://github.com/gojek/courier-go/blob/main/message.go#L4-L20)
 
 Message represents the entity that is being relayed via the courier MQTT brokers from Publisher\(s\) to Subscriber\(s\).
 
@@ -1091,7 +1102,7 @@ type Message struct {
 ```
 
 <a name="NewMessageWithDecoder"></a>
-### func [NewMessageWithDecoder](https://github.com/gojek/courier-go/blob/main/message.go#L22-L24)
+### func [NewMessageWithDecoder](https://github.com/gojek/courier-go/blob/main/message.go#L23-L25)
 
 ```go
 func NewMessageWithDecoder(payloadDecoder Decoder) *Message
@@ -1099,8 +1110,17 @@ func NewMessageWithDecoder(payloadDecoder Decoder) *Message
 
 NewMessageWithDecoder is a helper to create Message, ideally payloadDecoder should not be mutated once created.
 
+<a name="Message.Ack"></a>
+### func \(\*Message\) [Ack](https://github.com/gojek/courier-go/blob/main/message.go#L33)
+
+```go
+func (m *Message) Ack()
+```
+
+Ack acknowledges the message when WithAutoAckDisabled\(true\) is set, and does nothing otherwise. Acknowledgements are sent in the order the messages were received.
+
 <a name="Message.DecodePayload"></a>
-### func \(\*Message\) [DecodePayload](https://github.com/gojek/courier-go/blob/main/message.go#L31)
+### func \(\*Message\) [DecodePayload](https://github.com/gojek/courier-go/blob/main/message.go#L40)
 
 ```go
 func (m *Message) DecodePayload(v interface{}) error
@@ -1263,7 +1283,7 @@ type Retained bool
 ```
 
 <a name="SharedSubscriptionPredicate"></a>
-## type [SharedSubscriptionPredicate](https://github.com/gojek/courier-go/blob/main/client_options.go#L270)
+## type [SharedSubscriptionPredicate](https://github.com/gojek/courier-go/blob/main/client_options.go#L276)
 
 SharedSubscriptionPredicate allows to configure the predicate function that determines whether a topic is a shared subscription topic.
 

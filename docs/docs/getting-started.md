@@ -31,7 +31,7 @@ c, err := courier.NewClient(
 )
 ```
 
-MQTT v5 sessions are configured with `WithCleanStart` and `WithSessionExpiryInterval` (`WithCleanSession` applies to v3.1.1 only). `CleanStart` defaults to `true`; to resume a persistent session set `WithCleanStart(false)` and a non-zero `WithSessionExpiryInterval`.
+MQTT v5 sessions are configured with `WithCleanStart` and `WithSessionExpiryInterval` (`WithCleanSession` applies to v3.1.1 only). `CleanStart` defaults to `true`; to resume a persistent session set `WithCleanStart(false)` and a non-zero `WithSessionExpiryInterval`. Call `Subscribe` for those topics *before* `Start` so the broker's queued messages have a handler to arrive at the moment the session resumes.
 
 ### Usage
 

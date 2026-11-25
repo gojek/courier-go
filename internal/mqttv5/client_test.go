@@ -94,7 +94,23 @@ func TestV5_NotConnected(t *testing.T) {
 
 	assert.False(t, c.IsConnected())
 	assert.ErrorIs(t, c.Publish("a", 0, false, "x").Error(), ErrNotStarted)
-	assert.ErrorIs(t, c.Subscribe("a", 0, nil).Error(), ErrNotStarted)
+	assert.ErrorIs(t, c.Unsubscribe("a").Error(), ErrNotStarted)
+}
+
+func TestV5_SubscribeBeforeConnectRegistersRoute(t *testing.T) {
+	// A route registered before Connect sees whatever a resumed session already had
+	// queued, instead of failing with ErrNotStarted; the wire SUBSCRIBE waits for Connect.
+	c := New(mqtt.NewClientOptions(), Options{})
+
+	tk := c.Subscribe("a/b", 1, func(mqtt.Client, mqtt.Message) {})
+
+	require.True(t, tk.WaitTimeout(time.Second))
+	assert.NoError(t, tk.Error())
+
+	c.mu.Lock()
+	_, ok := c.subs["a/b"]
+	c.mu.Unlock()
+	assert.True(t, ok, "the route must be registered even without a connection")
 }
 
 func TestV5_UnsupportedPayload(t *testing.T) {
@@ -241,7 +257,7 @@ func TestV5_PublishWaitsForConnection(t *testing.T) {
 	c.Connect() // publish without waiting for CONNACK, the connection is still down
 	t.Cleanup(func() { c.Disconnect(100) })
 
-	wait(t, c.Publish("metric/one", 1, false, "queued-until-up"))
+	wait(t, c.Publish("v5/one", 1, false, "queued-until-up"))
 	assert.True(t, c.IsConnected())
 }
 
@@ -254,7 +270,7 @@ func TestV5_PublishFailsWhenConnectionStaysDown(t *testing.T) {
 	c.Connect()
 	t.Cleanup(func() { c.Disconnect(100) })
 
-	tk := c.Publish("metric/one", 1, false, "never-sent")
+	tk := c.Publish("v5/one", 1, false, "never-sent")
 
 	// the v5 library blocks until it has an answer, so the token is complete on return
 	select {
@@ -398,4 +414,53 @@ func TestV5_UnmatchedMessageIsLogged(t *testing.T) {
 	assert.False(t, handled)
 	require.Len(t, p.lines, 1)
 	assert.Contains(t, p.lines[0], "nobody/listening")
+}
+
+func TestV5_ResumedSessionDeliversQueuedMessage(t *testing.T) {
+	broker := brokerOrSkip(t)
+	clientID := t.Name()
+	topic := "v5/resume/" + clientID
+	sessionOpts := Options{CleanStart: false, SessionExpiryInterval: 2 * time.Minute}
+
+	newOpts := func() *mqtt.ClientOptions {
+		o := mqtt.NewClientOptions().SetClientID(clientID).SetKeepAlive(30 * time.Second)
+		o.Servers = []*url.URL{broker}
+
+		return o
+	}
+
+	// Client A subscribes, then disconnects without unsubscribing: the broker keeps the
+	// session and the subscription (SessionExpiryInterval > 0).
+	a := New(newOpts(), sessionOpts)
+	wait(t, a.Connect())
+	wait(t, a.Subscribe(topic, 1, func(mqtt.Client, mqtt.Message) {}))
+	a.Disconnect(100)
+
+	// A separate connection publishes while client A is offline, so the broker queues it
+	// for the persisted session.
+	pubOpts := mqtt.NewClientOptions().SetClientID(clientID + "-pub")
+	pubOpts.Servers = []*url.URL{broker}
+
+	pub := New(pubOpts, Options{CleanStart: true})
+	wait(t, pub.Connect())
+	wait(t, pub.Publish(topic, 1, false, "queued-while-offline"))
+	pub.Disconnect(100)
+
+	// Client B is a new instance with the same ClientID. It registers the route before
+	// Connect, so it is already in place when the broker flushes the queued message right
+	// after CONNACK reports SessionPresent.
+	b := New(newOpts(), sessionOpts)
+	t.Cleanup(func() { b.Disconnect(100) })
+
+	got := make(chan mqtt.Message, 1)
+	wait(t, b.Subscribe(topic, 1, func(_ mqtt.Client, m mqtt.Message) { got <- m }))
+
+	wait(t, b.Connect())
+
+	select {
+	case m := <-got:
+		assert.Equal(t, []byte("queued-while-offline"), m.Payload())
+	case <-time.After(5 * time.Second):
+		t.Fatal("the resumed session's queued message was not delivered")
+	}
 }

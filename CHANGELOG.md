@@ -16,6 +16,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Fixed
 - An MQTT v5 publish made while the connection is down now waits for it to come back, as MQTT v3.1.1
   does, instead of failing immediately
+- An MQTT v5 `Subscribe` call made before `Start` now registers its handler immediately instead of
+  failing with `ErrNotStarted`, so messages a resumed session had queued are delivered instead of
+  silently dropped
 
 ## [0.7.17]
 

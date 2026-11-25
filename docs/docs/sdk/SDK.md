@@ -394,22 +394,24 @@ func (c *Client) Stop()
 Stop will disconnect from the broker and finish up any pending work on internal communication workers. This can only block until the period configured with the ClientOption WithGracefulShutdownPeriod.
 
 <a name="Client.Subscribe"></a>
-### func \(\*Client\) [Subscribe](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L12)
+### func \(\*Client\) [Subscribe](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L16)
 
 ```go
 func (c *Client) Subscribe(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error
 ```
 
-Subscribe allows to subscribe to messages from an MQTT broker
+Subscribe allows to subscribe to messages from an MQTT broker.
+
+On MQTT v5, Subscribe may be called before Start: the handler is registered immediately so it sees whatever a resumed session \(WithCleanStart\(false\)\) already had queued, instead of losing those messages before a handler exists to receive them.
 
 <a name="Client.SubscribeMultiple"></a>
-### func \(\*Client\) [SubscribeMultiple](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L29-L33)
+### func \(\*Client\) [SubscribeMultiple](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L34-L38)
 
 ```go
 func (c *Client) SubscribeMultiple(ctx context.Context, topicsWithQos map[string]QOSLevel, callback MessageHandler) error
 ```
 
-SubscribeMultiple allows to subscribe to messages on multiple topics from an MQTT broker
+SubscribeMultiple allows to subscribe to messages on multiple topics from an MQTT broker. See Subscribe for calling it on MQTT v5 before Start.
 
 <a name="Client.Unsubscribe"></a>
 ### func \(\*Client\) [Unsubscribe](https://github.com/gojek/courier-go/blob/main/client_unsubscribe.go#L10)
@@ -439,7 +441,7 @@ func (c *Client) UseStopMiddleware(mwf StopMiddlewareFunc)
 UseStopMiddleware allows setting a Stopper middleware to intercept Stop calls.
 
 <a name="Client.UseSubscriberMiddleware"></a>
-### func \(\*Client\) [UseSubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L56)
+### func \(\*Client\) [UseSubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/client_subscribe.go#L61)
 
 ```go
 func (c *Client) UseSubscriberMiddleware(mwf ...SubscriberMiddlewareFunc)

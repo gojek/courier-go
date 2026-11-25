@@ -8,7 +8,11 @@ import (
 	"github.com/gojekfarm/xtools/generic/slice"
 )
 
-// Subscribe allows to subscribe to messages from an MQTT broker
+// Subscribe allows to subscribe to messages from an MQTT broker.
+//
+// On MQTT v5, Subscribe may be called before Start: the handler is registered immediately
+// so it sees whatever a resumed session (WithCleanStart(false)) already had queued, instead
+// of losing those messages before a handler exists to receive them.
 func (c *Client) Subscribe(ctx context.Context, topic string, callback MessageHandler, opts ...Option) error {
 	if err := c.subscriber.Subscribe(ctx, topic, callback, opts...); err != nil {
 		return err
@@ -25,7 +29,8 @@ func (c *Client) Subscribe(ctx context.Context, topic string, callback MessageHa
 	return nil
 }
 
-// SubscribeMultiple allows to subscribe to messages on multiple topics from an MQTT broker
+// SubscribeMultiple allows to subscribe to messages on multiple topics from an MQTT broker.
+// See Subscribe for calling it on MQTT v5 before Start.
 func (c *Client) SubscribeMultiple(
 	ctx context.Context,
 	topicsWithQos map[string]QOSLevel,

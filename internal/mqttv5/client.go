@@ -398,18 +398,29 @@ func (v *Client) Subscribe(topic string, qos byte, callback mqtt.MessageHandler)
 	return v.SubscribeMultiple(map[string]byte{topic: qos}, callback)
 }
 
-// SubscribeMultiple subscribes to multiple topic filters.
+// SubscribeMultiple subscribes to multiple topic filters. The route is registered
+// immediately even if the client is not yet connected, so a handler added before Connect
+// sees whatever a resumed session already had queued; the broker gets the wire SUBSCRIBE
+// once connected, unless the session resumed and already has it.
 func (v *Client) SubscribeMultiple(filters map[string]byte, callback mqtt.MessageHandler) mqtt.Token {
+	for topic, qos := range filters {
+		v.addRoute(topic, qos, callback)
+	}
+
+	v.mu.Lock()
+	cm := v.cm
+	v.mu.Unlock()
+
+	if cm == nil {
+		return completed(nil)
+	}
+
 	subs := make([]paho.SubscribeOptions, 0, len(filters))
 	for topic, qos := range filters {
 		subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: qos})
 	}
 
 	return v.run(context.Background(), func(ctx context.Context, cm *autopaho.ConnectionManager) error {
-		for topic, qos := range filters {
-			v.addRoute(topic, qos, callback)
-		}
-
 		resp, err := cm.Subscribe(ctx, &paho.Subscribe{Subscriptions: subs})
 		if err == nil {
 			err = firstFailure("subscribe", resp.Reasons)

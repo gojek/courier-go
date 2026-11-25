@@ -8,6 +8,8 @@ import "github.com/gojek/courier-go/otelcourier"
 
 Package otelcourier instruments the github.com/gojek/courier\-go package.
 
+With MQTT v5 \(courier.WithMQTTVersion\(courier.MQTTv5\)\) the W3C trace context is propagated transparently in native MQTT User Properties: the publisher middleware injects traceparent/tracestate with courier.WithUserProperties and subscriber callbacks continue the trace from courier.Message.UserProperties, the payload is never modified. With MQTT v3.1.1 there are no headers, use WithTextMapCarrierExtractFunc or a propagation.TextMapCarrier message.
+
 ## Index
 
 - [Constants](#constants)
@@ -274,7 +276,7 @@ func (t *OTel) StopMiddleware(next courier.Stopper) courier.Stopper
 StopMiddleware returns a Stopper middleware that ensures OTel async metric is unregistered when the client stops.
 
 <a name="OTel.SubscriberMiddleware"></a>
-### func \(\*OTel\) [SubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/subscribe.go#L43)
+### func \(\*OTel\) [SubscriberMiddleware](https://github.com/gojek/courier-go/blob/main/otelcourier/subscribe.go#L44)
 
 ```go
 func (t *OTel) SubscriberMiddleware(next courier.Subscriber) courier.Subscriber

@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - MQTT v5 support, opt-in with `WithMQTTVersion(MQTTv5)`, MQTT v3.1.1 stays the default
 - `WithCleanStart` (default `true`) and `WithSessionExpiryInterval` options for MQTT v5 sessions
 - MQTT v5 publish properties via `WithUserProperties`, `WithContentType`, `WithResponseTopic` and `WithCorrelationData`, received on `Message` (`UserProperties`, `ContentType`, `ResponseTopic`, `CorrelationData`)
+- otelcourier propagates W3C trace context in MQTT v5 User Properties
 - `WithPahoLogLevel` now also controls the MQTT v5 library logs (JSON on stdout, same as v3)
 - Cancelling the context passed to `Publish`, `Subscribe` or `Unsubscribe` now ends the in-flight MQTT v5 call
 - `WithAutoAckDisabled` and `Message.Ack` for acknowledging MQTT v5 received messages from the handler
